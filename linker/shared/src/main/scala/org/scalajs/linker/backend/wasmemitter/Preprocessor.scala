@@ -19,13 +19,13 @@ import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.{ClassKind, Traversers}
 
-import org.scalajs.linker.standard.{LinkedClass, LinkedTopLevelExport}
+import org.scalajs.linker.standard.{LinkedClass, LinkedTopLevelExport, CoreSpec}
 
 import EmbeddedConstants._
 import WasmContext._
 
 object Preprocessor {
-  def preprocess(classes: List[LinkedClass], tles: List[LinkedTopLevelExport]): WasmContext = {
+  def preprocess(classes: List[LinkedClass], tles: List[LinkedTopLevelExport], coreSpec: CoreSpec): WasmContext = {
     val staticFieldMirrors = computeStaticFieldMirrors(tles)
 
     val specialInstanceTypes = computeSpecialInstanceTypes(classes)
@@ -66,7 +66,7 @@ object Preprocessor {
           abstractMethodCalls.getOrElse(clazz.className, Set.empty))
     }
 
-    new WasmContext(classInfos, reflectiveProxyIDs, itableBucketCount)
+    new WasmContext(classInfos, reflectiveProxyIDs, itableBucketCount, coreSpec)
   }
 
   private def computeStaticFieldMirrors(

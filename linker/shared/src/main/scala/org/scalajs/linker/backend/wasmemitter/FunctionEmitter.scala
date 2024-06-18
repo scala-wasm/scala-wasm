@@ -404,6 +404,8 @@ private class FunctionEmitter private (
       case t: JSSuperMethodCall => genJSSuperMethodCall(t)
       case t: JSNewTarget       => genJSNewTarget(t)
 
+      case t: LinkTimeIf => genLinkTimeIf(t, expectedType)
+
       case _: RecordSelect | _: RecordValue | _: Transient | _: JSSuperConstructorCall =>
         throw new AssertionError(s"Invalid tree: $tree")
     }
@@ -2791,6 +2793,14 @@ private class FunctionEmitter private (
     genReadStorage(newTargetStorage)
 
     AnyType
+  }
+
+  private def genLinkTimeIf(tree: LinkTimeIf, expectedType: Type): Type = {
+    if (ctx.coreSpec.linkTimeProperties.evaluateLinkTimeTree(tree.cond))
+      genTree(tree.thenp, expectedType)
+    else
+      genTree(tree.elsep, expectedType)
+    expectedType
   }
 
   /*--------------------------------------------------------------------*
