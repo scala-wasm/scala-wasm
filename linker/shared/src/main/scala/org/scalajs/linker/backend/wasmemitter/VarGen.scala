@@ -86,6 +86,11 @@ object VarGen {
 
     case object start extends FunctionID
 
+    // js string builtins
+
+    case object fromCharCodeArray extends FunctionID
+    case object intoCharCodeArray extends FunctionID
+
     // JS helpers
 
     /** A `FunctionID` for a JS helper function.

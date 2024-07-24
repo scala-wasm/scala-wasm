@@ -261,6 +261,7 @@ object MyScalaJSPlugin extends AutoPlugin {
         val config = if (enableWasmEverywhere.value) {
           baseConfig.withArgs(List(
             "--experimental-wasm-exnref",
+            "--experimental-wasm-imported-strings",
             /* Force using the Turboshaft infrastructure for the optimizing compiler.
              * It appears to be more stable for the Wasm that we throw at it.
              * If you remove it, try running `scalaTestSuite2_13/test` with Wasm.

@@ -270,6 +270,33 @@ object CoreWasmLib {
     addGlobalHelperImport(genGlobalID.idHashCodeMap, RefType.extern)
   }
 
+  private def genJSStringBuiltins()(implicit ctx: WasmContext): Unit = {
+    import RefType.anyref
+    def addHelperImport(id: FunctionID,
+        params: List[Type], results: List[Type]): Unit = {
+      val sig = FunctionType(params, results)
+      val typeID = ctx.moduleBuilder.functionTypeToTypeID(sig)
+      ctx.moduleBuilder.addImport(
+        Import(
+          "wasm:js-string",
+          id.toString(), // import name, guaranteed by JSHelperFunctionID
+          ImportDesc.Func(id, OriginalName(id.toString()), typeID)
+        )
+      )
+    }
+
+    addHelperImport(
+      genFunctionID.fromCharCodeArray,
+      List(RefType.nullable(genTypeID.i16Array), Int32, Int32),
+      List(RefType.extern)
+    )
+    addHelperImport(
+      genFunctionID.intoCharCodeArray,
+      List(RefType.externref, RefType.nullable(genTypeID.i16Array), Int32),
+      List(Int32)
+    )
+  }
+
   private def genHelperImports()(implicit ctx: WasmContext): Unit = {
     def addHelperImport(id: genFunctionID.JSHelperFunctionID,
         params: List[Type], results: List[Type]): Unit = {
@@ -584,6 +611,7 @@ object CoreWasmLib {
     genIdentityHashCode()
     genSearchReflectiveProxy()
     genArrayCloneFunctions()
+    genJSStringBuiltins()
   }
 
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(
