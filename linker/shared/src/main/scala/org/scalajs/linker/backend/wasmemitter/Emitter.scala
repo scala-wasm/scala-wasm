@@ -228,7 +228,7 @@ final class Emitter(config: Emitter.Config) {
         case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
           val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
           SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
-            args.foreach(arg => fb ++= ctx.stringPool.getConstantStringInstr(arg))
+            args.foreach(arg => fb ++= ctx.stringPool.getConstantJSStringInstr(arg))
           }
           genCallStatic(className, encodedMainMethodName)
 

@@ -59,6 +59,9 @@ private[wasmemitter] final class StringPool {
   def getConstantStringInstr(str: String): List[Instr] =
     getConstantStringDataInstr(str) :+ Call(genFunctionID.stringLiteral)
 
+  def getConstantJSStringInstr(str: String): List[Instr] =
+    getConstantStringInstr(str) :+ Call(genFunctionID.createJSStringFromArray)
+
   /** Returns the list of 3 constant integers that must be passed to `stringLiteral`.
    *
    *  The resulting list is a Wasm constant expression, and hence can be used
