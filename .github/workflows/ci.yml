@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-suite-js:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_13]
+        esVersion: [ES5_1, ES2021]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            helloworld${{ matrix.suffix }}/run
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            testSuite${{ matrix.suffix }}/test
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            testSuiteEx${{ matrix.suffix }}/test
+
+  test-suite-webassembly:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt 'set Global/enableWasmEverywhere := true' helloworld${{ matrix.suffix }}/run
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt 'set Global/enableWasmEverywhere := true' testSuite${{ matrix.suffix }}/test
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt 'set Global/enableWasmEverywhere := true' testSuiteEx${{ matrix.suffix }}/test
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: scalastyleCheck
+        run: sbt scalastyleCheck
