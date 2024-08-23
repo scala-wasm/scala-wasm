@@ -701,7 +701,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
               genGlobalID.forJSPrivateField(name.name),
               makeDebugName(ns.PrivateJSField, name.name),
               isMutable = true,
-              watpe.RefType.anyref,
+              watpe.RefType.anyref, // keep field type anyref even for String
               wa.Expr(List(wa.RefNull(watpe.HeapType.Any)))
             )
           )
@@ -799,7 +799,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         tree match {
           case StringLiteral(value) =>
             // Common shape for all the `nameTree` expressions
-            fb ++= ctx.stringPool.getConstantStringInstr(value)
+            fb ++= ctx.stringPool.getConstantJSStringInstr(value)
 
           case VarRef(LocalIdent(localName)) if classCaptureParamsOfTypeAny.contains(localName) =>
             /* Common shape for the `jsSuperClass` value

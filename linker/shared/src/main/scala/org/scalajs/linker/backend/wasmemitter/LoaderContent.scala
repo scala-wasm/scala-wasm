@@ -318,9 +318,9 @@ export async function load(wasmFileURL, importedModules, exportSetters) {
     const { readFile } = await import("node:fs/promises");
     const wasmPath = fileURLToPath(resolvedURL);
     const body = await readFile(wasmPath);
-    return WebAssembly.instantiate(body, importsObj);
+    return WebAssembly.instantiate(body, importsObj, { builtins: ['js-string'] });
   } else {
-    return await WebAssembly.instantiateStreaming(fetch(resolvedURL), importsObj);
+    return await WebAssembly.instantiateStreaming(fetch(resolvedURL), importsObj, { builtins: ['js-string'] });
   }
 }
     """

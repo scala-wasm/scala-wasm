@@ -116,14 +116,14 @@ object SWasmGen {
       implicit ctx: WasmContext): Unit = {
     def genFollowPath(path: List[String]): Unit = {
       for (prop <- path) {
-        fb ++= ctx.stringPool.getConstantStringInstr(prop)
+        fb ++= ctx.stringPool.getConstantJSStringInstr(prop)
         fb += Call(genFunctionID.jsSelect)
       }
     }
 
     loadSpec match {
       case JSNativeLoadSpec.Global(globalRef, path) =>
-        fb ++= ctx.stringPool.getConstantStringInstr(globalRef)
+        fb ++= ctx.stringPool.getConstantJSStringInstr(globalRef)
         fb += Call(genFunctionID.jsGlobalRefGet)
         genFollowPath(path)
       case JSNativeLoadSpec.Import(module, path) =>
