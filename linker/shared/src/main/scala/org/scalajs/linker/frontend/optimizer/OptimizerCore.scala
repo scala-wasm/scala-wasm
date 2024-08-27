@@ -5056,6 +5056,9 @@ private[optimizer] abstract class OptimizerCore(
       case (JSLinkingInfo(), StringLiteral("isWebAssembly")) =>
         BooleanLiteral(isWasm)
 
+      case (JSLinkingInfo(), StringLiteral("targetIsPureWasm")) =>
+        BooleanLiteral(isWasm && config.coreSpec.wasmRuntimeTarget != WasmRuntimeTarget.JS)
+
       case (JSLinkingInfo(), StringLiteral("version")) =>
         StringLiteral(ScalaJSVersions.current)
 

@@ -258,6 +258,10 @@ object LinkingInfo {
   def isWebAssembly: Boolean =
     linkingInfo.isWebAssembly
 
+  @inline
+  def targetIsPureWasm: Boolean =
+    linkingInfo.targetIsPureWasm
+
   /** Constants for the value of `esVersion`. */
   object ESVersion {
     /** ECMAScrîpt 5.1. */

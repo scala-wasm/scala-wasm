@@ -164,6 +164,7 @@ private[emitter] object CoreJSLib {
           str("esVersion") -> int(esVersion.edition),
           str("assumingES6") -> bool(useECMAScript2015Semantics), // different name for historical reasons
           str("isWebAssembly") -> bool(false),
+          str("targetIsPureWasm") -> bool(false),
           str("productionMode") -> bool(productionMode),
           str("linkerVersion") -> str(ScalaJSVersions.current),
           str("fileLevelThis") -> This()

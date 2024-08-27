@@ -23,7 +23,9 @@ final class CoreSpec private (
     /** ECMAScript features to use. */
     val esFeatures: ESFeatures,
     /** Whether we are compiling to WebAssembly. */
-    val targetIsWebAssembly: Boolean
+    val targetIsWebAssembly: Boolean,
+    /** Runtime target to use when compiling to WebAssembly. */
+    val wasmRuntimeTarget: WasmRuntimeTarget
 ) {
   import CoreSpec._
 
@@ -32,7 +34,8 @@ final class CoreSpec private (
       semantics = Semantics.Defaults,
       moduleKind = ModuleKind.NoModule,
       esFeatures = ESFeatures.Defaults,
-      targetIsWebAssembly = false
+      targetIsWebAssembly = false,
+      wasmRuntimeTarget = WasmRuntimeTarget.JS
     )
   }
 
@@ -54,12 +57,16 @@ final class CoreSpec private (
   def withTargetIsWebAssembly(targetIsWebAssembly: Boolean): CoreSpec =
     copy(targetIsWebAssembly = targetIsWebAssembly)
 
+  def withWasmRuntimeTarget(wasmRuntimeTarget: WasmRuntimeTarget): CoreSpec =
+    copy(wasmRuntimeTarget = wasmRuntimeTarget)
+
   override def equals(that: Any): Boolean = that match {
     case that: CoreSpec =>
       this.semantics == that.semantics &&
       this.moduleKind == that.moduleKind &&
       this.esFeatures == that.esFeatures &&
-      this.targetIsWebAssembly == that.targetIsWebAssembly
+      this.targetIsWebAssembly == that.targetIsWebAssembly &&
+      this.wasmRuntimeTarget == that.wasmRuntimeTarget
     case _ =>
       false
   }
@@ -70,7 +77,8 @@ final class CoreSpec private (
     acc = mix(acc, semantics.##)
     acc = mix(acc, moduleKind.##)
     acc = mix(acc, esFeatures.##)
-    acc = mixLast(acc, targetIsWebAssembly.##)
+    acc = mix(acc, targetIsWebAssembly.##)
+    acc = mixLast(acc, wasmRuntimeTarget.##)
     finalizeHash(acc, 4)
   }
 
@@ -80,6 +88,7 @@ final class CoreSpec private (
        |  moduleKind = $moduleKind,
        |  esFeatures = $esFeatures,
        |  targetIsWebAssembly = $targetIsWebAssembly
+       |  wasmRuntimeTarget = $wasmRuntimeTarget
        |)""".stripMargin
   }
 
@@ -87,13 +96,15 @@ final class CoreSpec private (
       semantics: Semantics = semantics,
       moduleKind: ModuleKind = moduleKind,
       esFeatures: ESFeatures = esFeatures,
-      targetIsWebAssembly: Boolean = targetIsWebAssembly
+      targetIsWebAssembly: Boolean = targetIsWebAssembly,
+      wasmRuntimeTarget: WasmRuntimeTarget = wasmRuntimeTarget
   ): CoreSpec = {
     new CoreSpec(
       semantics,
       moduleKind,
       esFeatures,
-      targetIsWebAssembly
+      targetIsWebAssembly,
+      wasmRuntimeTarget
     )
   }
 }
@@ -109,7 +120,8 @@ private[linker] object CoreSpec {
       config.semantics,
       config.moduleKind,
       config.esFeatures,
-      config.experimentalUseWebAssembly
+      config.experimentalUseWebAssembly,
+      config.wasmRuntimeTarget
     )
   }
 }
