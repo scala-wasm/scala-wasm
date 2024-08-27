@@ -86,7 +86,15 @@ final class StandardConfig private (
     /** The maximum number of (file) writes executed concurrently. */
     val maxConcurrentWrites: Int,
     /** If true, use the experimental WebAssembly backend. */
-    val experimentalUseWebAssembly: Boolean
+    val experimentalUseWebAssembly: Boolean,
+
+    /** Runtime target to use when compiling to WebAssembly.
+     *
+     *  When `experimentalUseWebAssembly` is `false`, this setting will be ignored.
+     *
+     *  TODO: Maybe we should include this property into something like `WasmFeatures`?
+     */
+    val wasmRuntimeTarget: WasmRuntimeTarget,
 ) {
   private def this() = {
     this(
@@ -106,7 +114,8 @@ final class StandardConfig private (
         prettyPrint = false,
         batchMode = false,
         maxConcurrentWrites = 50,
-        experimentalUseWebAssembly = false
+        experimentalUseWebAssembly = false,
+        wasmRuntimeTarget = WasmRuntimeTarget.JS
     )
   }
 
@@ -220,6 +229,9 @@ final class StandardConfig private (
   def withExperimentalUseWebAssembly(experimentalUseWebAssembly: Boolean): StandardConfig =
     copy(experimentalUseWebAssembly = experimentalUseWebAssembly)
 
+  def withWasmRuntimeTarget(wasmRuntimeTarget: WasmRuntimeTarget): StandardConfig =
+    copy(wasmRuntimeTarget = wasmRuntimeTarget)
+
   override def toString(): String = {
     s"""StandardConfig(
        |  semantics                  = $semantics,
@@ -239,6 +251,7 @@ final class StandardConfig private (
        |  batchMode                  = $batchMode,
        |  maxConcurrentWrites        = $maxConcurrentWrites,
        |  experimentalUseWebAssembly = $experimentalUseWebAssembly,
+       |  wasmRuntimeTarget          = $wasmRuntimeTarget,
        |)""".stripMargin
   }
 
@@ -259,7 +272,8 @@ final class StandardConfig private (
       prettyPrint: Boolean = prettyPrint,
       batchMode: Boolean = batchMode,
       maxConcurrentWrites: Int = maxConcurrentWrites,
-      experimentalUseWebAssembly: Boolean = experimentalUseWebAssembly
+      experimentalUseWebAssembly: Boolean = experimentalUseWebAssembly,
+      wasmRuntimeTarget: WasmRuntimeTarget = wasmRuntimeTarget
   ): StandardConfig = {
     new StandardConfig(
         semantics,
@@ -278,7 +292,8 @@ final class StandardConfig private (
         prettyPrint,
         batchMode,
         maxConcurrentWrites,
-        experimentalUseWebAssembly
+        experimentalUseWebAssembly,
+        wasmRuntimeTarget
     )
   }
 }
@@ -310,6 +325,7 @@ object StandardConfig {
         .addField("batchMode", config.batchMode)
         .addField("maxConcurrentWrites", config.maxConcurrentWrites)
         .addField("experimentalUseWebAssembly", config.experimentalUseWebAssembly)
+        .addField("wasmRuntimeTarget", config.wasmRuntimeTarget)
         .build()
     }
   }
@@ -338,6 +354,7 @@ object StandardConfig {
    *  - `batchMode`: `false`
    *  - `maxConcurrentWrites`: `50`
    *  - `experimentalUseWebAssembly`: `false`
+   *  - `wasmRuntimeTarget`: [[WasmRuntimeTarget.JS]]
    */
   def apply(): StandardConfig = new StandardConfig()
 

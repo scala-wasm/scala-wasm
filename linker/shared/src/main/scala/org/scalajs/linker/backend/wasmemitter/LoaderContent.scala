@@ -84,6 +84,7 @@ const linkingInfo = Object.freeze({
   "esVersion": 6,
   "assumingES6": true,
   "isWebAssembly": true,
+  "targetPureWasm": false,
   "productionMode": false,
   "linkerVersion": "${ScalaJSVersions.current}",
   "fileLevelThis": this

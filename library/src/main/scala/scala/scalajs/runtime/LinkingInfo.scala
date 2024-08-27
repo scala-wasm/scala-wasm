@@ -43,6 +43,15 @@ sealed trait LinkingInfo extends js.Object {
    */
   val isWebAssembly: Boolean
 
+  /** Whether we are linking to pure WebAssembly.
+   *
+   *  When this property is `true`, the generated Wasm module should not
+   *  contain JavaScript interoperation.
+   *
+   *  TODO: maybe we should have an information whether we are linking to wasi preview 1 or 2?
+   */
+  val targetIsPureWasm: Boolean
+
   /** Whether we are linking in production mode. */
   val productionMode: Boolean
 

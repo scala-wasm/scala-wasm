@@ -2015,7 +2015,10 @@ object Build {
       exampleSettings,
       name := "Hello World - Scala.js example",
       moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true).withWasmRuntimeTarget(WasmRuntimeTarget.WASIP1)
+      }
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(
