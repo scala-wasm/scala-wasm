@@ -262,6 +262,22 @@ object FunctionEmitter {
   private val newTargetOriginalName = OriginalName("new.target")
   private val receiverOriginalName = OriginalName("this")
 
+  // j.l.Class
+  private val classDataFieldName = FieldName(ClassClass, SimpleFieldName("data"))
+  private val getNameMethodName = MethodName("getName", Nil, BoxedStringRef)
+  private val isPrimitiveMethodName = MethodName("isPrimitive", Nil, BooleanRef)
+  private val isArrayMethodName = MethodName("isArray", Nil, BooleanRef)
+  private val isInterfaceMethodName = MethodName("isInterface", Nil, BooleanRef)
+  private val stubClassMethodNames = Set(
+    getNameMethodName,
+    isPrimitiveMethodName,
+    isArrayMethodName,
+    isInterfaceMethodName
+  )
+  private val isInstanceMethodName = MethodName("isInstance", List(ObjectRef), BooleanRef)
+  private val isAssignableFromMethodName = MethodName("isAssignableFrom", List(ClassRef(ClassClass)), BooleanRef)
+  private val castMethodName = MethodName("cast", List(ObjectRef), ObjectRef)
+
   private sealed abstract class VarStorage
 
   private object VarStorage {
@@ -1182,6 +1198,71 @@ private class FunctionEmitter private (
     val ApplyStatically(flags, receiver, className, MethodIdent(methodName), args) = tree
 
     receiver.tpe match {
+      // TODO: match these cases only when target Wasm runtime is pure wasm
+      case ClassType(ClassClass, _) if stubClassMethodNames.contains(methodName) =>
+        genTreeAuto(receiver)
+        fb += wa.StructGet(
+          genTypeID.ClassStruct,
+          genFieldID.forClassInstanceField(classDataFieldName)
+        )
+        fb += wa.RefCast(watpe.RefType(genTypeID.classData))
+        val field =
+          if (methodName == getNameMethodName) genFieldID.classData.name
+          else if (methodName == isPrimitiveMethodName) genFieldID.classData.isPrimitive
+          else if (methodName == isArrayMethodName) genFieldID.classData.isArrayClass
+          else if (methodName == isInterfaceMethodName) genFieldID.classData.isInterface
+          else ???
+        fb += wa.StructGet(genTypeID.classData, field)
+        tree.tpe
+
+      case ClassType(ClassClass, _) if methodName == isInstanceMethodName =>
+        genTreeAuto(receiver)
+        fb += wa.StructGet(
+          genTypeID.ClassStruct,
+          genFieldID.forClassInstanceField(classDataFieldName)
+        )
+        fb += wa.RefCast(watpe.RefType(genTypeID.classData))
+        fb += wa.StructGet(genTypeID.classData, genFieldID.classData.typeData)
+        genArgs(args, methodName)
+        fb += wa.Call(genFunctionID.isInstance)
+        tree.tpe
+
+      case ClassType(ClassClass, _) if methodName == isAssignableFromMethodName =>
+        genTreeAuto(receiver)
+        fb += wa.StructGet(
+          genTypeID.ClassStruct,
+          genFieldID.forClassInstanceField(classDataFieldName)
+        )
+        fb += wa.RefCast(watpe.RefType(genTypeID.classData))
+        fb += wa.StructGet(genTypeID.classData, genFieldID.classData.typeData)
+
+        genArgs(args, methodName)
+        fb += wa.StructGet(
+          genTypeID.ClassStruct,
+          genFieldID.forClassInstanceField(classDataFieldName)
+        )
+        fb += wa.RefCast(watpe.RefType(genTypeID.classData))
+        fb += wa.StructGet(genTypeID.classData, genFieldID.classData.typeData)
+
+        fb += wa.Call(genFunctionID.isAssignableFrom)
+        tree.tpe
+
+      case ClassType(ClassClass, _) if methodName == castMethodName =>
+        genTreeAuto(receiver)
+        fb += wa.StructGet(
+          genTypeID.ClassStruct,
+          genFieldID.forClassInstanceField(classDataFieldName)
+        )
+        fb += wa.RefCast(watpe.RefType(genTypeID.classData))
+        fb += wa.StructGet(genTypeID.classData, genFieldID.classData.typeData)
+
+        genArgs(args, methodName)
+        fb += wa.Call(genFunctionID.checkCast)
+
+        genArgs(args, methodName)
+        // genAsInstanceOf(AsInstanceOf())
+        tree.tpe
+
       case NothingType =>
         genTree(receiver, NothingType)
         // nothing else to do; this is unreachable

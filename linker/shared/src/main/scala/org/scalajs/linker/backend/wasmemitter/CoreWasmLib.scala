@@ -199,6 +199,74 @@ final class CoreWasmLib(coreSpec: CoreSpec) {
         )
       )
     )
+
+    if (!coreSpec.wasmRuntimeTarget.isJS) {
+      genCoreType(
+        genTypeID.isInstance,
+        FunctionType(List(RefType.anyref), List(Int32))
+      )
+      genCoreType(
+        genTypeID.isAssignableFrom,
+        FunctionType(List(RefType.anyref), List(Int32))
+      )
+      genCoreType(
+        genTypeID.checkCast,
+        FunctionType(List(RefType.anyref), Nil)
+      )
+      genCoreType(
+        genTypeID.getComponentType,
+        FunctionType(Nil, List(RefType.nullable(genTypeID.ClassStruct)))
+      )
+      genCoreType(
+        genTypeID.classData,
+        StructType(
+          List(
+            StructField(
+              genFieldID.classData.typeData,
+              OriginalName(genFieldID.classData.typeData.toString()),
+              RefType(genTypeID.typeData),
+              isMutable = false
+            ),
+            StructField(
+              genFieldID.classData.name,
+              OriginalName(genFieldID.classData.name.toString()),
+              RefType.any,
+              isMutable = false
+            ),
+            StructField(
+              genFieldID.classData.isPrimitive,
+              OriginalName(genFieldID.classData.isPrimitive.toString()),
+              Int32,
+              isMutable = false
+            ),
+            StructField(
+              genFieldID.classData.isArrayClass,
+              OriginalName(genFieldID.classData.isArrayClass.toString()),
+              Int32,
+              isMutable = false
+            ),
+            StructField(
+              genFieldID.classData.isInterface,
+              OriginalName(genFieldID.classData.isInterface.toString()),
+              Int32,
+              isMutable = false
+            ),
+            // StructField(
+            //   genFieldID.classData.isInstance,
+            //   OriginalName(genFieldID.classData.isInstance.toString()),
+            //   RefType(genTypeID.isInstance),
+            //   isMutable = false
+            // ),
+            // StructField(
+            //   genFieldID.classData.isAssignableFrom,
+            //   OriginalName(genFieldID.classData.isAssignableFrom.toString()),
+            //   RefType(genTypeID.isAssignableFrom),
+            //   isMutable = false
+            // ),
+          )
+        )
+      )
+    }
   }
 
   private def genArrayClassTypes()(implicit ctx: WasmContext): Unit = {
@@ -909,79 +977,110 @@ final class CoreWasmLib(coreSpec: CoreSpec) {
     val classInstanceLocal = fb.addLocal("classInstance", RefType(genTypeID.ClassStruct))
 
     // classInstance := newDefault$java.lang.Class()
-    // leave it on the stack for the constructor call
+    // leave iggt on the stack for the constructor call
     fb += Call(genFunctionID.newDefault(ClassClass))
     fb += LocalTee(classInstanceLocal)
 
-    /* The JS object containing metadata to pass as argument to the `jl.Class` constructor.
-     * Specified by https://lampwww.epfl.ch/~doeraene/sjsir-semantics/#sec-sjsir-createclassdataof
-     * Leave it on the stack.
-     */
-    fb += Call(genFunctionID.jsNewObject)
-    // "__typeData": typeData (TODO hide this better? although nobody will notice anyway)
-    // (this is used by `isAssignableFromExternal`)
-    fb ++= ctx.stringPool.getConstantStringInstr("__typeData")
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "name": typeDataName(typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("name")
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.typeDataName)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "isPrimitive": (typeData.kind <= KindLastPrimitive)
-    fb ++= ctx.stringPool.getConstantStringInstr("isPrimitive")
-    fb += LocalGet(typeDataParam)
-    fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
-    fb += I32Const(KindLastPrimitive)
-    fb += I32LeU
-    fb += Call(genFunctionID.box(BooleanRef))
-    fb += Call(genFunctionID.jsObjectPush)
-    // "isArrayClass": (typeData.kind == KindArray)
-    fb ++= ctx.stringPool.getConstantStringInstr("isArrayClass")
-    fb += LocalGet(typeDataParam)
-    fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
-    fb += I32Const(KindArray)
-    fb += I32Eq
-    fb += Call(genFunctionID.box(BooleanRef))
-    fb += Call(genFunctionID.jsObjectPush)
-    // "isInterface": (typeData.kind == KindInterface)
-    fb ++= ctx.stringPool.getConstantStringInstr("isInterface")
-    fb += LocalGet(typeDataParam)
-    fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
-    fb += I32Const(KindInterface)
-    fb += I32Eq
-    fb += Call(genFunctionID.box(BooleanRef))
-    fb += Call(genFunctionID.jsObjectPush)
-    // "isInstance": closure(isInstance, typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("isInstance")
-    fb += ctx.refFuncWithDeclaration(genFunctionID.isInstanceExternal)
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.closure)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "isAssignableFrom": closure(isAssignableFrom, typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("isAssignableFrom")
-    fb += ctx.refFuncWithDeclaration(genFunctionID.isAssignableFromExternal)
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.closure)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "checkCast": closure(checkCast, typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("checkCast")
-    fb += ctx.refFuncWithDeclaration(genFunctionID.checkCast)
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.closure)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "getComponentType": closure(getComponentType, typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("getComponentType")
-    fb += ctx.refFuncWithDeclaration(genFunctionID.getComponentType)
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.closure)
-    fb += Call(genFunctionID.jsObjectPush)
-    // "newArrayOfThisClass": closure(newArrayOfThisClass, typeData)
-    fb ++= ctx.stringPool.getConstantStringInstr("newArrayOfThisClass")
-    fb += ctx.refFuncWithDeclaration(genFunctionID.newArrayOfThisClass)
-    fb += LocalGet(typeDataParam)
-    fb += Call(genFunctionID.closure)
-    fb += Call(genFunctionID.jsObjectPush)
+    if (coreSpec.wasmRuntimeTarget.isJS) {
+
+      /* The JS object containing metadata to pass as argument to the `jl.Class` constructor.
+       * Specified by https://lampwww.epfl.ch/~doeraene/sjsir-semantics/#sec-sjsir-createclassdataof
+       * Leave it on the stack.
+       */
+      fb += Call(genFunctionID.jsNewObject)
+      // "__typeData": typeData (TODO hide this better? although nobody will notice anyway)
+      // (this is used by `isAssignableFromExternal`)
+      fb ++= ctx.stringPool.getConstantStringInstr("__typeData")
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "name": typeDataName(typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("name")
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.typeDataName)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "isPrimitive": (typeData.kind <= KindLastPrimitive)
+      fb ++= ctx.stringPool.getConstantStringInstr("isPrimitive")
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindLastPrimitive)
+      fb += I32LeU
+      fb += Call(genFunctionID.box(BooleanRef))
+      fb += Call(genFunctionID.jsObjectPush)
+      // "isArrayClass": (typeData.kind == KindArray)
+      fb ++= ctx.stringPool.getConstantStringInstr("isArrayClass")
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindArray)
+      fb += I32Eq
+      fb += Call(genFunctionID.box(BooleanRef))
+      fb += Call(genFunctionID.jsObjectPush)
+      // "isInterface": (typeData.kind == KindInterface)
+      fb ++= ctx.stringPool.getConstantStringInstr("isInterface")
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindInterface)
+      fb += I32Eq
+      fb += Call(genFunctionID.box(BooleanRef))
+      fb += Call(genFunctionID.jsObjectPush)
+      // "isInstance": closure(isInstance, typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("isInstance")
+      fb += ctx.refFuncWithDeclaration(genFunctionID.isInstanceExternal)
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.closure)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "isAssignableFrom": closure(isAssignableFrom, typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("isAssignableFrom")
+      fb += ctx.refFuncWithDeclaration(genFunctionID.isAssignableFromExternal)
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.closure)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "checkCast": closure(checkCast, typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("checkCast")
+      fb += ctx.refFuncWithDeclaration(genFunctionID.checkCast)
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.closure)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "getComponentType": closure(getComponentType, typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("getComponentType")
+      fb += ctx.refFuncWithDeclaration(genFunctionID.getComponentType)
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.closure)
+      fb += Call(genFunctionID.jsObjectPush)
+      // "newArrayOfThisClass": closure(newArrayOfThisClass, typeData)
+      fb ++= ctx.stringPool.getConstantStringInstr("newArrayOfThisClass")
+      fb += ctx.refFuncWithDeclaration(genFunctionID.newArrayOfThisClass)
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.closure)
+      fb += Call(genFunctionID.jsObjectPush)
+    } else {
+      // dummy
+      // __typeData
+      fb += LocalGet(typeDataParam)
+      // name
+      fb += LocalGet(typeDataParam)
+      fb += Call(genFunctionID.typeDataName)
+      // isPrimitive
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindLastPrimitive)
+      fb += I32LeU
+      // isArrayClass
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindArray)
+      fb += I32Eq
+      // isInterface
+      fb += LocalGet(typeDataParam)
+      fb += StructGet(genTypeID.typeData, genFieldID.typeData.kind)
+      fb += I32Const(KindInterface)
+      fb += I32Eq
+      // // isInstance
+      // fb += ctx.refFuncWithDeclaration(genFunctionID.isInstanceExternal)
+      // // isAssignableFrom
+      // fb += ctx.refFuncWithDeclaration(genFunctionID.isAssignableFromExternal)
+
+      fb += StructNew(genTypeID.classData)
+    }
 
     // Call java.lang.Class::<init>(dataObject)
     fb += Call(

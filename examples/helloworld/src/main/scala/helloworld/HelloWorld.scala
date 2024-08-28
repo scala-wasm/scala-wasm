@@ -13,7 +13,18 @@ object HelloWorld {
   def main(args: Array[String]): Unit = {
     import js.DynamicImplicits.truthValue
 
-    ()
+    val name = "a".getClass().getName()
+    val isPrimitive = 1.getClass().isPrimitive()
+    val isArray = Array(1, 2).getClass().isArray()
+    val isInterface = 1.getClass().isPrimitive()
+    val isInstance = "a".getClass().isInstance(1)
+    val isAssignableFrom = classOf[CharSequence].isAssignableFrom(classOf[String])
+    println(name)
+    println(isPrimitive)
+    println(isArray)
+    println(isInterface)
+    println(isInstance)
+    println(isAssignableFrom)
 
     // if (linkingInfo.targetIsPureWasm) {
     //   println("WASI!")

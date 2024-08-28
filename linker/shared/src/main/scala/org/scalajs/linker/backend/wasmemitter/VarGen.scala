@@ -292,6 +292,19 @@ object VarGen {
       case object funcRef extends FieldID
     }
 
+    object classData {
+      case object typeData extends FieldID
+      case object name extends FieldID
+      case object isPrimitive extends FieldID
+      case object isArrayClass extends FieldID
+      case object isInterface extends FieldID
+      case object isInstance extends FieldID
+      case object isAssignableFrom extends FieldID
+      case object checkCast extends FieldID
+      case object getComponentType extends FieldID
+      case object newArrayOfThisClass extends FieldID
+    }
+
     /** Fields of the typeData structs. */
     object typeData {
 
@@ -414,6 +427,7 @@ object VarGen {
 
     case object typeData extends TypeID
     case object reflectiveProxy extends TypeID
+    case object classData extends TypeID
 
     // Array types -- they extend j.l.Object
     case object BooleanArray extends TypeID
@@ -477,6 +491,13 @@ object VarGen {
 
     case object cloneFunctionType extends TypeID
     case object isJSClassInstanceFuncType extends TypeID
+
+    // pure wasm
+    case object isInstance extends TypeID
+    case object isAssignableFrom extends TypeID
+    case object checkCast extends TypeID
+    case object getComponentType extends TypeID
+    case object newArrayOfThisClass extends TypeID
   }
 
   object genTagID {

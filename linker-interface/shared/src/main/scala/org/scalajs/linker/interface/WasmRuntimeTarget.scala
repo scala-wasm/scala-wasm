@@ -21,6 +21,8 @@ final class WasmRuntimeTarget private (val name: String) {
     case _ => false
   }
 
+  val isJS: Boolean = this == WasmRuntimeTarget.JS
+
   override def hashCode(): Int = name.##
 
   override def toString(): String = name
