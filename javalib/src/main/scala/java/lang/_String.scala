@@ -57,7 +57,7 @@ final class _String private () // scalastyle:ignore
 
   // Wasm intrinsic
   def codePointAt(index: Int): Int = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+    if (LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
       charAt(index) // bounds check
       this.asInstanceOf[js.Dynamic].codePointAt(index).asInstanceOf[Int]
     } else {
@@ -165,7 +165,26 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def endsWith(suffix: String): scala.Boolean = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+    if (LinkingInfo.targetPureWasm) {
+      val thisLen = thisString.length()
+      val suffixLen = suffix.length()
+
+      if (suffixLen > thisLen) {
+        false
+      } else {
+        var i = thisLen - 1
+        var j = suffixLen - 1
+        var matches = true
+        while (j >= 0 && matches) {
+          if (this.charAt(i) != suffix.charAt(j)) {
+            matches = false
+          }
+          i -= 1
+          j -= 1
+        }
+        matches
+      }
+    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
       suffix.getClass() // null check
       thisString.asInstanceOf[js.Dynamic].endsWith(suffix).asInstanceOf[scala.Boolean]
     } else {
@@ -205,13 +224,44 @@ final class _String private () // scalastyle:ignore
   def indexOf(ch: Int, fromIndex: Int): Int =
     indexOf(Character.toString(ch), fromIndex)
 
-  @inline
-  def indexOf(str: String): Int =
-    thisString.jsIndexOf(str)
+  def indexOf(str: String): Int = {
+    if (LinkingInfo.targetPureWasm) {
+      indexOf(str, 0)
+    } else {
+      thisString.jsIndexOf(str)
+    }
+  }
 
-  @inline
-  def indexOf(str: String, fromIndex: Int): Int =
-    thisString.jsIndexOf(str, fromIndex)
+  def indexOf(str: String, fromIndex: Int): Int = {
+    if (LinkingInfo.targetPureWasm) {
+      val thisLen = thisString.length()
+      val strLen = str.length()
+
+      if (fromIndex >= thisLen) {
+        if (strLen == 0) thisLen else -1
+      } else {
+        val start = if (fromIndex < 0) 0 else fromIndex
+        if (strLen == 0) start
+        else {
+          var i = start
+          var found = -1
+          while (i <= thisLen - strLen && found == -1) {
+            var j = 0
+            var matches = true
+            while (j < strLen && matches) {
+              if (this.charAt(i + j) != str.charAt(j)) matches = false
+              j += 1
+            }
+            if (matches) found = i
+            i += 1
+          }
+          found
+        }
+      }
+    } else {
+      thisString.jsIndexOf(str, fromIndex)
+    }
+  }
 
   /* Just returning this string is a valid implementation for `intern` in
    * JavaScript, since strings are primitive values. Therefore, value equality
@@ -231,13 +281,56 @@ final class _String private () // scalastyle:ignore
     else lastIndexOf(Character.toString(ch), fromIndex)
 
   @inline
-  def lastIndexOf(str: String): Int =
-    thisString.jsLastIndexOf(str)
+  def lastIndexOf(str: String): Int = {
+    if (LinkingInfo.targetPureWasm) {
+      val thisLen = thisString.length()
+      lastIndexOf(str, thisLen)
+    } else {
+      thisString.jsLastIndexOf(str)
+    }
+
+  }
 
   @inline
   def lastIndexOf(str: String, fromIndex: Int): Int =
     if (fromIndex < 0) -1
-    else thisString.jsLastIndexOf(str, fromIndex)
+    else if (LinkingInfo.targetPureWasm) {
+      val thisLen = thisString.length()
+      val strLen = str.length()
+
+      if (fromIndex < 0) {
+        -1
+      } else if (strLen == 0) {
+        Math.min(fromIndex, thisLen)
+      } else {
+        val maxStartIndex = Math.min(fromIndex, thisLen - strLen)
+        var i = maxStartIndex
+        var found = -1
+
+        while (i >= 0) {
+          var j = 0
+          var matches = true
+
+          while (j < strLen && matches) {
+            if (thisString.charAt(i + j) != str.charAt(j)) {
+              matches = false
+            }
+            j += 1
+          }
+
+          if (matches) {
+            found = i
+            i = -1  // exit the loop
+          } else {
+            i -= 1
+          }
+        }
+
+        found
+      }
+    } else {
+      thisString.jsLastIndexOf(str, fromIndex)
+    }
 
   @inline
   def matches(regex: String): scala.Boolean =
@@ -271,7 +364,7 @@ final class _String private () // scalastyle:ignore
   def repeat(count: Int): String = {
     if (count < 0) {
       throw new IllegalArgumentException
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+    } else if (LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
       /* This will throw a `js.RangeError` if `count` is too large, instead of
        * an `OutOfMemoryError`. That's fine because the behavior of `repeat` is
        * not specified for `count` too large.
