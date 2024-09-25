@@ -12,16 +12,7 @@ object HelloWorld {
   def main(args: Array[String]): Unit = {
     import js.DynamicImplicits.truthValue
 
-    if (js.typeOf(js.Dynamic.global.document) != "undefined" &&
-        js.Dynamic.global.document &&
-        js.Dynamic.global.document.getElementById("playground")) {
-      sayHelloFromDOM()
-      sayHelloFromTypedDOM()
-      sayHelloFromJQuery()
-      sayHelloFromTypedJQuery()
-    } else {
-      println("Hello world!")
-    }
+    println("Hello world!")
   }
 
   def sayHelloFromDOM(): Unit = {
