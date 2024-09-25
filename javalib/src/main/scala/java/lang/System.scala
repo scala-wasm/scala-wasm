@@ -382,13 +382,18 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    import js.DynamicImplicits.truthValue
+    if (true) { // isWASI
+      // TODO
 
-    if (js.typeOf(global.console) != "undefined") {
-      if (isErr && global.console.error)
-        global.console.error(line)
-      else
-        global.console.log(line)
+    } else {
+      import js.DynamicImplicits.truthValue
+
+      if (js.typeOf(global.console) != "undefined") {
+        if (isErr && global.console.error)
+          global.console.error(line)
+        else
+          global.console.log(line)
+      }
     }
   }
 }
