@@ -16,6 +16,7 @@ import java.util.function._
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.LinkingInfo
 
 class Throwable protected (s: String, private var e: Throwable,
     enableSuppression: scala.Boolean, writableStackTrace: scala.Boolean)
@@ -34,7 +35,7 @@ class Throwable protected (s: String, private var e: Throwable,
    */
   private[this] var suppressed: Array[Throwable] = _
 
-  if (writableStackTrace)
+  if (writableStackTrace && !LinkingInfo.targetPureWasm)
     fillInStackTrace()
 
   def initCause(cause: Throwable): Throwable = {
@@ -47,22 +48,24 @@ class Throwable protected (s: String, private var e: Throwable,
   def getLocalizedMessage(): String = getMessage()
 
   def fillInStackTrace(): Throwable = {
-    jsErrorForStackTrace = StackTrace.captureJSError(this)
+    if (!LinkingInfo.targetPureWasm) jsErrorForStackTrace = StackTrace.captureJSError(this)
     this
   }
 
   def getStackTrace(): Array[StackTraceElement] = {
     if (stackTrace eq null) {
-      if (writableStackTrace)
-        stackTrace = StackTrace.extract(jsErrorForStackTrace)
-      else
-        stackTrace = new Array[StackTraceElement](0)
+      if (!LinkingInfo.targetPureWasm) {
+        if (writableStackTrace)
+          stackTrace = StackTrace.extract(jsErrorForStackTrace)
+        else
+          stackTrace = new Array[StackTraceElement](0)
+      }
     }
     stackTrace
   }
 
   def setStackTrace(stackTrace: Array[StackTraceElement]): Unit = {
-    if (writableStackTrace) {
+    if (writableStackTrace && !LinkingInfo.targetPureWasm) {
       var i = 0
       while (i < stackTrace.length) {
         if (stackTrace(i) eq null)
