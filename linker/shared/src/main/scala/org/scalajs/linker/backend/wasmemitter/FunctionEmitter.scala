@@ -797,6 +797,7 @@ private class FunctionEmitter private (
         }
         markPosition(tree)
         fb += wa.Call(helperID)
+      */
 
       case VarRef(LocalIdent(name)) =>
         genTree(rhs, lhs.tpe)
@@ -3506,6 +3507,42 @@ private class FunctionEmitter private (
             fb += wa.Call(genFunctionID.checkedSubstringStartEnd)
         }
         value.tpe
+
+      case value @ WasmTransients.WasmAllocate(size) =>
+        genTreeAuto(size)
+        fb += wa.Call(genFunctionID.allocate)
+        value.tpe
+
+      case value @ WasmTransients.WasmFree() =>
+        fb += wa.I32Const(0)
+        fb += wa.GlobalSet(genGlobalID.currentAddress)
+        value.tpe
+
+      case value @ WasmTransients.WasmLoad(size, offset) =>
+        genTreeAuto(offset)
+        size match {
+          case WasmTransients.WasmType.I8 =>
+            fb += wa.I32Load8S(wa.MemoryArg())
+          case WasmTransients.WasmType.I32 =>
+            fb += wa.I32Load(wa.MemoryArg())
+        }
+        value.tpe
+
+      case value @ WasmTransients.WasmStore(size, offset, v) =>
+        genTreeAuto(offset)
+        genTreeAuto(v)
+        size match {
+          case WasmTransients.WasmType.I8 =>
+            fb += wa.I32Store8(wa.MemoryArg())
+          case WasmTransients.WasmType.I32 =>
+            fb += wa.I32Store(wa.MemoryArg())
+        }
+        value.tpe
+
+      case value @ WasmTransients.WasmFunctionCall(func, args, tpe) =>
+        for (a <- args) genTreeAuto(a)
+        fb += wa.Call(func)
+        tpe
 
       case other =>
         throw new AssertionError(s"Unknown transient: $other")

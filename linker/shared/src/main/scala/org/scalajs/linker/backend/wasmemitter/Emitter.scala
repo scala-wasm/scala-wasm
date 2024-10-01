@@ -91,6 +91,16 @@ final class Emitter(config: Emitter.Config) {
     classEmitter.genGlobalArrayClassItable()
     coreLib.genPostClasses()
 
+    if (true) { // isWASI
+      ctx.moduleBuilder.addMemory(
+        wamod.Memory(genMemoryID.memory, OriginalName.NoOriginalName, wamod.Memory.Limits(1, None))
+      )
+      // > all modules accessing WASI APIs also export a linear memory with the name `memory`.
+      // > Data pointers in WASI API calls are relative to this memory's index space.
+      // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md
+      ctx.moduleBuilder.addExport(wamod.Export("memory", wamod.ExportDesc.Memory(genMemoryID.memory)))
+    }
+
     genStartFunction(sortedClasses, moduleInitializers, topLevelExports)
 
     /* Gen the string pool and the declarative elements at the very end, since
@@ -196,7 +206,12 @@ final class Emitter(config: Emitter.Config) {
     // Finish the start function
 
     fb.buildAndAddToModule()
-    ctx.moduleBuilder.setStart(genFunctionID.start)
+    if (true) { // isWASI
+      // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md#current-unstable-abi
+      ctx.moduleBuilder.addExport(wamod.Export("_start", wamod.ExportDesc.Func(genFunctionID.start)))
+    } else {
+      ctx.moduleBuilder.setStart(genFunctionID.start)
+    }
   }
 
   private def genTopLevelExportedFun(fb: FunctionBuilder, exportName: String,
@@ -322,6 +337,26 @@ final class Emitter(config: Emitter.Config) {
       js.StringLiteral(config.loaderModuleName)
     )
 
+    // import { WASI } from 'wasi';
+    val wasiCtor = js.Ident("WASI")
+    val wasiImport = js.Import(
+      List(js.ExportName("WASI") -> wasiCtor),
+      js.StringLiteral("wasi")
+    )
+
+    // let wasi = new WASI({
+    //   version: 'preview1',
+    //   preopens: {},
+    // });
+    val wasiIdent = js.Ident("wasi", OriginalName.NoOriginalName)
+    val wasiInstantiate = js.New(
+      js.VarRef(wasiCtor),
+      List(js.ObjectConstr(List(
+          js.StringLiteral("version") -> js.StringLiteral("preview1"),
+          js.StringLiteral("preopens") -> js.ObjectConstr(Nil)
+      ))))
+    val wasiDecl = js.Let(wasiIdent, mutable = false, rhs = Some(wasiInstantiate))
+
     val loadCall = js.Apply(
       js.VarRef(loadFunIdent),
       List(
@@ -329,12 +364,13 @@ final class Emitter(config: Emitter.Config) {
         linkingInfo,
         exportSettersDict,
         customJSHelpersDict
-      )
+      ) ++ (if (true) List(js.VarRef(wasiIdent)) else Nil) // isWASI
     )
 
     val fullTree = (
       moduleImports :::
       loaderImport ::
+      (if (true) List(wasiImport, wasiDecl) else Nil) ::: // isWASI
       exportDecls.flatten :::
       js.Await(loadCall) ::
       Nil
@@ -465,7 +501,12 @@ object Emitter {
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),
-      callMethodStatically(BoxedStringClass, hashCodeMethodName)
+      callMethodStatically(BoxedStringClass, hashCodeMethodName),
+
+      cond(true) { // isWASI
+        instantiateClass(SpecialNames.WasmMemorySegmentClass,
+            SpecialNames.WasmMemorySegmentClassConstructor)
+      }
     )
   }
 

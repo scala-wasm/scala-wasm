@@ -383,8 +383,8 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
 
   private def doWriteLine(line: String): Unit = {
     if (true) { // isWASI
-      // TODO
-
+      // TODO: Implement WASIBasedPrintStream
+      ju.internal.wasm.io.printImpl(line, newLine = true)
     } else {
       import js.DynamicImplicits.truthValue
 

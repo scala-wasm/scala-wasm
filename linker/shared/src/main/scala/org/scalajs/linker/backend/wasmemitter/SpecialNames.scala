@@ -53,4 +53,9 @@ object SpecialNames {
 
   /** A unique simple method name to map all method *signatures* into `MethodName`s. */
   val normalizedSimpleMethodName = SimpleMethodName("m")
+
+  // Memory Instructions
+  val WasmMemoryAllocatorClass = ClassName("java.util.internal.wasm.MemoryAllocator")
+  val WasmMemorySegmentClass = ClassName("java.util.internal.wasm.MemorySegment")
+  val WasmMemorySegmentClassConstructor = MethodName.constructor(List(IntRef, IntRef))
 }

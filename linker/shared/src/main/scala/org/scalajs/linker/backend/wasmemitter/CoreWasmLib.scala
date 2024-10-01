@@ -123,6 +123,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genPrimitiveTypeDataGlobals()
 
     genHelperDefinitions()
+
+    if (true) genWASIImports() // isWASI
   }
 
   /** Generates definitions that must come *after* the code generated for regular classes.
@@ -595,6 +597,30 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genSearchReflectiveProxy()
     genArrayCloneFunctions()
     genArrayCopyFunctions()
+  }
+
+  private def genWASIImports()(implicit ctx: WasmContext): Unit = {
+    def addWASIImport(
+        id: FunctionID,
+        params: List[Type],
+        results: List[Type]
+    ): Unit = {
+      val sig = FunctionType(params, results)
+      val typeID = ctx.moduleBuilder.functionTypeToTypeID(sig)
+      ctx.moduleBuilder.addImport(
+        Import(
+          "wasi_snapshot_preview1",
+          id.toString(),
+          ImportDesc.Func(id, OriginalName(id.toString()), typeID)
+        )
+      )
+    }
+
+    addWASIImport(
+      genFunctionID.wasip1.fd_write,
+      List(Int32, Int32, Int32, Int32),
+      List(Int32)
+    )
   }
 
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(
@@ -2946,6 +2972,18 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genSpecializedArrayCopy(baseRef)
 
     genGenericArrayCopy()
+
+    // TODO: generate only for WASI
+    ctx.addGlobal(
+      Global(
+        genGlobalID.currentAddress,
+        NoOriginalName,
+        isMutable = true,
+        Int32,
+        Expr(List(I32Const(0)))
+      )
+    )
+    genAllocate()
   }
 
   /** `arrayCopyCheckBounds: [i32, i32, i32, i32, i32] -> []`.
@@ -3186,6 +3224,75 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += Throw(genTagID.exception)
     }
 
+    fb.buildAndAddToModule()
+  }
+
+  private def genAllocate()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.allocate)
+    val sizeParam = fb.addParam("size", Int32) // size in byte
+    fb.setResultType(RefType(genTypeID.forClass(SpecialNames.WasmMemorySegmentClass)))
+
+    val WASM_PAGE_SIZE_IN_BYTES = 65536 // 64 KiB
+
+    // i32 can represent up to 2Gib
+    // While Wasm linear memory can represent up to 4Gib (and more in future)
+    val currentMemorySizeInByte = fb.addLocal("currentMemorySizeInByte", Int32)
+    val oldCurrentAddress = fb.addLocal("oldCurrentAddress", Int32)
+    val newCurrentAddress = fb.addLocal("newCurrentAddress", Int32)
+    val instanceLocal = fb.addLocal("instanceLocal", RefType(genTypeID.forClass(SpecialNames.WasmMemorySegmentClass)))
+
+    val memorySegmentClassInfo = ctx.getClassInfo(SpecialNames.WasmMemorySegmentClass)
+
+    // newCurrentAddress = currentAddress + size
+    fb += GlobalGet(genGlobalID.currentAddress)
+    fb += LocalTee(oldCurrentAddress)
+    fb += LocalGet(sizeParam)
+    fb += I32Add
+    fb += LocalTee(newCurrentAddress)
+
+    // newCurrentAddress (= currentAddress + size) >= currentMemorySizeInByte
+    fb += MemorySize(genMemoryID.memory)
+    fb += I32Const(WASM_PAGE_SIZE_IN_BYTES)
+    fb += I32Mul
+    fb += LocalTee(currentMemorySizeInByte)
+    fb += I32GeU
+    fb.ifThen() { // grow memory
+      // number of pages to grow
+      // ((newCurrentAddress - currentMemorySizeInByte) / WASM_PAGE_SIZE_IN_BYTES) + 1
+      fb += LocalGet(newCurrentAddress)
+      fb += LocalGet(currentMemorySizeInByte)
+      fb += I32Sub
+      fb += I32Const(WASM_PAGE_SIZE_IN_BYTES)
+      fb += I32DivU
+      fb += I32Const(1)
+      fb += I32Add
+      fb += MemoryGrow(genMemoryID.memory)
+      // if memory.grow returns -1, failed to grow
+      fb += I32Const(-1)
+      fb += I32Eq
+      fb.ifThen() {
+        genNewScalaClass(fb, OutOfMemoryErrorClass,
+            SpecialNames.StringArgConstructorName) {
+          fb ++= ctx.stringPool.getConstantStringInstr(
+            "Cannot allocate memory: requested size is larger than the maximum size of WebAssembly linear memory," +
+              " memory.grow returned -1"
+          )
+        }
+        fb += ExternConvertAny
+        fb += Throw(genTagID.exception)
+      }
+    }
+    // check memory is actually grown?
+
+    // update `currentAddress`
+    fb += LocalGet(newCurrentAddress)
+    fb += GlobalSet(genGlobalID.currentAddress)
+
+    // create MemorySegment instance
+    genNewScalaClass(fb, SpecialNames.WasmMemorySegmentClass, SpecialNames.WasmMemorySegmentClassConstructor) {
+      fb += LocalGet(oldCurrentAddress)
+      fb += LocalGet(sizeParam)
+    }
     fb.buildAndAddToModule()
   }
 

@@ -46,6 +46,8 @@ object VarGen {
     case object emptyITable extends GlobalID
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
+    /* Next starting address on linear memory to allocate. */
+    case object currentAddress extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -193,6 +195,14 @@ object VarGen {
     case object anyGetTypeData extends FunctionID
     case object identityHashCode extends FunctionID
     case object searchReflectiveProxy extends FunctionID
+
+    // memory
+    case object allocate extends FunctionID
+    case object free extends FunctionID
+    // wasi preview 1
+    object wasip1 {
+      case object fd_write extends FunctionID
+    }
 
     private final case class SpecializedArrayCopyID(arrayBaseRef: NonArrayTypeRef) extends FunctionID
 
@@ -448,4 +458,7 @@ object VarGen {
     case object string extends DataID
   }
 
+  object genMemoryID {
+    case object memory extends MemoryID
+  }
 }

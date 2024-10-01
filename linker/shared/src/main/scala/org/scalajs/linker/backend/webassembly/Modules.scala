@@ -94,6 +94,7 @@ object Modules {
   object ExportDesc {
     final case class Func(id: FunctionID) extends ExportDesc
     final case class Global(id: GlobalID) extends ExportDesc
+    final case class Memory(id: MemoryID) extends ExportDesc
   }
 
   /** A WebAssembly `elem` definition. */
@@ -118,6 +119,11 @@ object Modules {
     }
   }
 
+  final case class Memory(id: MemoryID, originalName: OriginalName, limits: Memory.Limits)
+  object Memory {
+    final case class Limits(min: Int, max: Option[Int])
+  }
+
   /** A WebAssembly `module`.
    *
    *  Fields are declared in the order of the binary format:
@@ -132,6 +138,7 @@ object Modules {
       val exports: List[Export],
       val start: Option[FunctionID],
       val elems: List[Element],
-      val datas: List[Data]
+      val datas: List[Data],
+      val memories: List[Memory]
   )
 }
