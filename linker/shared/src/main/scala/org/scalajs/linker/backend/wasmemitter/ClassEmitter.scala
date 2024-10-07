@@ -312,7 +312,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         // componentType - always `null` since this method is not used for array types
         wa.RefNull(watpe.HeapType(genTypeID.typeData)),
         // name - initially `null`; filled in by the `typeDataName` helper
-        wa.RefNull(watpe.HeapType.NoExtern),
+        wa.RefNull(if (true/*isWASI*/) watpe.HeapType(genTypeID.i16Array) else watpe.HeapType.NoExtern), // scalastyle:ignore
         // the classOf instance - initially `null`; filled in by the `createClassOf` helper
         wa.RefNull(watpe.HeapType(genTypeID.ClassStruct)),
         // arrayOf, the typeData of an array of this type - initially `null`; filled in by the `arrayTypeData` helper
