@@ -49,6 +49,8 @@ private[java] final class MemorySegment(val start: Int, val size: Int) {
 
   private def validate(offset: Int, requiredBytes: Int): Unit =
     if (!(offset + requiredBytes >= 0 && offset + requiredBytes <= size)) {
-      throw new OutOfMemoryError(s"MemorySegment.validate($requiredBytes) failed, can't available $requiredBytes bytes")
+      throw new OutOfMemoryError(s"") // TODO: support intToString in pure wasm
+      // throw new OutOfMemoryError(s"MemorySegment.validate($requiredBytes)
+      // failed, can't available $requiredBytes bytes")
   }
 }

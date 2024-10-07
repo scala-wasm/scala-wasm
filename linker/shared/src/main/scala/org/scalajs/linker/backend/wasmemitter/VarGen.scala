@@ -48,6 +48,7 @@ object VarGen {
     case object lastIDHashCode extends GlobalID
     /* Next starting address on linear memory to allocate. */
     case object currentAddress extends GlobalID
+    case object emptyStringArray extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -230,6 +231,13 @@ object VarGen {
       case object concat extends JSHelperFunctionID
       case object substring extends JSHelperFunctionID
       case object equals extends JSHelperFunctionID
+    }
+
+    object string {
+      case object stringFromCharCode extends FunctionID
+      case object stringConcat extends FunctionID
+      case object stringEquals extends FunctionID
+
     }
   }
 
