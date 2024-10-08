@@ -390,56 +390,58 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     addHelperImport(genFunctionID.fmod, List(Float64, Float64), List(Float64))
 
-    addHelperImport(genFunctionID.jsValueToString, List(RefType.any), List(RefType.extern))
-    addHelperImport(genFunctionID.jsValueToStringForConcat, List(anyref), List(RefType.extern))
-    addHelperImport(genFunctionID.booleanToString, List(Int32), List(RefType.extern))
-    addHelperImport(genFunctionID.intToString, List(Int32), List(RefType.extern))
-    addHelperImport(genFunctionID.longToString, List(Int64), List(RefType.extern))
-    addHelperImport(genFunctionID.doubleToString, List(Float64), List(RefType.extern))
-
     addHelperImport(genFunctionID.jsValueType, List(RefType.any), List(Int32))
-    addHelperImport(genFunctionID.jsValueDescription, List(anyref), List(RefType.extern))
-    addHelperImport(genFunctionID.bigintHashCode, List(RefType.any), List(Int32))
-    addHelperImport(
-      genFunctionID.symbolDescription,
-      List(RefType.any),
-      List(RefType.externref)
-    )
-    addHelperImport(
-      genFunctionID.idHashCodeGet,
-      List(RefType.extern, RefType.any),
-      List(Int32)
-    )
-    addHelperImport(
-      genFunctionID.idHashCodeSet,
-      List(RefType.extern, RefType.any, Int32),
-      Nil
-    )
+    if (false /*!isWASI*/) { // scalastyle:ignore
+      addHelperImport(genFunctionID.jsValueToString, List(RefType.any), List(RefType.extern))
+      addHelperImport(genFunctionID.jsValueToStringForConcat, List(anyref), List(RefType.extern))
+      addHelperImport(genFunctionID.booleanToString, List(Int32), List(RefType.extern))
+      addHelperImport(genFunctionID.intToString, List(Int32), List(RefType.extern))
+      addHelperImport(genFunctionID.longToString, List(Int64), List(RefType.extern))
+      addHelperImport(genFunctionID.doubleToString, List(Float64), List(RefType.extern))
 
-    addHelperImport(genFunctionID.makeTypeError, List(RefType.extern), List(RefType.extern))
+      addHelperImport(genFunctionID.jsValueDescription, List(anyref), List(RefType.extern))
+      addHelperImport(genFunctionID.bigintHashCode, List(RefType.any), List(Int32))
+      addHelperImport(
+        genFunctionID.symbolDescription,
+        List(RefType.any),
+        List(RefType.externref)
+      )
+      addHelperImport(
+        genFunctionID.idHashCodeGet,
+        List(RefType.extern, RefType.any),
+        List(Int32)
+      )
+      addHelperImport(
+        genFunctionID.idHashCodeSet,
+        List(RefType.extern, RefType.any, Int32),
+        Nil
+      )
 
-    addHelperImport(genFunctionID.jsNewArray, Nil, List(RefType.any))
-    addHelperImport(genFunctionID.jsNewObject, Nil, List(RefType.any))
-    addHelperImport(genFunctionID.jsSelect, List(anyref, anyref), List(anyref))
-    addHelperImport(genFunctionID.jsSelectSet, List(anyref, anyref, anyref), Nil)
-    addHelperImport(genFunctionID.jsNewNoArg, List(anyref), List(anyref))
-    addHelperImport(genFunctionID.jsImportCall, List(anyref), List(anyref))
-    addHelperImport(genFunctionID.jsImportMeta, Nil, List(anyref))
-    addHelperImport(genFunctionID.jsDelete, List(anyref, anyref), Nil)
-    addHelperImport(genFunctionID.jsForInSimple, List(anyref, anyref), Nil)
-    addHelperImport(genFunctionID.jsIsTruthy, List(anyref), List(Int32))
+      addHelperImport(genFunctionID.makeTypeError, List(RefType.extern), List(RefType.extern))
 
-    addHelperImport(genFunctionID.newSymbol, Nil, List(anyref))
-    addHelperImport(
-      genFunctionID.jsSuperSelect,
-      List(anyref, anyref, anyref),
-      List(anyref)
-    )
-    addHelperImport(
-      genFunctionID.jsSuperSelectSet,
-      List(anyref, anyref, anyref, anyref),
-      Nil
-    )
+      addHelperImport(genFunctionID.jsNewArray, Nil, List(RefType.any))
+      addHelperImport(genFunctionID.jsNewObject, Nil, List(RefType.any))
+      addHelperImport(genFunctionID.jsSelect, List(anyref, anyref), List(anyref))
+      addHelperImport(genFunctionID.jsSelectSet, List(anyref, anyref, anyref), Nil)
+      addHelperImport(genFunctionID.jsNewNoArg, List(anyref), List(anyref))
+      addHelperImport(genFunctionID.jsImportCall, List(anyref), List(anyref))
+      addHelperImport(genFunctionID.jsImportMeta, Nil, List(anyref))
+      addHelperImport(genFunctionID.jsDelete, List(anyref, anyref), Nil)
+      addHelperImport(genFunctionID.jsForInSimple, List(anyref, anyref), Nil)
+      addHelperImport(genFunctionID.jsIsTruthy, List(anyref), List(Int32))
+
+      addHelperImport(genFunctionID.newSymbol, Nil, List(anyref))
+      addHelperImport(
+        genFunctionID.jsSuperSelect,
+        List(anyref, anyref, anyref),
+        List(anyref)
+      )
+      addHelperImport(
+        genFunctionID.jsSuperSelectSet,
+        List(anyref, anyref, anyref, anyref),
+        Nil
+      )
+    }
   }
 
   // --- Global definitions ---
