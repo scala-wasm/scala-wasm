@@ -238,7 +238,6 @@ object VarGen {
       case object stringFromCharCode extends FunctionID
       case object stringConcat extends FunctionID
       case object stringEquals extends FunctionID
-
     }
   }
 

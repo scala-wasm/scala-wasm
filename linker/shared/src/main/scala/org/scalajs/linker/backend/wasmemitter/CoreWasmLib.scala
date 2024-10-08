@@ -287,7 +287,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
   private def genImports()(implicit ctx: WasmContext): Unit = {
     genTagImports()
     if (false /*!isWASI*/) genGlobalImports() // scalastyle:ignore
-    genStringBuiltinImports()
+    if (false /*!isWASI*/) genStringBuiltinImports() // scalastyle:ignore
     genHelperImports()
   }
 
@@ -582,8 +582,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           genFunctionID.checkedStringCharAt, genFunctionID.stringBuiltins.charCodeAt)
       genCheckedStringCharAtOrCodePointAt(
           genFunctionID.checkedStringCodePointAt, genFunctionID.stringBuiltins.codePointAt)
-      genCheckedSubstringStart()
-      genCheckedSubstringStartEnd()
+      // In WASI, Optimizer won't transform substring method
+      if (false /*!isWASI*/) { // scalastyle:ignore
+        genCheckedSubstringStart()
+        genCheckedSubstringStartEnd()
+      }
     }
 
     if (semantics.nullPointers != CheckedBehavior.Unchecked) {
@@ -1817,14 +1820,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       implicit ctx: WasmContext): Unit = {
 
     val fb = newFunctionBuilder(checkedHelperID)
-    val strParam = fb.addParam("str", RefType.extern)
+    val strParam = fb.addParam("str", stringType)
     val indexParam = fb.addParam("index", Int32)
     fb.setResultType(Int32)
 
     // if index unsigned_>= str.length
     fb += LocalGet(indexParam)
     fb += LocalGet(strParam)
-    fb += Call(genFunctionID.stringBuiltins.length)
+    if (true /*isWASI*/) // scalastyle:ignore
+      fb += ArrayLen
+    else
+      fb += Call(genFunctionID.stringBuiltins.length)
     fb += I32GeU // unsigned comparison makes negative values of index larger than the length
     fb.ifThen() {
       // then, throw a StringIndexOutOfBoundsException
@@ -1841,7 +1847,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // otherwise, read the char
     fb += LocalGet(strParam)
     fb += LocalGet(indexParam)
-    fb += Call(builtinID)
+    if (true /*isWASI*/) // scalastyle:ignore
+      fb += ArrayGetU(genTypeID.i16Array)
+    else
+      fb += Call(builtinID)
 
     fb.buildAndAddToModule()
   }

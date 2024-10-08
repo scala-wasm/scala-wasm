@@ -1602,10 +1602,11 @@ private class FunctionEmitter private (
         genTree(lhs, StringType)
         genTree(rhs, IntType)
         markPosition(tree)
-        if (true /*isWASI*/) // scalastyle:ignore
-          fb += wa.ArrayGetU(genTypeID.i16Array) // TODO: checked behavior
-        else if (semantics.stringIndexOutOfBounds == CheckedBehavior.Unchecked)
-          fb += wa.Call(genFunctionID.stringBuiltins.charCodeAt)
+        if (semantics.stringIndexOutOfBounds == CheckedBehavior.Unchecked)
+          if (true /*isWASI*/) // scalastyle:ignore
+            fb += wa.ArrayGetU(genTypeID.i16Array)
+          else
+            fb += wa.Call(genFunctionID.stringBuiltins.charCodeAt)
         else
           fb += wa.Call(genFunctionID.checkedStringCharAt)
         CharType
