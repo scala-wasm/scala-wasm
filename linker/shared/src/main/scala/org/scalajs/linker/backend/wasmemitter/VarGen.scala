@@ -42,6 +42,10 @@ object VarGen {
 
     case object bZeroChar extends GlobalID
     case object bZeroLong extends GlobalID
+    case object bZeroBoolean extends GlobalID
+    case object bZeroInteger extends GlobalID
+    case object bZeroFloat extends GlobalID
+    case object bZeroDouble extends GlobalID
     case object stringLiteralCache extends GlobalID
     case object emptyITable extends GlobalID
     case object arrayClassITable extends GlobalID

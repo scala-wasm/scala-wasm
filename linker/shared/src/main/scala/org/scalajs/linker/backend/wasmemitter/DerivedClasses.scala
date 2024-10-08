@@ -34,12 +34,17 @@ import SpecialNames._
 object DerivedClasses {
   def deriveClasses(classes: List[LinkedClass]): List[LinkedClass] = {
     classes.collect {
-      case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass =>
+      case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass ||
+          (clazz.className == BoxedBooleanClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedIntegerClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedFloatClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedDoubleClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedUnitClass && true /*isWASi*/) => // scalastyle:ignore
         deriveBoxClass(clazz)
     }
   }
 
-  /** Generates the accompanying Box class of `Character` or `Long`.
+  /** Generates the accompanying Box class of `Character`, `Long` or `Boolean` (in WASI setting.
    *
    *  These box classes will be used as the generic representation of `char`s and `long`s when they
    *  are upcast to `java.lang.Character`/`java.lang.Long` or any of their supertypes.
@@ -84,7 +89,10 @@ object DerivedClasses {
 
     val className = clazz.className
     val derivedClassName = className.withSuffix("Box")
-    val primType = BoxedClassToPrimType(className).asInstanceOf[PrimTypeWithRef]
+    val primType = BoxedClassToPrimType(className)
+    val primRef =
+      if (clazz.className == BoxedUnitClass) None
+      else Some(primType.asInstanceOf[PrimTypeWithRef].primRef)
     val derivedThisType = ClassType(derivedClassName, nullable = false)
 
     val fieldName = FieldName(derivedClassName, valueFieldSimpleName)
@@ -100,7 +108,8 @@ object DerivedClasses {
       ParamDef(LocalIdent(fieldName.simpleName.toLocalName), NON, primType, mutable = false)
     val derivedCtor = MethodDef(
       EMF.withNamespace(MemberNamespace.Constructor),
-      MethodIdent(MethodName.constructor(List(primType.primRef))),
+      // Undefined would have wired constructor, but we never call the constructor for Boxed Unit class
+      MethodIdent(MethodName.constructor(primRef.toList)),
       NON,
       List(ctorParamDef),
       VoidType,
@@ -148,5 +157,6 @@ object DerivedClasses {
       dynamicDependencies = Set.empty,
       clazz.version
     )
+
   }
 }
