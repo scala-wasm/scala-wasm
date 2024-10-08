@@ -34,12 +34,13 @@ import SpecialNames._
 object DerivedClasses {
   def deriveClasses(classes: List[LinkedClass]): List[LinkedClass] = {
     classes.collect {
-      case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass =>
+      case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass ||
+          (clazz.className == BoxedBooleanClass && true /*isWASi*/) => // scalastyle:ignore
         deriveBoxClass(clazz)
     }
   }
 
-  /** Generates the accompanying Box class of `Character` or `Long`.
+  /** Generates the accompanying Box class of `Character`, `Long` or `Boolean` (in WASI setting.
    *
    *  These box classes will be used as the generic representation of `char`s and `long`s when they
    *  are upcast to `java.lang.Character`/`java.lang.Long` or any of their supertypes.

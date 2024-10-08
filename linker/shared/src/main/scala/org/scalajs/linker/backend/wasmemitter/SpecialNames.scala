@@ -24,9 +24,11 @@ object SpecialNames {
    */
   val CharBoxClass = BoxedCharacterClass.withSuffix("Box")
   val LongBoxClass = BoxedLongClass.withSuffix("Box")
+  val BooleanBoxClass = BoxedBooleanClass.withSuffix("Box")
 
   val CharBoxCtor = MethodName.constructor(List(CharRef))
   val LongBoxCtor = MethodName.constructor(List(LongRef))
+  val BooleanBoxCtor = MethodName.constructor(List(BooleanRef))
 
   val JLNumberClass = ClassName("java.lang.Number")
 

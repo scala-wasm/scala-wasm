@@ -286,7 +286,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
   private def genImports()(implicit ctx: WasmContext): Unit = {
     genTagImports()
-    genGlobalImports()
+    if (false /*!isWASI*/) genGlobalImports() // scalastyle:ignore
     genStringBuiltinImports()
     genHelperImports()
   }
@@ -370,7 +370,12 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
 
-    for (primType <- List(BooleanType, FloatType, DoubleType)) {
+    val prims = if (true /*isWASI*/) // scalastyle:ignore
+      List(FloatType, DoubleType)
+    else
+      List(BooleanType, FloatType, DoubleType)
+
+    for (primType <- prims) {
       val primRef = primType.primRef
       val wasmType = transformPrimType(primType)
       if (primType != BooleanType)
@@ -502,7 +507,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
   private def genBoxedZeroGlobals()(implicit ctx: WasmContext): Unit = {
     val primTypesWithBoxClasses: List[(GlobalID, ClassName, Instr)] = List(
       (genGlobalID.bZeroChar, SpecialNames.CharBoxClass, I32Const(0)),
-      (genGlobalID.bZeroLong, SpecialNames.LongBoxClass, I64Const(0))
+      (genGlobalID.bZeroLong, SpecialNames.LongBoxClass, I64Const(0)),
+      (genGlobalID.bZeroBoolean, SpecialNames.BooleanBoxClass, I32Const(0))
     )
 
     for ((globalID, boxClassName, zeroValueInstr) <- primTypesWithBoxClasses) {
@@ -658,10 +664,15 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val xParam = fb.addParam("x", Int32)
     fb.setResultType(RefType.any)
 
-    fb += GlobalGet(genGlobalID.bTrue)
-    fb += GlobalGet(genGlobalID.bFalse)
-    fb += LocalGet(xParam)
-    fb += Select(List(RefType.any))
+    if (true /*isWASI*/) { // scalastyle:ignore
+      fb += LocalGet(xParam)
+      fb += RefI31
+    } else {
+      fb += GlobalGet(genGlobalID.bTrue)
+      fb += GlobalGet(genGlobalID.bFalse)
+      fb += LocalGet(xParam)
+      fb += Select(List(RefType.any))
+    }
 
     fb.buildAndAddToModule()
   }
@@ -1065,17 +1076,25 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.block(anyref) { notOurObjectLabel =>
       fb.block(objectType) { isCharLabel =>
         fb.block(objectType) { isLongLabel =>
-          // If it not our object, jump out of notOurObject
-          fb += LocalGet(valueParam)
-          fb += BrOnCastFail(notOurObjectLabel, anyref, objectType)
+          fb.block(objectType) { isBooleanLabel =>
+            // If it not our object, jump out of notOurObject
+            fb += LocalGet(valueParam)
+            fb += BrOnCastFail(notOurObjectLabel, anyref, objectType)
 
-          // If is a long or char box, jump out to the appropriate label
-          fb += BrOnCast(isLongLabel, objectType, RefType(genTypeID.forClass(SpecialNames.LongBoxClass)))
-          fb += BrOnCast(isCharLabel, objectType, RefType(genTypeID.forClass(SpecialNames.CharBoxClass)))
+            // If is a long or char box, jump out to the appropriate label
+            fb += BrOnCast(isLongLabel, objectType, RefType(genTypeID.forClass(SpecialNames.LongBoxClass)))
+            fb += BrOnCast(isCharLabel, objectType, RefType(genTypeID.forClass(SpecialNames.CharBoxClass)))
+            // TODO: add block only when it's WASI
+            fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
 
-          // Get and return the class name
-          fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
-          fb += ReturnCall(genFunctionID.typeDataName)
+            // Get and return the class name
+            fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+            fb += ReturnCall(genFunctionID.typeDataName)
+          }
+
+          // Return the constant string "boolean"
+          fb ++= ctx.stringPool.getConstantStringInstr("boolean")
+          fb += Return
         }
 
         // Return the constant string "long"
@@ -1137,7 +1156,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
    */
   private def genPrimitiveAsInstances()(implicit ctx: WasmContext): Unit = {
     val primTypesWithAsInstances: List[PrimType] = List(
-      UndefType,
+      // UndefType,
       BooleanType,
       CharType,
       ByteType,
@@ -1171,6 +1190,28 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val fb = newFunctionBuilder(genFunctionID.asInstance(targetTpe), origName)
     val objParam = fb.addParam("obj", RefType.anyref)
     fb.setResultType(resultType)
+
+    def genCastDerivedClass(objIsNullLabel: LabelID): Unit = {
+      val boxClass =
+        if (primType == CharType) SpecialNames.CharBoxClass
+        else if (primType == LongType) SpecialNames.LongBoxClass
+        else SpecialNames.BooleanBoxClass
+      val structTypeID = genTypeID.forClass(boxClass)
+
+      fb.block(RefType.any) { castFailLabel =>
+        fb += LocalGet(objParam)
+        fb += BrOnNull(objIsNullLabel)
+        fb += BrOnCastFail(castFailLabel, RefType.any, RefType(structTypeID))
+
+        // Extract the `value` field if unboxing
+        if (isUnbox) {
+          val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
+          fb += StructGet(structTypeID, genFieldID.forClassInstanceField(fieldName))
+        }
+
+        fb += Return
+      }
+    }
 
     fb.block() { objIsNullLabel =>
       primType match {
@@ -1210,24 +1251,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
         // For char and long, use br_on_cast_fail to test+cast to the box class
         case CharType | LongType =>
-          val boxClass =
-            if (primType == CharType) SpecialNames.CharBoxClass
-            else SpecialNames.LongBoxClass
-          val structTypeID = genTypeID.forClass(boxClass)
+          genCastDerivedClass(objIsNullLabel)
 
-          fb.block(RefType.any) { castFailLabel =>
-            fb += LocalGet(objParam)
-            fb += BrOnNull(objIsNullLabel)
-            fb += BrOnCastFail(castFailLabel, RefType.any, RefType(structTypeID))
-
-            // Extract the `value` field if unboxing
-            if (isUnbox) {
-              val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
-              fb += StructGet(structTypeID, genFieldID.forClassInstanceField(fieldName))
-            }
-
-            fb += Return
-          }
+        case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+          genCastDerivedClass(objIsNullLabel)
 
         // For all other types, use type test, and separately unbox if required
         case _ =>
@@ -1978,7 +2005,12 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       },
       List(KindBoxedBoolean) -> { () =>
         fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.typeTest(BooleanRef))
+        if (true /*isWASI*/) { // scalastyle:ignore
+          val structTypeID = genTypeID.forClass(SpecialNames.BooleanBoxClass)
+          fb += RefTest(RefType(structTypeID))
+        } else {
+          fb += Call(genFunctionID.typeTest(BooleanRef))
+        }
       },
       List(KindBoxedCharacter) -> { () =>
         fb += LocalGet(valueParam)
@@ -2687,8 +2719,19 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb.ifThenElse(typeDataType) {
         fb += getHijackedClassTypeDataInstr(BoxedLongClass)
       } {
-        fb += LocalGet(ourObjectLocal)
-        fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+        if (true /*isWASI*/) { // scalastyle:ignore
+          fb += LocalGet(ourObjectLocal)
+          fb += RefTest(RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
+          fb.ifThenElse(typeDataType) {
+            fb += getHijackedClassTypeDataInstr(BoxedBooleanClass)
+          } {
+            fb += LocalGet(ourObjectLocal)
+            fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+          }
+        } else {
+          fb += LocalGet(ourObjectLocal)
+          fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+        }
       }
     }
 
@@ -2797,37 +2840,40 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           ()
         }
       }
-    } else {
-      fb += LocalSet(objNonNullLocal)
-    }
 
-    // If we get here, use the idHashCodeMap
+      // If we get here, use the idHashCodeMap
 
-    // Read the existing idHashCode, if one exists
-    // TODO: we can't use JavaScript to check the object equality in WASI host, ref.eq?
-    fb += GlobalGet(genGlobalID.idHashCodeMap)
-    fb += LocalGet(objNonNullLocal)
-    fb += Call(genFunctionID.idHashCodeGet)
-    fb += LocalTee(resultLocal)
-
-    // If it is 0, there was no recorded idHashCode yet; allocate a new one
-    fb += I32Eqz
-    fb.ifThen() {
-      // Allocate a new idHashCode
-      fb += GlobalGet(genGlobalID.lastIDHashCode)
-      fb += I32Const(1)
-      fb += I32Add
-      fb += LocalTee(resultLocal)
-      fb += GlobalSet(genGlobalID.lastIDHashCode)
-
-      // Store it for next time
+      // Read the existing idHashCode, if one exists
       fb += GlobalGet(genGlobalID.idHashCodeMap)
       fb += LocalGet(objNonNullLocal)
-      fb += LocalGet(resultLocal)
-      fb += Call(genFunctionID.idHashCodeSet)
-    }
+      fb += Call(genFunctionID.idHashCodeGet)
+      fb += LocalTee(resultLocal)
 
-    fb += LocalGet(resultLocal)
+      // If it is 0, there was no recorded idHashCode yet; allocate a new one
+      fb += I32Eqz
+      fb.ifThen() {
+        // Allocate a new idHashCode
+        fb += GlobalGet(genGlobalID.lastIDHashCode)
+        fb += I32Const(1)
+        fb += I32Add
+        fb += LocalTee(resultLocal)
+        fb += GlobalSet(genGlobalID.lastIDHashCode)
+
+        // Store it for next time
+        fb += GlobalGet(genGlobalID.idHashCodeMap)
+        fb += LocalGet(objNonNullLocal)
+        fb += LocalGet(resultLocal)
+        fb += Call(genFunctionID.idHashCodeSet)
+      }
+
+      fb += LocalGet(resultLocal)
+    } else {
+      // TODO: we can't use JavaScript to check the object equality in WASI host
+      // maybe we can store the random value somewhere in vtable and cache it
+      // so the same object always return the same value
+      fb += Drop
+      fb += I32Const(0)
+    }
 
     fb.buildAndAddToModule()
   }

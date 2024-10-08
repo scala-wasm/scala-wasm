@@ -653,6 +653,8 @@ private class FunctionEmitter private (
             genBox(watpe.Int32, SpecialNames.CharBoxClass)
           case LongType =>
             genBox(watpe.Int64, SpecialNames.LongBoxClass)
+          case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Int32, SpecialNames.BooleanBoxClass)
           case NoType | NothingType =>
             throw new AssertionError(s"Unexpected adaptation from $primType to $expectedType")
           case _ =>
@@ -1338,7 +1340,10 @@ private class FunctionEmitter private (
         case DoubleLiteral(v)  => fb += wa.F64Const(v)
 
         case Undefined() =>
-          fb += wa.GlobalGet(genGlobalID.undef)
+          if (true /*isWASI*/) // scalastyle:ignore
+            fb += wa.RefNull(watpe.HeapType.None) // use null for undefined in WASI (is this ok?)
+          else
+            fb += wa.GlobalGet(genGlobalID.undef)
         case Null() =>
           fb += wa.RefNull(watpe.HeapType.None)
 
@@ -2128,6 +2133,9 @@ private class FunctionEmitter private (
       case LongType =>
         val structTypeID = genTypeID.forClass(SpecialNames.LongBoxClass)
         fb += wa.RefTest(watpe.RefType(structTypeID))
+      case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.BooleanBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
       case NoType | NothingType | NullType =>
         throw new AssertionError(s"Illegal isInstanceOf[$testType]")
       case testType: PrimTypeWithRef =>
@@ -2336,10 +2344,36 @@ private class FunctionEmitter private (
    *  The type left on the stack is non-nullable.
    */
   private def genUnbox(targetTpe: PrimType): Unit = {
+    def unboxDerivedClass(): Unit = {
+      val boxClass =
+        if (targetTpe == CharType) SpecialNames.CharBoxClass
+        else if (targetTpe == LongType) SpecialNames.LongBoxClass
+        else SpecialNames.BooleanBoxClass
+      val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
+      val resultType = transformPrimType(targetTpe)
+
+      fb.block(Sig(List(watpe.RefType.anyref), List(resultType))) { doneLabel =>
+        fb.block(Sig(List(watpe.RefType.anyref), Nil)) { isNullLabel =>
+          fb += wa.BrOnNull(isNullLabel)
+          val structTypeID = genTypeID.forClass(boxClass)
+          fb += wa.RefCast(watpe.RefType(structTypeID))
+          fb += wa.StructGet(
+            structTypeID,
+            genFieldID.forClassInstanceField(fieldName)
+          )
+          fb += wa.Br(doneLabel)
+        }
+        fb += genZeroOf(targetTpe)
+      }
+    }
     targetTpe match {
       case UndefType =>
-        fb += wa.Drop
-        fb += wa.GlobalGet(genGlobalID.undef)
+        if (true /*isWASI*/) { // scalastyle:ignore
+          throw new Error("undefined shouldn't appear in WASI?")
+        } else {
+          fb += wa.Drop
+          fb += wa.GlobalGet(genGlobalID.undef)
+        }
 
       case StringType =>
         if (true /*isWASI*/) { // scalastyle:ignore
@@ -2360,26 +2394,10 @@ private class FunctionEmitter private (
 
       case CharType | LongType =>
         // Extract the `value` field (the only field) out of the box class.
+        unboxDerivedClass()
 
-        val boxClass =
-          if (targetTpe == CharType) SpecialNames.CharBoxClass
-          else SpecialNames.LongBoxClass
-        val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
-        val resultType = transformPrimType(targetTpe)
-
-        fb.block(Sig(List(watpe.RefType.anyref), List(resultType))) { doneLabel =>
-          fb.block(Sig(List(watpe.RefType.anyref), Nil)) { isNullLabel =>
-            fb += wa.BrOnNull(isNullLabel)
-            val structTypeID = genTypeID.forClass(boxClass)
-            fb += wa.RefCast(watpe.RefType(structTypeID))
-            fb += wa.StructGet(
-              structTypeID,
-              genFieldID.forClassInstanceField(fieldName)
-            )
-            fb += wa.Br(doneLabel)
-          }
-          fb += genZeroOf(targetTpe)
-        }
+      case BooleanType if true /*isWASI*/ =>
+        unboxDerivedClass()
 
       case NothingType | NullType | NoType =>
         throw new IllegalArgumentException(s"Illegal type in genUnbox: $targetTpe")
