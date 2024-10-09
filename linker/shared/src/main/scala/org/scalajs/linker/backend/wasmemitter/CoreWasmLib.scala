@@ -411,7 +411,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // addHelperImport(genFunctionID.longToString, List(Int64), List(RefType.extern))
     // addHelperImport(genFunctionID.doubleToString, List(Float64), List(RefType.extern))
 
-    addHelperImport(genFunctionID.jsValueType, List(RefType.any), List(Int32))
+    if (true /*isWASI*/) // scalastyle:ignore
+      genStubJSValueType()
+    else
+      addHelperImport(genFunctionID.jsValueType, List(RefType.any), List(Int32))
     // addHelperImport(genFunctionID.jsValueDescription, List(anyref), List(RefType.extern))
     // addHelperImport(genFunctionID.bigintHashCode, List(RefType.any), List(Int32))
     // addHelperImport(
@@ -3659,6 +3662,19 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
       fb.buildAndAddToModule()
     }
+  }
+
+  private def genStubJSValueType()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.jsValueType)
+    fb.addParam("x", RefType.any)
+    fb.setResultType(Int32)
+
+    genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {}
+    fb += ExternConvertAny
+    fb += Throw(genTagID.exception)
+
+    fb.buildAndAddToModule()
   }
 
 
