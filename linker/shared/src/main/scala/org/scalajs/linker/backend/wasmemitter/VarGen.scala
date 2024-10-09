@@ -109,6 +109,10 @@ object VarGen {
 
     case object start extends FunctionID
 
+    // WASI
+    final case object f32Fmod extends FunctionID
+    final case object f64Fmod extends FunctionID
+
     // JS helpers
 
     /** A `FunctionID` for a JS helper function.

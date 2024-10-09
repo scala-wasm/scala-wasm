@@ -145,8 +145,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     genBoxedZeroGlobals()
 
-    if (true/*isWASI*/) // scalastyle:ignore
+    if (true/*isWASI*/) { // scalastyle:ignore
       genUndefinedAndIsUndef()
+      genNaiveFmod()
+    }
   }
 
   // --- Type definitions ---
@@ -404,11 +406,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       addHelperImport(genFunctionID.typeTest(IntRef), List(anyref), List(Int32))
     }
 
-    addHelperImport(genFunctionID.fmod, List(Float64, Float64), List(Float64))
-
     addHelperImport(genFunctionID.jsValueType, List(RefType.any), List(Int32))
 
     if (false /*!isWASI*/) { // scalastyle:ignore
+      addHelperImport(genFunctionID.fmod, List(Float64, Float64), List(Float64))
+
       addHelperImport(genFunctionID.jsValueToString, List(RefType.any), List(RefType.extern))
       addHelperImport(genFunctionID.jsValueToStringForConcat, List(anyref), List(RefType.extern))
       addHelperImport(genFunctionID.booleanToString, List(Int32), List(RefType.extern))
@@ -3728,6 +3730,48 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb += RefTest(RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)))
     fb.buildAndAddToModule()
   }
+
+  // TODO: https://262.ecma-international.org/#sec-numeric-types-number-remainder
+  private def genNaiveFmod()(implicit ctx: WasmContext): Unit = {
+    // f32.fmod
+    {
+      val fb = newFunctionBuilder(genFunctionID.f32Fmod)
+      val x = fb.addParam("x", Float32)
+      val y = fb.addParam("y", Float32)
+      fb.setResultType(Float32)
+
+      fb += LocalGet(x)
+      fb += LocalGet(y)
+      fb += F32Div
+      fb += F32Floor
+      fb += LocalGet(y)
+      fb += F32Mul
+      fb += LocalGet(x)
+      fb += F32Sub
+
+      fb.buildAndAddToModule()
+    }
+
+    // f64.fmod
+    {
+      val fb = newFunctionBuilder(genFunctionID.f64Fmod)
+      val x = fb.addParam("x", Float64)
+      val y = fb.addParam("y", Float64)
+      fb.setResultType(Float64)
+
+      fb += LocalGet(x)
+      fb += LocalGet(y)
+      fb += F64Div
+      fb += F64Floor
+      fb += LocalGet(y)
+      fb += F64Mul
+      fb += LocalGet(x)
+      fb += F64Sub
+
+      fb.buildAndAddToModule()
+    }
+  }
+
 
   private def maybeWrapInUBE(fb: FunctionBuilder, behavior: CheckedBehavior)(
       genExceptionInstance: => Unit): Unit = {
