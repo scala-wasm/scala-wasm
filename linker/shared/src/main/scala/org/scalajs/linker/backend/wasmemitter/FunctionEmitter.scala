@@ -1680,14 +1680,20 @@ private class FunctionEmitter private (
         genTree(rhs, FloatType)
         fb += wa.F64PromoteF32
         markPosition(tree)
-        fb += wa.Call(genFunctionID.fmod)
+        if (true /*isWASI*/)
+          fb += wa.Call(genFunctionID.f32Fmod)
+        else
+          fb += wa.Call(genFunctionID.fmod)
         fb += wa.F32DemoteF64
         FloatType
       case Double_% =>
         genTree(lhs, DoubleType)
         genTree(rhs, DoubleType)
         markPosition(tree)
-        fb += wa.Call(genFunctionID.fmod)
+        if (true /*isWASI*/)
+          fb += wa.Call(genFunctionID.f64Fmod)
+        else
+          fb += wa.Call(genFunctionID.fmod)
         DoubleType
 
       case String_charAt =>
