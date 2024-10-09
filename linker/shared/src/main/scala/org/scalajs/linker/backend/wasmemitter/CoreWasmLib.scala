@@ -125,11 +125,14 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genImports()
 
     genEmptyITable()
+
     genPrimitiveTypeDataGlobals()
 
     genHelperDefinitions()
 
-    if (true) genWASIImports() // isWASI
+    if (true /*isWASI*/) { // scalastyle:ignore
+      genWASIImports()
+    }
   }
 
   /** Generates definitions that must come *after* the code generated for regular classes.
@@ -141,6 +144,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genArrayClassTypes()
 
     genBoxedZeroGlobals()
+
+    if (true/*isWASI*/) // scalastyle:ignore
+      genUndefinedAndIsUndef()
   }
 
   // --- Type definitions ---
@@ -366,9 +372,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       )
     }
 
-    addHelperImport(genFunctionID.is, List(anyref, anyref), List(Int32))
+    if (false /*!isWASI*/) { // scalastyle:ignore
+      addHelperImport(genFunctionID.is, List(anyref, anyref), List(Int32))
 
-    addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
+      addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
+    }
 
     val prims = if (true /*isWASI*/) // scalastyle:ignore
       Nil
@@ -1257,7 +1265,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
    */
   private def genPrimitiveAsInstances()(implicit ctx: WasmContext): Unit = {
     val primTypesWithAsInstances: List[PrimType] = List(
-      // UndefType,
+      UndefType,
       BooleanType,
       CharType,
       ByteType,
@@ -3692,6 +3700,32 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += Call(genFunctionID.stringBuiltins.equals)
     }
 
+    fb.buildAndAddToModule()
+  }
+
+  private def genUndefinedAndIsUndef()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    ctx.addGlobal(
+      Global(
+        genGlobalID.undef,
+        OriginalName(genGlobalID.undef.toString()),
+        isMutable = false,
+        RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)),
+        Expr(List(
+          GlobalGet(genGlobalID.forVTable(SpecialNames.UnitBoxClass)),
+          GlobalGet(genGlobalID.emptyITable),
+          I32Const(0),
+          RefI31, // whatever, maybe we should derive a class that doesn't have field for undef
+          StructNew(genTypeID.forClass(SpecialNames.UnitBoxClass))
+        ))
+      )
+    )
+
+    val fb = newFunctionBuilder(genFunctionID.isUndef)
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+    fb += LocalGet(xParam)
+    fb += RefTest(RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)))
     fb.buildAndAddToModule()
   }
 

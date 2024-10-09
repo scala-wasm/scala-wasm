@@ -1347,10 +1347,7 @@ private class FunctionEmitter private (
         case DoubleLiteral(v)  => fb += wa.F64Const(v)
 
         case Undefined() =>
-          if (true /*isWASI*/) // scalastyle:ignore
-            fb += wa.RefNull(watpe.HeapType.None) // use null for undefined in WASI (is this ok?)
-          else
-            fb += wa.GlobalGet(genGlobalID.undef)
+          fb += wa.GlobalGet(genGlobalID.undef)
         case Null() =>
           fb += wa.RefNull(watpe.HeapType.None)
 
@@ -2385,12 +2382,8 @@ private class FunctionEmitter private (
     }
     targetTpe match {
       case UndefType =>
-        if (true /*isWASI*/) { // scalastyle:ignore
-          throw new Error("undefined shouldn't appear in WASI?")
-        } else {
-          fb += wa.Drop
-          fb += wa.GlobalGet(genGlobalID.undef)
-        }
+        fb += wa.Drop
+        fb += wa.GlobalGet(genGlobalID.undef)
 
       case StringType =>
         if (true /*isWASI*/) { // scalastyle:ignore

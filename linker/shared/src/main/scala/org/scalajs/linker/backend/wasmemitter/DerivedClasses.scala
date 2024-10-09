@@ -38,7 +38,8 @@ object DerivedClasses {
           (clazz.className == BoxedBooleanClass && true /*isWASi*/) || // scalastyle:ignore
           (clazz.className == BoxedIntegerClass && true /*isWASi*/) || // scalastyle:ignore
           (clazz.className == BoxedFloatClass && true /*isWASi*/) || // scalastyle:ignore
-          (clazz.className == BoxedDoubleClass && true /*isWASi*/) => // scalastyle:ignore
+          (clazz.className == BoxedDoubleClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedUnitClass && true /*isWASi*/) => // scalastyle:ignore
         deriveBoxClass(clazz)
     }
   }
@@ -88,7 +89,10 @@ object DerivedClasses {
 
     val className = clazz.className
     val derivedClassName = className.withSuffix("Box")
-    val primType = BoxedClassToPrimType(className).asInstanceOf[PrimTypeWithRef]
+    val primType = BoxedClassToPrimType(className)
+    val primRef =
+      if (clazz.className == BoxedUnitClass) None
+      else Some(primType.asInstanceOf[PrimTypeWithRef].primRef)
     val derivedThisType = ClassType(derivedClassName, nullable = false)
 
     val fieldName = FieldName(derivedClassName, valueFieldSimpleName)
@@ -104,7 +108,8 @@ object DerivedClasses {
       ParamDef(LocalIdent(fieldName.simpleName.toLocalName), NON, primType, mutable = false)
     val derivedCtor = MethodDef(
       EMF.withNamespace(MemberNamespace.Constructor),
-      MethodIdent(MethodName.constructor(List(primType.primRef))),
+      // Undefined would have wired constructor, but we never call the constructor for Boxed Unit class
+      MethodIdent(MethodName.constructor(primRef.toList)),
       NON,
       List(ctorParamDef),
       NoType,
@@ -152,5 +157,6 @@ object DerivedClasses {
       dynamicDependencies = Set.empty,
       clazz.version
     )
+
   }
 }
