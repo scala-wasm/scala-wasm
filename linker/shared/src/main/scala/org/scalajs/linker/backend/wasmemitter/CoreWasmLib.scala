@@ -371,7 +371,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
 
     val prims = if (true /*isWASI*/) // scalastyle:ignore
-      List(FloatType, DoubleType)
+      Nil
     else
       List(BooleanType, FloatType, DoubleType)
 
@@ -384,13 +384,22 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       addHelperImport(genFunctionID.typeTest(primRef), List(anyref), List(Int32))
     }
 
-    addHelperImport(genFunctionID.bIFallback, List(Int32), List(RefType.any))
-    addHelperImport(genFunctionID.uIFallback, List(anyref), List(Int32))
-    addHelperImport(genFunctionID.typeTest(IntRef), List(anyref), List(Int32))
+    if (true /*isWASI*/) { // scalastyle:ignore
+      genBoxIntFallback()
+      genUnbox(genFunctionID.uIFallback, IntType)
+      genUnbox(genFunctionID.unbox(FloatRef), FloatType)
+      genUnbox(genFunctionID.unbox(DoubleRef), DoubleType)
+      genTestInteger()
+    } else {
+      addHelperImport(genFunctionID.bIFallback, List(Int32), List(RefType.any))
+      addHelperImport(genFunctionID.uIFallback, List(anyref), List(Int32))
+      addHelperImport(genFunctionID.typeTest(IntRef), List(anyref), List(Int32))
+    }
 
     addHelperImport(genFunctionID.fmod, List(Float64, Float64), List(Float64))
 
     addHelperImport(genFunctionID.jsValueType, List(RefType.any), List(Int32))
+
     if (false /*!isWASI*/) { // scalastyle:ignore
       addHelperImport(genFunctionID.jsValueToString, List(RefType.any), List(RefType.extern))
       addHelperImport(genFunctionID.jsValueToStringForConcat, List(anyref), List(RefType.extern))
@@ -510,7 +519,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val primTypesWithBoxClasses: List[(GlobalID, ClassName, Instr)] = List(
       (genGlobalID.bZeroChar, SpecialNames.CharBoxClass, I32Const(0)),
       (genGlobalID.bZeroLong, SpecialNames.LongBoxClass, I64Const(0)),
-      (genGlobalID.bZeroBoolean, SpecialNames.BooleanBoxClass, I32Const(0))
+      (genGlobalID.bZeroBoolean, SpecialNames.BooleanBoxClass, I32Const(0)),
+      (genGlobalID.bZeroInteger, SpecialNames.IntegerBoxClass, I32Const(0)),
+      (genGlobalID.bZeroFloat, SpecialNames.FloatBoxClass, F32Const(0)),
+      (genGlobalID.bZeroDouble, SpecialNames.DoubleBoxClass, F64Const(0))
     )
 
     for ((globalID, boxClassName, zeroValueInstr) <- primTypesWithBoxClasses) {
@@ -714,6 +726,20 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule()
   }
 
+  private def genBoxIntFallback()(implicit ctx: WasmContext): Unit = {
+    assert(true/*isWASI*/) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.bIFallback)
+    val xParam = fb.addParam("x", Int32)
+    fb.setResultType(RefType.any)
+
+    fb += GlobalGet(genGlobalID.forVTable(SpecialNames.IntegerBoxClass))
+    fb += GlobalGet(genGlobalID.forITable(SpecialNames.IntegerBoxClass))
+    fb += LocalGet(xParam)
+    fb += StructNew(genTypeID.forClass(SpecialNames.IntegerBoxClass))
+
+    fb.buildAndAddToModule()
+  }
+
   private def genUnboxInt()(implicit ctx: WasmContext): Unit = {
     val fb = newFunctionBuilder(genFunctionID.unbox(IntRef))
     val xParam = fb.addParam("x", RefType.anyref)
@@ -729,6 +755,38 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     // Otherwise, use the fallback helper
     fb += Call(genFunctionID.uIFallback)
+
+    fb.buildAndAddToModule()
+  }
+
+  private def genUnbox(functionID: FunctionID, targetTpe: PrimType)(implicit ctx: WasmContext): Unit = {
+    assert(true/*isWASI*/) // scalastyle:ignore
+    assert(targetTpe == IntType || targetTpe == FloatType || targetTpe == DoubleType)
+    val fb = newFunctionBuilder(functionID)
+    val xParam = fb.addParam("x", RefType.anyref)
+    val resultType = transformPrimType(targetTpe)
+    fb.setResultType(resultType)
+
+    val boxClass =
+      if (targetTpe == IntType) SpecialNames.IntegerBoxClass
+      else if (targetTpe == FloatType) SpecialNames.FloatBoxClass
+      else SpecialNames.DoubleBoxClass
+    val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
+
+    fb += LocalGet(xParam)
+    fb.block(FunctionType(List(RefType.anyref), List(resultType))) { doneLabel =>
+      fb.block(FunctionType(List(RefType.anyref), Nil)) { isNullLabel =>
+        fb += BrOnNull(isNullLabel)
+        val structTypeID = genTypeID.forClass(boxClass)
+        fb += RefCast(RefType(structTypeID))
+        fb += StructGet(
+          structTypeID,
+          genFieldID.forClassInstanceField(fieldName)
+        )
+        fb += Br(doneLabel)
+      }
+      fb += genZeroOf(targetTpe)
+    }
 
     fb.buildAndAddToModule()
   }
@@ -784,6 +842,26 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // Note that all JS `number`s in the correct range are guaranteed to be i31ref's
     fb += Drop
     fb += I32Const(0)
+
+    fb.buildAndAddToModule()
+  }
+
+  private def genTestInteger()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.typeTest(IntRef))
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+
+    val intValueLocal = fb.addLocal("intValue", Int32)
+    val structTypeID = genTypeID.forClass(SpecialNames.IntegerBoxClass)
+
+    fb += LocalGet(xParam)
+    fb += RefTest(RefType.i31)
+    fb.ifThenElse(Int32) {
+      fb += I32Const(1)
+    } {
+      fb += LocalGet(xParam)
+      fb += RefTest(RefType(structTypeID))
+    }
 
     fb.buildAndAddToModule()
   }
@@ -1082,19 +1160,37 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb.block(objectType) { isCharLabel =>
         fb.block(objectType) { isLongLabel =>
           fb.block(objectType) { isBooleanLabel =>
-            // If it not our object, jump out of notOurObject
-            fb += LocalGet(valueParam)
-            fb += BrOnCastFail(notOurObjectLabel, anyref, objectType)
+            fb.block(objectType) { isIntegerLabel =>
+              fb.block(objectType) { isFloatLabel =>
+                fb.block(objectType) { isDoubleLabel =>
+                  // If it not our object, jump out of notOurObject
+                  fb += LocalGet(valueParam)
+                  fb += BrOnCastFail(notOurObjectLabel, anyref, objectType)
 
-            // If is a long or char box, jump out to the appropriate label
-            fb += BrOnCast(isLongLabel, objectType, RefType(genTypeID.forClass(SpecialNames.LongBoxClass)))
-            fb += BrOnCast(isCharLabel, objectType, RefType(genTypeID.forClass(SpecialNames.CharBoxClass)))
-            // TODO: add block only when it's WASI
-            fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
+                  // If is a long or char box, jump out to the appropriate label
+                  fb += BrOnCast(isLongLabel, objectType, RefType(genTypeID.forClass(SpecialNames.LongBoxClass)))
+                  fb += BrOnCast(isCharLabel, objectType, RefType(genTypeID.forClass(SpecialNames.CharBoxClass)))
+                  // TODO: add block only when it's WASI
+                  fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
+                  fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+                  fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+                  fb += BrOnCast(isBooleanLabel, objectType, RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
 
-            // Get and return the class name
-            fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
-            fb += ReturnCall(genFunctionID.typeDataName)
+                  // Get and return the class name
+                  fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+                  fb += ReturnCall(genFunctionID.typeDataName)
+                }
+
+                fb ++= ctx.stringPool.getConstantStringInstr("double")
+                fb += Return
+              }
+
+              fb ++= ctx.stringPool.getConstantStringInstr("float")
+              fb += Return
+            }
+
+            fb ++= ctx.stringPool.getConstantStringInstr("int")
+            fb += Return
           }
 
           // Return the constant string "boolean"
@@ -1200,7 +1296,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       val boxClass =
         if (primType == CharType) SpecialNames.CharBoxClass
         else if (primType == LongType) SpecialNames.LongBoxClass
-        else SpecialNames.BooleanBoxClass
+        else if (primType == BooleanType) SpecialNames.BooleanBoxClass
+        else if (primType == IntType) SpecialNames.IntegerBoxClass
+        else if (primType == FloatType) SpecialNames.FloatBoxClass
+        else SpecialNames.DoubleBoxClass
       val structTypeID = genTypeID.forClass(boxClass)
 
       fb.block(RefType.any) { castFailLabel =>
@@ -1258,7 +1357,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         case CharType | LongType =>
           genCastDerivedClass(objIsNullLabel)
 
-        case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+        // Anyway use BoxedInteger type rather than i31ref for ease
+        case BooleanType | FloatType | DoubleType if true /*isWASI*/ => // scalastyle:ignore
           genCastDerivedClass(objIsNullLabel)
 
         // For all other types, use type test, and separately unbox if required
@@ -1273,6 +1373,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                 fb += I31GetS
               fb += Return
             }
+            if (true /*isWASI*/) // scalastyle:ignore
+              genCastDerivedClass(objIsNullLabel)
           } else {
             fb += LocalGet(objParam)
             fb += BrOnNull(objIsNullLabel)
@@ -2038,7 +2140,12 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       },
       List(KindBoxedInteger) -> { () =>
         fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.typeTest(IntRef))
+        if (true /*isWASI*/) { // scalastyle:ignore
+          val structTypeID = genTypeID.forClass(SpecialNames.IntegerBoxClass)
+          fb += RefTest(RefType(structTypeID))
+        } else {
+          fb += Call(genFunctionID.typeTest(IntRef))
+        }
       },
       List(KindBoxedLong) -> { () =>
         fb += LocalGet(valueParam)
@@ -2047,11 +2154,21 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       },
       List(KindBoxedFloat) -> { () =>
         fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.typeTest(FloatRef))
+        if (true /*isWASI*/) { // scalastyle:ignore
+          val structTypeID = genTypeID.forClass(SpecialNames.FloatBoxClass)
+          fb += RefTest(RefType(structTypeID))
+        } else {
+          fb += Call(genFunctionID.typeTest(FloatRef))
+        }
       },
       List(KindBoxedDouble) -> { () =>
         fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.typeTest(DoubleRef))
+        if (true /*isWASI*/) { // scalastyle:ignore
+          val structTypeID = genTypeID.forClass(SpecialNames.DoubleBoxClass)
+          fb += RefTest(RefType(structTypeID))
+        } else {
+          fb += Call(genFunctionID.typeTest(DoubleRef))
+        }
       },
       List(KindBoxedString) -> { () =>
         fb += LocalGet(valueParam)
@@ -2737,8 +2854,27 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             fb += getHijackedClassTypeDataInstr(BoxedBooleanClass)
           } {
             fb += LocalGet(ourObjectLocal)
-            fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+            fb += RefTest(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+            fb.ifThenElse(typeDataType) {
+              fb += getHijackedClassTypeDataInstr(BoxedIntegerClass)
+            } {
+              fb += LocalGet(ourObjectLocal)
+              fb += RefTest(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+              fb.ifThenElse(typeDataType) {
+                fb += getHijackedClassTypeDataInstr(BoxedFloatClass)
+              } {
+                fb += LocalGet(ourObjectLocal)
+                fb += RefTest(RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
+                fb.ifThenElse(typeDataType) {
+                  fb += getHijackedClassTypeDataInstr(BoxedDoubleClass)
+                } {
+                  fb += LocalGet(ourObjectLocal)
+                  fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
+                }
+              }
+            }
           }
+
         } else {
           fb += LocalGet(ourObjectLocal)
           fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)

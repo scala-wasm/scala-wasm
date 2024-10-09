@@ -655,6 +655,13 @@ private class FunctionEmitter private (
             genBox(watpe.Int64, SpecialNames.LongBoxClass)
           case BooleanType if true /*isWASI*/ => // scalastyle:ignore
             genBox(watpe.Int32, SpecialNames.BooleanBoxClass)
+          // box int is handled in genBoxInt
+          // case IntType if true /*isWASI*/ => // scalastyle:ignore
+          //   genBox(watpe.Int32, SpecialNames.IntegerBoxClass)
+          case FloatType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Float32, SpecialNames.FloatBoxClass)
+          case DoubleType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Float64, SpecialNames.DoubleBoxClass)
           case NoType | NothingType =>
             throw new AssertionError(s"Unexpected adaptation from $primType to $expectedType")
           case _ =>
@@ -2137,6 +2144,15 @@ private class FunctionEmitter private (
       case BooleanType if true /*isWASI*/ => // scalastyle:ignore
         val structTypeID = genTypeID.forClass(SpecialNames.BooleanBoxClass)
         fb += wa.RefTest(watpe.RefType(structTypeID))
+      case IntType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.IntegerBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case FloatType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.FloatBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case DoubleType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.DoubleBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
       case NoType | NothingType | NullType =>
         throw new AssertionError(s"Illegal isInstanceOf[$testType]")
       case testType: PrimTypeWithRef =>
@@ -2397,7 +2413,8 @@ private class FunctionEmitter private (
         // Extract the `value` field (the only field) out of the box class.
         unboxDerivedClass()
 
-      case BooleanType if true /*isWASI*/ =>
+      // unbox int/float/double should be handled by unbox()
+      case BooleanType if true /*isWASI*/ => // scalastyle:ignore
         unboxDerivedClass()
 
       case NothingType | NullType | NoType =>

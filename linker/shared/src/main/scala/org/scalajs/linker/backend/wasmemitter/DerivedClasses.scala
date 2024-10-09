@@ -35,7 +35,10 @@ object DerivedClasses {
   def deriveClasses(classes: List[LinkedClass]): List[LinkedClass] = {
     classes.collect {
       case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass ||
-          (clazz.className == BoxedBooleanClass && true /*isWASi*/) => // scalastyle:ignore
+          (clazz.className == BoxedBooleanClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedIntegerClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedFloatClass && true /*isWASi*/) || // scalastyle:ignore
+          (clazz.className == BoxedDoubleClass && true /*isWASi*/) => // scalastyle:ignore
         deriveBoxClass(clazz)
     }
   }
