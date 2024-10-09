@@ -43,6 +43,9 @@ object FunctionEmitter {
 
   private val dotUTF8String = UTF8String(".")
 
+  private def genMaybeExternConvertAny(fb: FunctionBuilder): Unit =
+    if (false /*!isWASI*/) fb += wa.ExternConvertAny // scalastyle:ignore
+
   def emitFunction(
       functionID: wanme.FunctionID,
       originalName: OriginalName,
@@ -2204,7 +2207,7 @@ private class FunctionEmitter private (
     genNewScalaClass(ArithmeticExceptionClass, ctorName) {
       fb ++= ctx.stringPool.getConstantStringInstr("/ by zero")
     }
-    fb += wa.ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += wa.Throw(genTagID.exception)
   }
 

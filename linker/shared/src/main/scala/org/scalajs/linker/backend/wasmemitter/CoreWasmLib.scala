@@ -43,6 +43,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
   private implicit val noPos: Position = Position.NoPosition
 
+  private def genMaybeExternConvertAny(fb: FunctionBuilder): Unit = {
+    if (false /*!isWASI*/) fb += ExternConvertAny // scalastyle:ignore
+  }
+
   private val primRefsWithKinds = List(
     VoidRef -> KindVoid,
     BooleanRef -> KindBoolean,
@@ -296,19 +300,31 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
   }
 
   private def genTagImports()(implicit ctx: WasmContext): Unit = {
-    val exceptionSig = FunctionType(List(RefType.externref), Nil)
-    val typeID = ctx.moduleBuilder.functionTypeToTypeID(exceptionSig)
-    ctx.moduleBuilder.addImport(
-      Import(
-        "__scalaJSHelpers",
-        "JSTag",
-        ImportDesc.Tag(
+    if (true /*isWASI*/) { // scalastyle:ignore
+      val exceptionSig = FunctionType(List(RefType(genTypeID.forClass(ThrowableClass))), Nil)
+      val typeID = ctx.moduleBuilder.functionTypeToTypeID(exceptionSig)
+      ctx.moduleBuilder.addTag(
+        Tag(
           genTagID.exception,
           OriginalName(genTagID.exception.toString()),
           typeID
         )
       )
-    )
+    } else {
+      val exceptionSig = FunctionType(List(RefType.externref), Nil)
+      val typeID = ctx.moduleBuilder.functionTypeToTypeID(exceptionSig)
+      ctx.moduleBuilder.addImport(
+        Import(
+          "__scalaJSHelpers",
+          "JSTag",
+          ImportDesc.Tag(
+            genTagID.exception,
+            OriginalName(genTagID.exception.toString()),
+            typeID
+          )
+        )
+      )
+    }
   }
 
   private def genGlobalImports()(implicit ctx: WasmContext): Unit = {
@@ -1230,7 +1246,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       }
     }
 
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -1519,7 +1535,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += Call(genFunctionID.valueDescription)
       }
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -1548,7 +1564,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         }
       }
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -1577,7 +1593,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         }
       }
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -1597,7 +1613,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genNewScalaClass(fb, NullPointerExceptionClass, NoArgConstructorName) {
       }
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -1927,7 +1943,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           fb += LocalGet(indexParam)
         }
       }
-      fb += ExternConvertAny
+      genMaybeExternConvertAny(fb)
       fb += Throw(genTagID.exception)
     }
 
@@ -1968,7 +1984,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           fb += LocalGet(startParam)
         }
       }
-      fb += ExternConvertAny
+      genMaybeExternConvertAny(fb)
       fb += Throw(genTagID.exception)
     }
 
@@ -2024,7 +2040,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           fb += Select(Nil) // infer i32
         }
       }
-      fb += ExternConvertAny
+      genMaybeExternConvertAny(fb)
       fb += Throw(genTagID.exception)
     }
 
@@ -2055,7 +2071,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           " called before completion of its super constructor")
       fb += Call(genFunctionID.stringBuiltins.concat)
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -2611,7 +2627,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {
               // no argument
             }
-            fb += ExternConvertAny
+            genMaybeExternConvertAny(fb)
             fb += Throw(genTagID.exception)
           } else {
             val arrayTypeRef = ArrayTypeRef(primRef, 1)
@@ -3120,7 +3136,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         // TODO: maybe we can trap here? it shouldn't happen
         fb ++= ctx.stringPool.getConstantStringInstr("Method not found")
       }
-      fb += ExternConvertAny
+      genMaybeExternConvertAny(fb)
       fb += Throw(genTagID.exception)
     } else {
       // throw new TypeError("...")
@@ -3260,7 +3276,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           fb += RefNull(HeapType.NoExtern)
       }
     }
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
@@ -3444,7 +3460,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             fb += RefNull(HeapType.NoExtern)
         }
       }
-      fb += ExternConvertAny
+      genMaybeExternConvertAny(fb)
       fb += Throw(genTagID.exception)
     }
 
@@ -3671,7 +3687,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.setResultType(Int32)
 
     genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {}
-    fb += ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += Throw(genTagID.exception)
 
     fb.buildAndAddToModule()
