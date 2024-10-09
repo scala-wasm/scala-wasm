@@ -34,6 +34,7 @@ final class ModuleBuilder(functionSignatureProvider: ModuleBuilder.FunctionTypeP
   private var start: Option[FunctionID] = None
   private val elems: mutable.ListBuffer[Element] = new mutable.ListBuffer()
   private val datas: mutable.ListBuffer[Data] = new mutable.ListBuffer()
+  private val memories: mutable.ListBuffer[Memory] = new mutable.ListBuffer()
 
   def functionTypeToTypeID(sig: FunctionType): TypeID =
     functionSignatureProvider.functionTypeToTypeID(sig)
@@ -55,6 +56,7 @@ final class ModuleBuilder(functionSignatureProvider: ModuleBuilder.FunctionTypeP
   def setStart(startFunction: FunctionID): Unit = start = Some(startFunction)
   def addElement(element: Element): Unit = elems += element
   def addData(data: Data): Unit = datas += data
+  def addMemory(mem: Memory): Unit = memories += mem
 
   def build(): Module = {
     val builtTypes: List[RecType] = types.toList.map {
@@ -71,7 +73,8 @@ final class ModuleBuilder(functionSignatureProvider: ModuleBuilder.FunctionTypeP
       exports.toList,
       start,
       elems.toList,
-      datas.toList
+      datas.toList,
+      memories.toList
     )
   }
 }

@@ -42,10 +42,17 @@ object VarGen {
 
     case object bZeroChar extends GlobalID
     case object bZeroLong extends GlobalID
+    case object bZeroBoolean extends GlobalID
+    case object bZeroInteger extends GlobalID
+    case object bZeroFloat extends GlobalID
+    case object bZeroDouble extends GlobalID
     case object stringLiteralCache extends GlobalID
     case object emptyITable extends GlobalID
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
+    /* Next starting address on linear memory to allocate. */
+    case object currentAddress extends GlobalID
+    case object emptyStringArray extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -101,6 +108,10 @@ object VarGen {
     final case class postSuperStats(className: ClassName) extends FunctionID
 
     case object start extends FunctionID
+
+    // WASI
+    final case object f32Fmod extends FunctionID
+    final case object f64Fmod extends FunctionID
 
     // JS helpers
 
@@ -194,6 +205,14 @@ object VarGen {
     case object identityHashCode extends FunctionID
     case object searchReflectiveProxy extends FunctionID
 
+    // memory
+    case object allocate extends FunctionID
+    case object free extends FunctionID
+    // wasi preview 1
+    object wasip1 {
+      case object fd_write extends FunctionID
+    }
+
     private final case class SpecializedArrayCopyID(arrayBaseRef: NonArrayTypeRef) extends FunctionID
 
     def specializedArrayCopy(arrayTypeRef: ArrayTypeRef): FunctionID = {
@@ -220,6 +239,12 @@ object VarGen {
       case object concat extends JSHelperFunctionID
       case object substring extends JSHelperFunctionID
       case object equals extends JSHelperFunctionID
+    }
+
+    object string {
+      case object stringFromCharCode extends FunctionID
+      case object stringConcat extends FunctionID
+      case object stringEquals extends FunctionID
     }
   }
 
@@ -448,4 +473,7 @@ object VarGen {
     case object string extends DataID
   }
 
+  object genMemoryID {
+    case object memory extends MemoryID
+  }
 }

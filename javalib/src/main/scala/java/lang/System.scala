@@ -382,13 +382,18 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    import js.DynamicImplicits.truthValue
+    if (true) { // isWASI
+      // TODO: Implement WASIBasedPrintStream
+      ju.internal.wasm.io.printImpl(line, newLine = true)
+    } else {
+      import js.DynamicImplicits.truthValue
 
-    if (js.typeOf(global.console) != "undefined") {
-      if (isErr && global.console.error)
-        global.console.error(line)
-      else
-        global.console.log(line)
+      if (js.typeOf(global.console) != "undefined") {
+        if (isErr && global.console.error)
+          global.console.error(line)
+        else
+          global.console.log(line)
+      }
     }
   }
 }

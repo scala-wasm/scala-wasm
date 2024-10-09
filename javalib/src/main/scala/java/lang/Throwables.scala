@@ -32,8 +32,8 @@ class Throwable protected (s: String, private var e: Throwable,
    */
   private[this] var suppressed: Array[Throwable] = _
 
-  if (writableStackTrace)
-    fillInStackTrace()
+  // if (writableStackTrace)
+  //   fillInStackTrace()
 
   def initCause(cause: Throwable): Throwable = {
     e = cause
@@ -45,31 +45,31 @@ class Throwable protected (s: String, private var e: Throwable,
   def getLocalizedMessage(): String = getMessage()
 
   def fillInStackTrace(): Throwable = {
-    jsErrorForStackTrace = StackTrace.captureJSError(this)
+    // jsErrorForStackTrace = StackTrace.captureJSError(this)
     this
   }
 
   def getStackTrace(): Array[StackTraceElement] = {
     if (stackTrace eq null) {
-      if (writableStackTrace)
-        stackTrace = StackTrace.extract(jsErrorForStackTrace)
-      else
-        stackTrace = new Array[StackTraceElement](0)
+      // if (writableStackTrace)
+      //   stackTrace = StackTrace.extract(jsErrorForStackTrace)
+      // else
+      //   stackTrace = new Array[StackTraceElement](0)
     }
     stackTrace
   }
 
   def setStackTrace(stackTrace: Array[StackTraceElement]): Unit = {
-    if (writableStackTrace) {
-      var i = 0
-      while (i < stackTrace.length) {
-        if (stackTrace(i) eq null)
-          throw new NullPointerException()
-        i += 1
-      }
+    // if (writableStackTrace) {
+    //   var i = 0
+    //   while (i < stackTrace.length) {
+    //     if (stackTrace(i) eq null)
+    //       throw new NullPointerException()
+    //     i += 1
+    //   }
 
-      this.stackTrace = stackTrace.clone()
-    }
+    //   this.stackTrace = stackTrace.clone()
+    // }
   }
 
   def printStackTrace(): Unit = printStackTrace(System.err)

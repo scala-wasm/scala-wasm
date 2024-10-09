@@ -37,6 +37,7 @@ import EmbeddedConstants._
 import SWasmGen._
 import VarGen._
 import TypeTransformer._
+import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID.i16Array
 
 object FunctionEmitter {
 
@@ -57,6 +58,9 @@ object FunctionEmitter {
   private final val UseLegacyExceptionsForTryCatch = true
 
   private val dotUTF8String = UTF8String(".")
+
+  private def genMaybeExternConvertAny(fb: FunctionBuilder): Unit =
+    if (false /*!isWASI*/) fb += wa.ExternConvertAny // scalastyle:ignore
 
   def emitFunction(
       functionID: wanme.FunctionID,
@@ -618,6 +622,9 @@ private class FunctionEmitter private (
 
       case _: JSSuperConstructorCall =>
         throw new AssertionError(s"Invalid tree: $tree")
+
+      case _ =>
+        throw new AssertionError(s"Invalid tree: $tree at ${tree.pos}")
     }
 
     genAdapt(generatedType, expectedType)
@@ -649,6 +656,15 @@ private class FunctionEmitter private (
             genBox(watpe.Int32, SpecialNames.CharBoxClass)
           case LongType =>
             genBox(watpe.Int64, SpecialNames.LongBoxClass)
+          case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Int32, SpecialNames.BooleanBoxClass)
+          // box int is handled in genBoxInt
+          // case IntType if true /*isWASI*/ => // scalastyle:ignore
+          //   genBox(watpe.Int32, SpecialNames.IntegerBoxClass)
+          case FloatType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Float32, SpecialNames.FloatBoxClass)
+          case DoubleType if true /*isWASI*/ => // scalastyle:ignore
+            genBox(watpe.Float64, SpecialNames.DoubleBoxClass)
           case NoType | NothingType =>
             throw new AssertionError(s"Unexpected adaptation from $primType to $expectedType")
           case _ =>
@@ -662,10 +678,11 @@ private class FunctionEmitter private (
             fb += wa.Call(genFunctionID.box(primType.primRef))
         }
       case (StringType | ClassType(BoxedStringClass, _), _) =>
-        expectedType match {
-          case ClassType(BoxedStringClass, _) => ()
-          case _                              => fb += wa.AnyConvertExtern
-        }
+        if (false /*!isWASI*/) // scalastyle:ignore
+          expectedType match {
+            case ClassType(BoxedStringClass, _) => ()
+            case _                              => fb += wa.AnyConvertExtern
+          }
       case _ =>
         ()
     }
@@ -764,6 +781,7 @@ private class FunctionEmitter private (
                 s"ArraySelect.array must be an array type, but has type ${array.tpe}")
         }
 
+      /*
       case JSPrivateSelect(qualifier, field) =>
         genTree(qualifier, AnyType)
         fb += wa.GlobalGet(genGlobalID.forJSPrivateField(field.name))
@@ -793,6 +811,7 @@ private class FunctionEmitter private (
         }
         markPosition(tree)
         fb += wa.Call(helperID)
+      */
 
       case VarRef(LocalIdent(name)) =>
         genTree(rhs, lhs.tpe)
@@ -803,6 +822,9 @@ private class FunctionEmitter private (
         genTree(rhs, lhs.tpe)
         markPosition(tree)
         genWriteToStorage(lookupRecordSelect(lhs))
+
+      case _ =>
+        ???
     }
 
     NoType
@@ -1079,7 +1101,13 @@ private class FunctionEmitter private (
         if (methodName == toStringMethodName) {
           // By spec, toString() is special
           assert(argsLocals.isEmpty)
-          fb += wa.Call(genFunctionID.jsValueToString)
+          if (true /*isWASI*/) { // scalastyle:ignore
+            // TODO: we shouldn't reach here in WASI
+            fb += wa.Drop
+            fb ++= ctx.stringPool.getConstantStringInstr("todo")
+          } else {
+            fb += wa.Call(genFunctionID.jsValueToString)
+          }
         } else if (receiverClassName == JLNumberClass) {
           // the value must be a `number`, hence we can unbox to `double`
           genUnbox(DoubleType)
@@ -1087,7 +1115,8 @@ private class FunctionEmitter private (
           genHijackedClassCall(BoxedDoubleClass)
         } else if (receiverClassName == CharSequenceClass) {
           // the value must be a `string`
-          fb += wa.ExternConvertAny
+          if (false /*!isWASI*/) fb += wa.ExternConvertAny // scalastyle:ignore
+          // boxed string class shouldn
           pushArgs(argsLocals)
           genHijackedClassCall(BoxedStringClass)
         } else if (methodName == compareToMethodName) {
@@ -1240,6 +1269,11 @@ private class FunctionEmitter private (
           case Some(primReceiverType) =>
             if (receiver.tpe == primReceiverType) {
               genTreeAuto(receiver)
+            } else if ( // isWASI
+              receiver.tpe == ClassType(BoxedStringClass, false) &&
+              primReceiverType == StringType
+            ) {
+              genTreeAuto(receiver)
             } else {
               genTreeToAny(receiver)
               genAsNonNullOrNPEFor(receiver)
@@ -1297,7 +1331,10 @@ private class FunctionEmitter private (
        * `extern.convert_from_any` in `genAdapt`.
        */
       markPosition(tree)
-      fb += wa.RefNull(watpe.HeapType.NoExtern)
+      if (true /*isWASI*/) // scalastyle:ignore
+        fb += wa.RefNull(watpe.HeapType(genTypeID.i16Array))
+      else
+        fb += wa.RefNull(watpe.HeapType.NoExtern)
       expectedType
     } else {
       markPosition(tree)
@@ -1438,7 +1475,7 @@ private class FunctionEmitter private (
 
       // String.length
       case String_length =>
-        fb += wa.Call(genFunctionID.stringBuiltins.length)
+        fb += wa.ArrayLen
 
       // Null check
       case CheckNotNull =>
@@ -1558,14 +1595,20 @@ private class FunctionEmitter private (
         genTree(rhs, FloatType)
         fb += wa.F64PromoteF32
         markPosition(tree)
-        fb += wa.Call(genFunctionID.fmod)
+        if (true /*isWASI*/)
+          fb += wa.Call(genFunctionID.f32Fmod)
+        else
+          fb += wa.Call(genFunctionID.fmod)
         fb += wa.F32DemoteF64
         FloatType
       case Double_% =>
         genTree(lhs, DoubleType)
         genTree(rhs, DoubleType)
         markPosition(tree)
-        fb += wa.Call(genFunctionID.fmod)
+        if (true /*isWASI*/)
+          fb += wa.Call(genFunctionID.f64Fmod)
+        else
+          fb += wa.Call(genFunctionID.fmod)
         DoubleType
 
       case String_charAt =>
@@ -1573,7 +1616,10 @@ private class FunctionEmitter private (
         genTree(rhs, IntType)
         markPosition(tree)
         if (semantics.stringIndexOutOfBounds == CheckedBehavior.Unchecked)
-          fb += wa.Call(genFunctionID.stringBuiltins.charCodeAt)
+          if (true /*isWASI*/) // scalastyle:ignore
+            fb += wa.ArrayGetU(genTypeID.i16Array)
+          else
+            fb += wa.Call(genFunctionID.stringBuiltins.charCodeAt)
         else
           fb += wa.Call(genFunctionID.checkedStringCharAt)
         CharType
@@ -1673,6 +1719,14 @@ private class FunctionEmitter private (
       fb += wa.RefIsNull
       maybeGenInvert()
       BooleanType
+    } else if (isStringType(lhsType) && isStringType(rhsType)) {
+      // string cannot be compared by req.eq
+      genTreeAuto(lhs)
+      genTreeAuto(rhs)
+      markPosition(tree)
+      fb += wa.Call(genFunctionID.string.stringEquals)
+      maybeGenInvert()
+      BooleanType
     } else if (canUseRefEq(lhsType) && canUseRefEq(rhsType)) {
       /* When both types translate to Wasm types that are subtypes of `eqref`,
        * we can use `ref.eq`. Note that for all possible `eqref`s (in all of
@@ -1683,13 +1737,6 @@ private class FunctionEmitter private (
       genTree(rhs, rhsType)
       markPosition(tree)
       fb += wa.RefEq
-      maybeGenInvert()
-      BooleanType
-    } else if (isStringType(lhsType) && isStringType(rhsType)) {
-      genTreeAuto(lhs)
-      genTreeAuto(rhs)
-      markPosition(tree)
-      fb += wa.Call(genFunctionID.stringBuiltins.equals)
       maybeGenInvert()
       BooleanType
     } else {
@@ -1776,13 +1823,14 @@ private class FunctionEmitter private (
         genToStringForConcat(lhs)
         genToStringForConcat(rhs)
         markPosition(tree)
-        fb += wa.Call(genFunctionID.stringBuiltins.concat)
+        fb += wa.Call(genFunctionID.string.stringConcat)
     }
 
     StringType
   }
 
   private def genToStringForConcat(tree: Tree): Unit = {
+    val stringType = if (true /*isWASI*/) watpe.RefType(i16Array) else watpe.RefType.extern // scalastyle:ignore
     def genWithDispatch(isAncestorOfHijackedClass: Boolean): Unit = {
       // TODO Better codegen when non-nullable
 
@@ -1816,7 +1864,7 @@ private class FunctionEmitter private (
          * end $done
          */
 
-        fb.block(watpe.RefType.extern) { labelDone =>
+        fb.block(stringType) { labelDone =>
           fb.block() { labelIsNull =>
             genTreeAuto(tree)
             markPosition(tree)
@@ -1845,7 +1893,7 @@ private class FunctionEmitter private (
          * end $done
          */
 
-        fb.block(watpe.RefType.extern) { labelDone =>
+        fb.block(stringType) { labelDone =>
           // First try the case where the value is one of our objects
           fb.block(watpe.RefType.anyref) { labelNotOurObject =>
             // Load receiver
@@ -1864,8 +1912,13 @@ private class FunctionEmitter private (
             fb += wa.RefNull(watpe.HeapType.Any)
           } // end block labelNotOurObject
 
-          // Now we have a value that is not one of our objects; the anyref is still on the stack
-          fb += wa.Call(genFunctionID.jsValueToStringForConcat)
+          if (true /*isWASI*/) { // scalastyle:ignore
+            fb += wa.Drop // there shouldn't be a js value
+            fb ++= ctx.stringPool.getConstantStringInstr("null")
+          } else {
+            // Now we have a value that is not one of our objects; the anyref is still on the stack
+            fb += wa.Call(genFunctionID.jsValueToStringForConcat)
+          }
         } // end block labelDone
       }
     }
@@ -1876,24 +1929,63 @@ private class FunctionEmitter private (
 
         markPosition(tree)
 
+        // TODO: not using JS functions
         primType match {
           case StringType =>
             () // no-op
           case BooleanType =>
-            fb += wa.Call(genFunctionID.booleanToString)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              fb += wa.I32Eqz
+              fb.ifThenElse(stringType) {
+                fb ++= ctx.stringPool.getConstantStringInstr("false")
+              } {
+                fb ++= ctx.stringPool.getConstantStringInstr("true")
+              }
+            } else {
+              fb += wa.Call(genFunctionID.booleanToString)
+            }
           case CharType =>
-            fb += wa.Call(genFunctionID.stringBuiltins.fromCharCode)
+            fb += wa.Call(genFunctionID.string.stringFromCharCode)
           case ByteType | ShortType | IntType =>
-            fb += wa.Call(genFunctionID.intToString)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              // TODO
+              fb += wa.Drop
+              fb ++= ctx.stringPool.getConstantStringInstr("0")
+            } else {
+              fb += wa.Call(genFunctionID.intToString)
+            }
           case LongType =>
-            fb += wa.Call(genFunctionID.longToString)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              // TODO
+              fb += wa.Drop
+              fb ++= ctx.stringPool.getConstantStringInstr("0")
+            } else {
+              fb += wa.Call(genFunctionID.longToString)
+            }
           case FloatType =>
-            fb += wa.F64PromoteF32
-            fb += wa.Call(genFunctionID.doubleToString)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              fb += wa.Drop
+              fb ++= ctx.stringPool.getConstantStringInstr("0")
+            } else {
+              fb += wa.F64PromoteF32
+              fb += wa.Call(genFunctionID.doubleToString)
+            }
           case DoubleType =>
-            fb += wa.Call(genFunctionID.doubleToString)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              fb += wa.Drop
+              fb ++= ctx.stringPool.getConstantStringInstr("0")
+            } else {
+              fb += wa.Call(genFunctionID.doubleToString)
+            }
           case NullType | UndefType =>
-            fb += wa.Call(genFunctionID.jsValueToStringForConcat)
+            if (true /*isWASI*/) { // scalastyle:ignore
+              fb += wa.Drop
+              fb ++=
+                (if (primType == NullType) ctx.stringPool.getConstantStringInstr("null")
+                else ctx.stringPool.getConstantStringInstr("undefined"))
+            } else {
+              fb += wa.Call(genFunctionID.jsValueToStringForConcat)
+            }
           case NothingType =>
             () // unreachable
           case NoType =>
@@ -1904,7 +1996,7 @@ private class FunctionEmitter private (
       case ClassType(BoxedStringClass, nullable) =>
         // Common case for which we want to avoid the hijacked class dispatch
         if (nullable) {
-          fb.block(watpe.RefType.extern) { notNullLabel =>
+          fb.block(stringType) { notNullLabel =>
             genTreeAuto(tree)
             markPosition(tree)
             fb += wa.BrOnNonNull(notNullLabel)
@@ -2028,7 +2120,7 @@ private class FunctionEmitter private (
     genNewScalaClass(ArithmeticExceptionClass, ctorName) {
       fb ++= ctx.stringPool.getConstantStringInstr("/ by zero")
     }
-    fb += wa.ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += wa.Throw(genTagID.exception)
   }
 
@@ -2043,13 +2135,29 @@ private class FunctionEmitter private (
       case UndefType =>
         fb += wa.Call(genFunctionID.isUndef)
       case StringType =>
-        fb += wa.ExternConvertAny
-        fb += wa.Call(genFunctionID.stringBuiltins.test)
+        if (true /*isWASI*/) { // scalastyle:ignore
+          fb += wa.RefTest(watpe.RefType(i16Array))
+        } else {
+          fb += wa.ExternConvertAny
+          fb += wa.Call(genFunctionID.stringBuiltins.test)
+        }
       case CharType =>
         val structTypeID = genTypeID.forClass(SpecialNames.CharBoxClass)
         fb += wa.RefTest(watpe.RefType(structTypeID))
       case LongType =>
         val structTypeID = genTypeID.forClass(SpecialNames.LongBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.BooleanBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case IntType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.IntegerBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case FloatType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.FloatBoxClass)
+        fb += wa.RefTest(watpe.RefType(structTypeID))
+      case DoubleType if true /*isWASI*/ => // scalastyle:ignore
+        val structTypeID = genTypeID.forClass(SpecialNames.DoubleBoxClass)
         fb += wa.RefTest(watpe.RefType(structTypeID))
       case NoType | NothingType | NullType =>
         throw new AssertionError(s"Illegal isInstanceOf[$testType]")
@@ -2259,41 +2367,57 @@ private class FunctionEmitter private (
    *  The type left on the stack is non-nullable.
    */
   private def genUnbox(targetTpe: PrimType): Unit = {
+    def unboxDerivedClass(): Unit = {
+      val boxClass =
+        if (targetTpe == CharType) SpecialNames.CharBoxClass
+        else if (targetTpe == LongType) SpecialNames.LongBoxClass
+        else SpecialNames.BooleanBoxClass
+      val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
+      val resultType = transformPrimType(targetTpe)
+
+      fb.block(Sig(List(watpe.RefType.anyref), List(resultType))) { doneLabel =>
+        fb.block(Sig(List(watpe.RefType.anyref), Nil)) { isNullLabel =>
+          fb += wa.BrOnNull(isNullLabel)
+          val structTypeID = genTypeID.forClass(boxClass)
+          fb += wa.RefCast(watpe.RefType(structTypeID))
+          fb += wa.StructGet(
+            structTypeID,
+            genFieldID.forClassInstanceField(fieldName)
+          )
+          fb += wa.Br(doneLabel)
+        }
+        fb += genZeroOf(targetTpe)
+      }
+    }
     targetTpe match {
       case UndefType =>
         fb += wa.Drop
         fb += wa.GlobalGet(genGlobalID.undef)
 
       case StringType =>
-        fb += wa.ExternConvertAny
-        val sig = watpe.FunctionType(List(watpe.RefType.externref), List(watpe.RefType.extern))
-        fb.block(sig) { nonNullLabel =>
-          fb += wa.BrOnNonNull(nonNullLabel)
-          fb += wa.GlobalGet(genGlobalID.emptyString)
+        if (true /*isWASI*/) { // scalastyle:ignore
+          val sig = watpe.FunctionType(List(watpe.RefType.nullable(genTypeID.i16Array)),
+              List(watpe.RefType(genTypeID.i16Array)))
+          fb.block(sig) { nonNullLabel =>
+            fb += wa.BrOnNonNull(nonNullLabel)
+            fb += wa.GlobalGet(genGlobalID.emptyStringArray)
+          }
+        } else {
+          fb += wa.ExternConvertAny
+          val sig = watpe.FunctionType(List(watpe.RefType.externref), List(watpe.RefType.extern))
+          fb.block(sig) { nonNullLabel =>
+            fb += wa.BrOnNonNull(nonNullLabel)
+            fb += wa.GlobalGet(genGlobalID.emptyString)
+          }
         }
 
       case CharType | LongType =>
         // Extract the `value` field (the only field) out of the box class.
+        unboxDerivedClass()
 
-        val boxClass =
-          if (targetTpe == CharType) SpecialNames.CharBoxClass
-          else SpecialNames.LongBoxClass
-        val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
-        val resultType = transformPrimType(targetTpe)
-
-        fb.block(Sig(List(watpe.RefType.anyref), List(resultType))) { doneLabel =>
-          fb.block(Sig(List(watpe.RefType.anyref), Nil)) { isNullLabel =>
-            fb += wa.BrOnNull(isNullLabel)
-            val structTypeID = genTypeID.forClass(boxClass)
-            fb += wa.RefCast(watpe.RefType(structTypeID))
-            fb += wa.StructGet(
-              structTypeID,
-              genFieldID.forClassInstanceField(fieldName)
-            )
-            fb += wa.Br(doneLabel)
-          }
-          fb += genZeroOf(targetTpe)
-        }
+      // unbox int/float/double should be handled by unbox()
+      case BooleanType if true /*isWASI*/ => // scalastyle:ignore
+        unboxDerivedClass()
 
       case NothingType | NullType | NoType =>
         throw new IllegalArgumentException(s"Illegal type in genUnbox: $targetTpe")
@@ -2528,7 +2652,7 @@ private class FunctionEmitter private (
 
     genTree(expr, AnyType)
     markPosition(tree)
-    fb += wa.ExternConvertAny
+    genMaybeExternConvertAny(fb)
     fb += wa.Throw(genTagID.exception)
 
     NothingType
@@ -3273,7 +3397,7 @@ private class FunctionEmitter private (
               fb += wa.BrIf(label)
             case StringLiteral(value) =>
               fb ++= ctx.stringPool.getConstantStringInstr(value)
-              fb += wa.Call(genFunctionID.stringBuiltins.equals)
+              fb += wa.Call(genFunctionID.string.stringEquals)
               fb += wa.BrIf(label)
             case Null() =>
               fb += wa.RefIsNull
@@ -3499,6 +3623,42 @@ private class FunctionEmitter private (
             fb += wa.Call(genFunctionID.checkedSubstringStartEnd)
         }
         value.tpe
+
+      case value @ WasmTransients.WasmAllocate(size) =>
+        genTreeAuto(size)
+        fb += wa.Call(genFunctionID.allocate)
+        value.tpe
+
+      case value @ WasmTransients.WasmFree() =>
+        fb += wa.I32Const(0)
+        fb += wa.GlobalSet(genGlobalID.currentAddress)
+        value.tpe
+
+      case value @ WasmTransients.WasmLoad(size, offset) =>
+        genTreeAuto(offset)
+        size match {
+          case WasmTransients.WasmType.I8 =>
+            fb += wa.I32Load8S(wa.MemoryArg())
+          case WasmTransients.WasmType.I32 =>
+            fb += wa.I32Load(wa.MemoryArg())
+        }
+        value.tpe
+
+      case value @ WasmTransients.WasmStore(size, offset, v) =>
+        genTreeAuto(offset)
+        genTreeAuto(v)
+        size match {
+          case WasmTransients.WasmType.I8 =>
+            fb += wa.I32Store8(wa.MemoryArg())
+          case WasmTransients.WasmType.I32 =>
+            fb += wa.I32Store(wa.MemoryArg())
+        }
+        value.tpe
+
+      case value @ WasmTransients.WasmFunctionCall(func, args, tpe) =>
+        for (a <- args) genTreeAuto(a)
+        fb += wa.Call(func)
+        tpe
 
       case other =>
         throw new AssertionError(s"Unknown transient: $other")

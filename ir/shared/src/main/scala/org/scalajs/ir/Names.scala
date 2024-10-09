@@ -616,6 +616,10 @@ object Names {
   val IllegalArgumentExceptionClass: ClassName =
     ClassName("java.lang.IllegalArgumentException")
 
+  /** The exception thrown by `MemoryAllocator.allocate` if wasm linear memory is out of memory. */
+  val OutOfMemoryErrorClass: ClassName =
+    ClassName("java.lang.OutOfMemoryError")
+
   /** The set of classes and interfaces that are ancestors of array classes. */
   private[ir] val AncestorsOfPseudoArrayClass: Set[ClassName] = {
     /* This would logically be defined in Types, but that introduces a cyclic

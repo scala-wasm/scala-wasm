@@ -34,6 +34,7 @@ import org.scalajs.linker.standard._
 import org.scalajs.linker.backend.emitter.LongImpl
 import org.scalajs.linker.backend.emitter.Transients._
 import org.scalajs.linker.backend.wasmemitter.WasmTransients._
+import org.scalajs.linker.backend.wasmemitter.VarGen.genFunctionID
 
 /** Optimizer core.
  *  Designed to be "mixed in" [[IncOptimizer#MethodImpl#Optimizer]].
@@ -52,6 +53,8 @@ private[optimizer] abstract class OptimizerCore(
   private def semantics: Semantics = config.coreSpec.semantics
 
   private val isWasm: Boolean = config.coreSpec.targetIsWebAssembly
+
+  private val isWASI: Boolean = true
 
   // Uncomment and adapt to print debug messages only during one method
   //lazy val debugThisMethod: Boolean =
@@ -152,7 +155,7 @@ private[optimizer] abstract class OptimizerCore(
     inlinedRTLongStructure.recordType.fields(1).name
 
   private val intrinsics =
-    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm)
+    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm, isWASI)
 
   def optimize(thisType: Type, params: List[ParamDef],
       jsClassCaptures: List[ParamDef], resultType: Type, body: Tree,
@@ -3267,6 +3270,17 @@ private[optimizer] abstract class OptimizerCore(
         contTree(Transient(TypedArrayToArray(finishTransformExpr(targs.head), FloatRef)))
       case Float64ArrayToDoubleArray =>
         contTree(Transient(TypedArrayToArray(finishTransformExpr(targs.head), DoubleRef)))
+
+      case MemoryAllocatorAllocate => contTree(Transient(WasmAllocate(finishTransformExpr(targs.head))))
+      case MemoryAllocatorFree => contTree(Transient(WasmFree()))
+      case MemorySegmentLoadByte => contTree(Transient(WasmLoad(WasmType.I8, finishTransformExpr(targs.head))))
+      case MemorySegmentLoadInt => contTree(Transient(WasmLoad(WasmType.I32, finishTransformExpr(targs.head))))
+      case MemorySegmentStoreByte => contTree(Transient(WasmStore(WasmType.I8,
+          finishTransformExpr(targs.head), finishTransformExpr(targs.tail.head))))
+      case MemorySegmentStoreInt => contTree(Transient(WasmStore(WasmType.I32,
+          finishTransformExpr(targs.head), finishTransformExpr(targs.tail.head))))
+      case Wasip1FdWrite => contTree(Transient(WasmFunctionCall(genFunctionID.wasip1.fd_write,
+          targs.map(finishTransformExpr), NoType)))
     }
   }
 
@@ -6527,12 +6541,21 @@ private[optimizer] object OptimizerCore {
     final val Float32ArrayToFloatArray  = Int32ArrayToIntArray      + 1
     final val Float64ArrayToDoubleArray = Float32ArrayToFloatArray  + 1
 
+    final val MemoryAllocatorAllocate = Float64ArrayToDoubleArray + 1
+    final val MemoryAllocatorFree     = MemoryAllocatorAllocate + 1
+    final val MemorySegmentLoadByte   = MemoryAllocatorFree + 1
+    final val MemorySegmentLoadInt    = MemorySegmentLoadByte + 1
+    final val MemorySegmentStoreByte  = MemorySegmentLoadInt + 1
+    final val MemorySegmentStoreInt   = MemorySegmentStoreByte + 1
+    final val Wasip1FdWrite           = MemorySegmentStoreInt + 1
+
     private def m(name: String, paramTypeRefs: List[TypeRef],
         resultTypeRef: TypeRef): MethodName = {
       MethodName(name, paramTypeRefs, resultTypeRef)
     }
 
     private val V = VoidRef
+    private val B = ByteRef
     private val I = IntRef
     private val J = LongRef
     private val F = FloatRef
@@ -6543,6 +6566,7 @@ private[optimizer] object OptimizerCore {
     private val SeqClassRef = ClassRef(ClassName("scala.collection.Seq"))
     private val JSObjectClassRef = ClassRef(ClassName("scala.scalajs.js.Object"))
     private val JSArrayClassRef = ClassRef(ClassName("scala.scalajs.js.Array"))
+    private val MemorySegmentClassRef = ClassRef(ClassName("java.util.internal.wasm.MemorySegment"))
 
     private def a(base: NonArrayTypeRef): ArrayTypeRef = ArrayTypeRef(base, 1)
 
@@ -6601,6 +6625,13 @@ private[optimizer] object OptimizerCore {
         )
     )
 
+    private val wasmJSStringIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
+        ClassName("java.lang.String") -> List(
+            m("substring", List(I), StringClassRef) -> StringSubstringStart,
+            m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+        )
+    )
+
     private val wasmIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
         ClassName("java.lang.Integer$") -> List(
             // note: numberOfLeadingZeros in already in the commonIntrinsics
@@ -6632,9 +6663,7 @@ private[optimizer] object OptimizerCore {
             m("toString", List(I), StringClassRef) -> CharacterCodePointToString
         ),
         ClassName("java.lang.String") -> List(
-            m("codePointAt", List(I), I) -> StringCodePointAt,
-            m("substring", List(I), StringClassRef) -> StringSubstringStart,
-            m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+            m("codePointAt", List(I), I) -> StringCodePointAt
         ),
         ClassName("java.lang.Math$") -> List(
             m("abs", List(F), F) -> MathAbsFloat,
@@ -6647,13 +6676,28 @@ private[optimizer] object OptimizerCore {
             m("min", List(D, D), D) -> MathMinDouble,
             m("max", List(F, F), F) -> MathMaxFloat,
             m("max", List(D, D), D) -> MathMaxDouble
+        ),
+        // WASI
+        ClassName("java.util.internal.wasm.MemoryAllocator") -> List(
+            m("allocate", List(I), MemorySegmentClassRef) -> MemoryAllocatorAllocate,
+            m("free", List(), V) -> MemoryAllocatorFree
+        ),
+        ClassName("java.util.internal.wasm.MemorySegment") -> List(
+            m("_loadByte", List(I), I) -> MemorySegmentLoadByte,
+            m("_loadInt", List(I), I) -> MemorySegmentLoadInt,
+            m("_storeByte", List(I, B), V) -> MemorySegmentStoreByte,
+            m("_storeInt", List(I, I), V) -> MemorySegmentStoreInt
+        ),
+        ClassName("java.util.internal.wasm.wasip1$") -> List(
+            m("fdWrite", List(I, I, I, I), I) -> Wasip1FdWrite
         )
     )
     // scalastyle:on line.size.limit
 
-    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean): Intrinsics = {
+    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean, isWASI: Boolean): Intrinsics = {
       val allIntrinsics = if (isWasm) {
-        commonIntrinsics ::: wasmIntrinsics
+        commonIntrinsics ::: wasmIntrinsics :::
+            (if (isWASI) Nil else wasmJSStringIntrinsics)
       } else {
         val baseIntrinsics = commonIntrinsics ::: baseJSIntrinsics
         if (esFeatures.allowBigIntsForLongs) baseIntrinsics

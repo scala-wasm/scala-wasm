@@ -179,7 +179,7 @@ const stringBuiltinPolyfills = {
   equals: (a, b) => a === b,
 };
 
-export async function load(wasmFileURL, linkingInfo, exportSetters, customJSHelpers) {
+export async function load(wasmFileURL, linkingInfo, exportSetters, customJSHelpers, wasi) {
   const myScalaJSHelpers = {
     ...scalaJSHelpers,
     jsLinkingInfo: linkingInfo,
@@ -190,6 +190,7 @@ export async function load(wasmFileURL, linkingInfo, exportSetters, customJSHelp
     "__scalaJSExportSetters": exportSetters,
     "__scalaJSCustomHelpers": customJSHelpers,
     "wasm:js-string": stringBuiltinPolyfills,
+    "wasi_snapshot_preview1": wasi.wasiImport,
   };
   const options = {
     builtins: ["js-string"],
@@ -200,9 +201,13 @@ export async function load(wasmFileURL, linkingInfo, exportSetters, customJSHelp
     const { readFile } = await import("node:fs/promises");
     const wasmPath = fileURLToPath(resolvedURL);
     const body = await readFile(wasmPath);
-    return WebAssembly.instantiate(body, importsObj, options);
+    let results = await WebAssembly.instantiate(body, importsObj, options);
+    wasi.start(results.instance);
+    return results;
   } else {
-    return await WebAssembly.instantiateStreaming(fetch(resolvedURL), importsObj, options);
+    let results = await WebAssembly.instantiateStreaming(fetch(resolvedURL), importsObj, options);
+    wasi.start(results.instance);
+    return results;
   }
 }
     """
