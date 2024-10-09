@@ -99,6 +99,10 @@ final class Emitter(config: Emitter.Config) {
       // > Data pointers in WASI API calls are relative to this memory's index space.
       // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md
       ctx.moduleBuilder.addExport(wamod.Export("memory", wamod.ExportDesc.Memory(genMemoryID.memory)))
+
+      // ctx.moduleBuilder.addTag(
+      //   wamod.Memory(genMemoryID.memory, OriginalName.NoOriginalName, wamod.Memory.Limits(1, None))
+      // )
     }
 
     genStartFunction(sortedClasses, moduleInitializers, topLevelExports)
