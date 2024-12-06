@@ -42,10 +42,15 @@ object VarGen {
 
     case object bZeroChar extends GlobalID
     case object bZeroLong extends GlobalID
+    case object bZeroBoolean extends GlobalID
+    case object bZeroInteger extends GlobalID
+    case object bZeroFloat extends GlobalID
+    case object bZeroDouble extends GlobalID
     case object stringLiteralCache extends GlobalID
     case object emptyITable extends GlobalID
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
+    case object emptyStringArray extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -101,6 +106,10 @@ object VarGen {
     final case class postSuperStats(className: ClassName) extends FunctionID
 
     case object start extends FunctionID
+
+    // WASI
+    final case object f32Fmod extends FunctionID
+    final case object f64Fmod extends FunctionID
 
     // JS helpers
 
@@ -221,6 +230,13 @@ object VarGen {
       case object concat extends JSHelperFunctionID
       case object substring extends JSHelperFunctionID
       case object equals extends JSHelperFunctionID
+    }
+
+    object string {
+      case object stringFromCharCode extends FunctionID
+      case object stringConcat extends FunctionID
+      case object stringEquals extends FunctionID
+
     }
   }
 
