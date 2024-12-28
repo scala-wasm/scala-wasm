@@ -311,7 +311,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
   private def genImports()(implicit ctx: WasmContext): Unit = {
     assert(!targetPureWasm)
-    genTagImports()
+    if (ctx.coreSpec.wasmFeatures.exceptionHandling) genTagImports()
     genGlobalImports()
     genStringBuiltinImports()
     genHelperImports()
@@ -1453,22 +1453,26 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val objParam = fb.addParam("obj", anyref)
     val typeDataParam = fb.addParam("typeData", typeDataType)
 
-    maybeWrapInUBE(fb, semantics.asInstanceOfs) {
-      genNewScalaClass(fb, ClassCastExceptionClass, SpecialNames.StringArgConstructorName) {
-        fb += LocalGet(objParam)
-        fb += Call(genFunctionID.valueDescription)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      maybeWrapInUBE(fb, semantics.asInstanceOfs) {
+        genNewScalaClass(fb, ClassCastExceptionClass, SpecialNames.StringArgConstructorName) {
+          fb += LocalGet(objParam)
+          fb += Call(genFunctionID.valueDescription)
 
-        fb ++= ctx.stringPool.getConstantStringInstr(" cannot be cast to ")
-        fb += Call(genFunctionID.string.stringConcat)
+          fb ++= ctx.stringPool.getConstantStringInstr(" cannot be cast to ")
+          fb += Call(genFunctionID.string.stringConcat)
 
-        fb += LocalGet(typeDataParam)
-        fb += Call(genFunctionID.typeDataName)
-        fb += Call(genFunctionID.string.stringConcat)
+          fb += LocalGet(typeDataParam)
+          fb += Call(genFunctionID.typeDataName)
+          fb += Call(genFunctionID.string.stringConcat)
+        }
       }
-    }
 
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else {
+      fb += Unreachable
+    }
 
     fb.buildAndAddToModule()
   }
@@ -1776,16 +1780,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val fb = newFunctionBuilder(genFunctionID.throwArrayStoreException)
     val valueParam = fb.addParam("value", anyref)
 
-    maybeWrapInUBE(fb, semantics.arrayStores) {
-      genNewScalaClass(fb, ArrayStoreExceptionClass,
-          SpecialNames.StringArgConstructorName) {
-        fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.valueDescription)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      maybeWrapInUBE(fb, semantics.arrayStores) {
+        genNewScalaClass(fb, ArrayStoreExceptionClass,
+            SpecialNames.StringArgConstructorName) {
+          fb += LocalGet(valueParam)
+          fb += Call(genFunctionID.valueDescription)
+        }
       }
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
-
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
     fb.buildAndAddToModule()
   }
 
@@ -1800,20 +1805,22 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val fb = newFunctionBuilder(genFunctionID.throwArrayIndexOutOfBoundsException)
     val indexParam = fb.addParam("index", Int32)
 
-    maybeWrapInUBE(fb, semantics.arrayIndexOutOfBounds) {
-      genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
-          SpecialNames.StringArgConstructorName) {
-        // TODO: support wasm native itoa
-        if (targetPureWasm) {
-          fb ++= ctx.stringPool.getConstantStringInstr("0")
-        } else {
-          fb += LocalGet(indexParam)
-          fb += Call(genFunctionID.intToString)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      maybeWrapInUBE(fb, semantics.arrayIndexOutOfBounds) {
+        genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
+            SpecialNames.StringArgConstructorName) {
+          // TODO: support wasm native itoa
+          if (targetPureWasm) {
+            fb ++= ctx.stringPool.getConstantStringInstr("0")
+          } else {
+            fb += LocalGet(indexParam)
+            fb += Call(genFunctionID.intToString)
+          }
         }
       }
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -1829,20 +1836,22 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val fb = newFunctionBuilder(genFunctionID.throwNegativeArraySizeException)
     val sizeParam = fb.addParam("size", Int32)
 
-    maybeWrapInUBE(fb, semantics.negativeArraySizes) {
-      genNewScalaClass(fb, NegativeArraySizeExceptionClass,
-          SpecialNames.StringArgConstructorName) {
-        // TODO: support wasm native itoa
-        if (targetPureWasm) {
-          fb ++= ctx.stringPool.getConstantStringInstr("0")
-        } else {
-          fb += LocalGet(sizeParam)
-          fb += Call(genFunctionID.intToString)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      maybeWrapInUBE(fb, semantics.negativeArraySizes) {
+        genNewScalaClass(fb, NegativeArraySizeExceptionClass,
+            SpecialNames.StringArgConstructorName) {
+          // TODO: support wasm native itoa
+          if (targetPureWasm) {
+            fb ++= ctx.stringPool.getConstantStringInstr("0")
+          } else {
+            fb += LocalGet(sizeParam)
+            fb += Call(genFunctionID.intToString)
+          }
         }
       }
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -1857,12 +1866,14 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     val fb = newFunctionBuilder(genFunctionID.throwNullPointerException)
 
-    maybeWrapInUBE(fb, semantics.nullPointers) {
-      genNewScalaClass(fb, NullPointerExceptionClass, NoArgConstructorName) {
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      maybeWrapInUBE(fb, semantics.nullPointers) {
+        genNewScalaClass(fb, NullPointerExceptionClass, NoArgConstructorName) {
+        }
       }
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -2182,15 +2193,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     else fb += Call(genFunctionID.stringBuiltins.length)
     fb += I32GeU // unsigned comparison makes negative values of index larger than the length
     fb.ifThen() {
-      // then, throw a StringIndexOutOfBoundsException
-      maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
-        genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
-            SpecialNames.IntArgConstructorName) {
-          fb += LocalGet(indexParam)
+      if (coreSpec.wasmFeatures.exceptionHandling) {
+        // then, throw a StringIndexOutOfBoundsException
+        maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
+          genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
+              SpecialNames.IntArgConstructorName) {
+            fb += LocalGet(indexParam)
+          }
         }
-      }
-      genMaybeExternConvertAny(fb)
-      fb += Throw(genTagID.exception)
+        genMaybeExternConvertAny(fb)
+        fb += Throw(genTagID.exception)
+      } else fb += Unreachable
     }
 
     // otherwise, read the char
@@ -2221,15 +2234,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb += Call(genFunctionID.stringBuiltins.length)
     fb += I32GtU
     fb.ifThen() {
-      // then, throw a StringIndexOutOfBoundsException
-      maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
-        genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
-            SpecialNames.IntArgConstructorName) {
-          fb += LocalGet(startParam)
+      if (coreSpec.wasmFeatures.exceptionHandling) {
+        // then, throw a StringIndexOutOfBoundsException
+        maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
+          genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
+              SpecialNames.IntArgConstructorName) {
+            fb += LocalGet(startParam)
+          }
         }
-      }
-      genMaybeExternConvertAny(fb)
-      fb += Throw(genTagID.exception)
+        genMaybeExternConvertAny(fb)
+        fb += Throw(genTagID.exception)
+      } else fb += Unreachable
     }
 
     // otherwise, call the substring builtin
@@ -2267,25 +2282,27 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb += I32GtU
     fb += I32Or
     fb.ifThen() {
-      // then, throw a StringIndexOutOfBoundsException
-      maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
-        genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
-            SpecialNames.IntArgConstructorName) {
-          // Redo part of the test to determine the argument
-          fb += LocalGet(startParam) // value if true for Select
-          fb += LocalGet(endParam) // value if false for Select
+      if (coreSpec.wasmFeatures.exceptionHandling) {
+        // then, throw a StringIndexOutOfBoundsException
+        maybeWrapInUBE(fb, semantics.stringIndexOutOfBounds) {
+          genNewScalaClass(fb, StringIndexOutOfBoundsExceptionClass,
+              SpecialNames.IntArgConstructorName) {
+            // Redo part of the test to determine the argument
+            fb += LocalGet(startParam) // value if true for Select
+            fb += LocalGet(endParam) // value if false for Select
 
-          // start unsigned_> string.length
-          fb += LocalGet(startParam)
-          fb += LocalGet(strParam)
-          fb += Call(genFunctionID.stringBuiltins.length)
-          fb += I32GtU
+            // start unsigned_> string.length
+            fb += LocalGet(startParam)
+            fb += LocalGet(strParam)
+            fb += Call(genFunctionID.stringBuiltins.length)
+            fb += I32GtU
 
-          fb += Select(Nil) // infer i32
+            fb += Select(Nil) // infer i32
+          }
         }
-      }
-      genMaybeExternConvertAny(fb)
-      fb += Throw(genTagID.exception)
+        genMaybeExternConvertAny(fb)
+        fb += Throw(genTagID.exception)
+      } else fb += Unreachable
     }
 
     // otherwise, call the substring builtin
@@ -2305,18 +2322,20 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val fb = newFunctionBuilder(genFunctionID.throwModuleInitError)
     val typeDataParam = fb.addParam("typeData", RefType(genTypeID.typeData))
 
-    genNewScalaClass(fb, SpecialNames.UndefinedBehaviorErrorClass,
-        SpecialNames.StringArgConstructorName) {
-      fb ++= ctx.stringPool.getConstantStringInstr("Initializer of ")
-      fb += LocalGet(typeDataParam)
-      fb += Call(genFunctionID.typeDataName)
-      fb += Call(genFunctionID.stringBuiltins.concat)
-      fb ++= ctx.stringPool.getConstantStringInstr(
-          " called before completion of its super constructor")
-      fb += Call(genFunctionID.stringBuiltins.concat)
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      genNewScalaClass(fb, SpecialNames.UndefinedBehaviorErrorClass,
+          SpecialNames.StringArgConstructorName) {
+        fb ++= ctx.stringPool.getConstantStringInstr("Initializer of ")
+        fb += LocalGet(typeDataParam)
+        fb += Call(genFunctionID.typeDataName)
+        fb += Call(genFunctionID.stringBuiltins.concat)
+        fb ++= ctx.stringPool.getConstantStringInstr(
+            " called before completion of its super constructor")
+        fb += Call(genFunctionID.stringBuiltins.concat)
+      }
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -2437,12 +2456,14 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           }
           fb += Drop // drop `value` which was left on the stack
 
-          // throw new TypeError("...")
-          fb ++= ctx.stringPool.getConstantStringInstr(
-            "Cannot call isInstance() on a Class representing a JS trait/object"
-          )
-          fb += Call(genFunctionID.makeTypeError)
-          fb += Throw(genTagID.exception)
+          if (coreSpec.wasmFeatures.exceptionHandling) {
+            // throw new TypeError("...")
+            fb ++= ctx.stringPool.getConstantStringInstr(
+              "Cannot call isInstance() on a Class representing a JS trait/object"
+            )
+            fb += Call(genFunctionID.makeTypeError)
+            fb += Throw(genTagID.exception)
+          } else fb += Unreachable
         }
       }
     ) { () =>
@@ -2862,12 +2883,14 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       primRefsWithKinds.map { case (primRef, kind) =>
         List(kind) -> { () =>
           if (primRef == VoidRef) {
-            // throw IllegalArgumentException for VoidRef
-            genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {
-              // no argument
-            }
-            genMaybeExternConvertAny(fb)
-            fb += Throw(genTagID.exception)
+            if (coreSpec.wasmFeatures.exceptionHandling) {
+              // throw IllegalArgumentException for VoidRef
+              genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {
+                // no argument
+              }
+              genMaybeExternConvertAny(fb)
+              fb += Throw(genTagID.exception)
+            } else fb += Unreachable
           } else {
             val arrayTypeRef = ArrayTypeRef(primRef, 1)
             fb += ArrayNewDefault(genTypeID.underlyingOf(arrayTypeRef))
@@ -3362,22 +3385,24 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       }
     }
 
-    if (targetPureWasm) {
-      genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
-          SpecialNames.StringArgConstructorName) {
-        // TODO: maybe we can trap here?
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      if (targetPureWasm) {
+        genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
+            SpecialNames.StringArgConstructorName) {
+          // TODO: maybe we can trap here? it shouldn't happen
+          fb ++= ctx.stringPool.getConstantStringInstr("Method not found")
+        }
+        genMaybeExternConvertAny(fb)
+        fb += Throw(genTagID.exception)
+      } else {
+        // throw new TypeError("...")
+        // Originally, exception is thrown from JS saying e.g. "obj2.z1__ is not a function"
+        // TODO Improve the error message to include some information about the missing method
         fb ++= ctx.stringPool.getConstantStringInstr("Method not found")
+        fb += Call(genFunctionID.makeTypeError)
+        fb += Throw(genTagID.exception)
       }
-      genMaybeExternConvertAny(fb)
-      fb += Throw(genTagID.exception)
-    } else {
-      // throw new TypeError("...")
-      // Originally, exception is thrown from JS saying e.g. "obj2.z1__ is not a function"
-      // TODO Improve the error message to include some information about the missing method
-      fb ++= ctx.stringPool.getConstantStringInstr("Method not found")
-      fb += Call(genFunctionID.makeTypeError)
-      fb += Throw(genTagID.exception)
-    }
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -3509,9 +3534,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             fb += RefNull(HeapType.NoExtern)
         }
       }
-    }
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }
@@ -3682,7 +3707,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     }
 
     // Mismatch of array types, or either array was not an array
-    if (semantics.arrayStores == CheckedBehavior.Unchecked) {
+
+    if (semantics.arrayStores == CheckedBehavior.Unchecked || !coreSpec.wasmFeatures.exceptionHandling) {
       fb += Unreachable // trap
     } else {
       maybeWrapInUBE(fb, semantics.arrayStores) {
@@ -3921,9 +3947,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.addParam("x", RefType.any)
     fb.setResultType(Int32)
 
-    genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {}
-    genMaybeExternConvertAny(fb)
-    fb += Throw(genTagID.exception)
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {}
+      genMaybeExternConvertAny(fb)
+      fb += Throw(genTagID.exception)
+    } else fb += Unreachable
 
     fb.buildAndAddToModule()
   }

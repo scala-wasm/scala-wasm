@@ -2268,13 +2268,16 @@ private class FunctionEmitter private (
   }
 
   private def genThrowArithmeticException()(implicit pos: Position): Unit = {
-    val ctorName = MethodName.constructor(List(ClassRef(BoxedStringClass)))
-    genNewScalaClass(ArithmeticExceptionClass, ctorName) {
-      fb ++= ctx.stringPool.getConstantStringInstr("/ by zero")
+    if (coreSpec.wasmFeatures.exceptionHandling) {
+      val ctorName = MethodName.constructor(List(ClassRef(BoxedStringClass)))
+      genNewScalaClass(ArithmeticExceptionClass, ctorName) {
+        fb ++= ctx.stringPool.getConstantStringInstr("/ by zero")
+      }
+      if (!targetPureWasm) fb += wa.ExternConvertAny
+      fb += wa.Throw(genTagID.exception)
+    } else {
+      fb += wa.Unreachable
     }
-    if (!targetPureWasm) fb += wa.ExternConvertAny
-
-    fb += wa.Throw(genTagID.exception)
   }
 
   private def genIsInstanceOf(tree: IsInstanceOf): Type = {
@@ -2690,11 +2693,25 @@ private class FunctionEmitter private (
   }
 
   private def genTryCatch(tree: TryCatch, expectedType: Type): Type = {
+    if (coreSpec.wasmFeatures.exceptionHandling) genTryCatch0(tree, expectedType)
+    else {
+      markPosition(tree)
+      genTree(tree.block, expectedType)
+
+      if (expectedType == NothingType)
+        fb += wa.Unreachable
+
+      expectedType
+    }
+  }
+
+  private def genTryCatch0(tree: TryCatch, expectedType: Type): Type = {
     val TryCatch(block, LocalIdent(errVarName), errVarOrigName, handler) = tree
 
     val resultType = transformResultType(expectedType)
 
     markPosition(tree)
+
     fb.block(resultType) { doneLabel =>
       fb.block(watpe.RefType.externref) { catchLabel =>
         /* We used to have `resultType` as result of the try_table, with the
@@ -4034,6 +4051,32 @@ private class FunctionEmitter private (
     }
 
     def genTryFinally(tree: TryFinally, expectedType: Type): Type = {
+      if (coreSpec.wasmFeatures.exceptionHandling) {
+        genTryFinally0(tree, expectedType)
+      } else {
+        markPosition(tree)
+        val resultType = transformResultType(expectedType)
+        val resultLocals = resultType.map(addSyntheticLocal(_))
+        genTree(tree.block, expectedType)
+
+        // store the result in locals during the finally block
+        for (resultLocal <- resultLocals.reverse)
+          fb += wa.LocalSet(resultLocal)
+
+        genTree(tree.finalizer, VoidType)
+
+        // reload the result onto the stack
+        for (resultLocal <- resultLocals)
+          fb += wa.LocalGet(resultLocal)
+
+        if (expectedType == NothingType)
+          fb += wa.Unreachable
+
+        expectedType
+      }
+    }
+
+    def genTryFinally0(tree: TryFinally, expectedType: Type): Type = {
       val TryFinally(tryBlock, finalizer) = tree
 
       val entry = new TryFinallyEntry(currentUnwindingStackDepth)
