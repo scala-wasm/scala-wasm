@@ -2040,22 +2040,6 @@ object Build {
       },
   ).withScalaJSCompiler.dependsOnLibrary
 
-  lazy val testSuiteWASI: MultiScalaProject = MultiScalaProject(
-      id = "testSuiteWASI", base = file("examples") / "test-suite-wasi"
-  ).enablePlugins(
-      MyScalaJSPlugin
-  ).settings(
-      commonSettings,
-      name := "test-suite-wasi",
-      scalacOptions ~= (_.filterNot(
-        Set("-deprecation") contains _)),
-      scalaJSUseMainModuleInitializer := true,
-      scalaJSLinkerConfig ~= {
-        _.withWasmFeatures(_.withExceptionHandling(false).withUseJavaScript(false))
-         .withModuleKind(ModuleKind.ESModule)
-      },
-  ).withScalaJSCompiler.dependsOnLibrary
-
   lazy val reversi: MultiScalaProject = MultiScalaProject(
       id = "reversi", base = file("examples") / "reversi"
   ).enablePlugins(
