@@ -29,6 +29,7 @@ val jUnitAsyncJVM = Build.jUnitAsyncJVM
 val helloworld = Build.helloworld
 val reversi = Build.reversi
 val testSuiteWASI = Build.testSuiteWASI
+val testComponentModel = Build.testComponentModel
 val testingExample = Build.testingExample
 val testSuite = Build.testSuite
 val testSuiteJVM = Build.testSuiteJVM

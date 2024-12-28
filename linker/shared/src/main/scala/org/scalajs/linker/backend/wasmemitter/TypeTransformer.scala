@@ -19,6 +19,7 @@ import org.scalajs.ir.WellKnownNames._
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
 
 import VarGen._
+import org.scalajs.linker.backend.webassembly.component.Flatten
 
 object TypeTransformer {
 
@@ -88,6 +89,10 @@ object TypeTransformer {
     tpe match {
       case AnyType                        => watpe.RefType.anyref
       case AnyNotNullType                 => watpe.RefType.any
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        watpe.Int32
+
       case ClassType(className, nullable) => transformClassType(className, nullable)
       case tpe: PrimType                  => transformPrimType(tpe)
 
@@ -118,6 +123,8 @@ object TypeTransformer {
           watpe.HeapType.None
         else if (info.isInterface)
           watpe.HeapType(genTypeID.ObjectStruct)
+        else if (info.isWasmComponentResource)
+          ???
         else
           watpe.HeapType(genTypeID.forClass(className))
 

@@ -42,6 +42,7 @@ import org.scalajs.logging.Logger
 import SpecialNames._
 import VarGen._
 import org.scalajs.linker.backend.javascript.ByteArrayWriter
+import _root_.org.scalajs.ir.Trees.WasmComponentExportDef
 
 final class Emitter(config: Emitter.Config) {
   import Emitter._
@@ -164,10 +165,12 @@ final class Emitter(config: Emitter.Config) {
            * opposed to the default `undefined` value of the JS `let`).
            */
           fb += wa.GlobalGet(genGlobalID.forStaticField(fieldIdent.name))
+        case WasmComponentExportDef(_, _, _, _) =>
       }
 
-      // Call the export setter
-      fb += wa.Call(genFunctionID.forTopLevelExportSetter(tle.exportName))
+      if (!tle.tree.isWasmComponentExport)
+        // Call the export setter
+        fb += wa.Call(genFunctionID.forTopLevelExportSetter(tle.exportName))
     }
 
     // Emit the module initializers
@@ -272,9 +275,12 @@ final class Emitter(config: Emitter.Config) {
     }
 
     // Exports
+    val jsTopLevelExports = module.topLevelExports.filterNot { t =>
+      t.tree.isWasmComponentExport
+    }
 
     val (exportDecls, exportSettersItems) = (for {
-      exportName <- module.topLevelExports.map(_.exportName)
+      exportName <- jsTopLevelExports.map(_.exportName)
     } yield {
       val ident = js.Ident(s"exported$exportName")
       val decl = js.Let(ident, mutable = true, None)
@@ -443,6 +449,12 @@ object Emitter {
       instantiateClass(ClassClass, NoArgConstructorName),
       instantiateClass(JSExceptionClass, AnyArgConstructorName),
       instantiateClass(IllegalArgumentExceptionClass, NoArgConstructorName),
+
+      // Wasm Component Model
+      // instantiateClass(WasmComponentResultClass, NoArgConstructorName),
+      // instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
+      // instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
+      // instantiateClass(WasmComponentVariantClass, NoArgConstructorName),
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),

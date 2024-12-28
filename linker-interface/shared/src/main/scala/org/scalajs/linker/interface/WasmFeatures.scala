@@ -26,7 +26,8 @@ final class WasmFeatures private (
 
   override def equals(that: Any): Boolean = that match {
     case that: WasmFeatures =>
-      this.exceptionHandling == that.exceptionHandling
+      this.exceptionHandling == that.exceptionHandling &&
+      this.targetPureWasm == that.targetPureWasm
     case _ =>
       false
   }

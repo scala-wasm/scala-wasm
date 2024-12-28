@@ -708,6 +708,10 @@ object Trees {
     val tpe = AnyType
   }
 
+  sealed case class ComponentFunctionApply(receiver: Option[Tree], className: ClassName, method: MethodIdent,
+      args: List[Tree])(   val tpe: Type)(implicit val pos: Position) extends Tree
+
+
   sealed case class JSMethodApply(receiver: Tree, method: Tree,
       args: List[TreeOrJSSpread])(implicit val pos: Position) extends Tree {
     val tpe = AnyType
@@ -1335,6 +1339,7 @@ object Trees {
       val jsConstructor: Option[JSConstructorDef],
       val jsMethodProps: List[JSMethodPropDef],
       val jsNativeMembers: List[JSNativeMemberDef],
+      val componentNativeMembers: List[ComponentNativeMemberDef],
       val topLevelExportDefs: List[TopLevelExportDef]
   )(
       val optimizerHints: OptimizerHints
@@ -1357,12 +1362,15 @@ object Trees {
         jsConstructor: Option[JSConstructorDef],
         jsMethodProps: List[JSMethodPropDef],
         jsNativeMembers: List[JSNativeMemberDef],
-        topLevelExportDefs: List[TopLevelExportDef])(
+        componentNativeMembers: List[ComponentNativeMemberDef],
+        topLevelExportDefs: List[TopLevelExportDef]
+      )(
         optimizerHints: OptimizerHints)(
         implicit pos: Position): ClassDef = {
       new ClassDef(name, originalName, kind, jsClassCaptures, superClass,
           interfaces, jsSuperClass, jsNativeLoadSpec, fields, methods,
-          jsConstructor, jsMethodProps, jsNativeMembers, topLevelExportDefs)(
+          jsConstructor, jsMethodProps, jsNativeMembers,
+          componentNativeMembers, topLevelExportDefs)(
           optimizerHints)
     }
   }
@@ -1434,6 +1442,11 @@ object Trees {
       implicit val pos: Position)
       extends MemberDef
 
+  sealed case class ComponentNativeMemberDef(flags: MemberFlags, name: MethodIdent,
+      importModule: String, importName: String, signature: WasmInterfaceTypes.FuncType)(
+      implicit val pos: Position)
+      extends MemberDef
+
   // Top-level export defs
 
   sealed abstract class TopLevelExportDef extends IRNode {
@@ -1450,9 +1463,11 @@ object Trees {
         name
 
       case TopLevelFieldExportDef(_, name, _) => name
+      case WasmComponentExportDef(_, name, _, _) => name
     }
 
-    require(isValidTopLevelExportName(topLevelExportName),
+    val isWasmComponentExport = this.isInstanceOf[WasmComponentExportDef]
+    require(isWasmComponentExport || isValidTopLevelExportName(topLevelExportName),
         s"`$topLevelExportName` is not a valid top-level export name")
   }
 
@@ -1478,6 +1493,12 @@ object Trees {
 
   sealed case class TopLevelFieldExportDef(moduleID: String,
       exportName: String, field: FieldIdent)(
+      implicit val pos: Position) extends TopLevelExportDef
+
+
+  sealed case class WasmComponentExportDef(moduleID: String,
+      exportName: String, methodDef: MethodDef,
+      signature: WasmInterfaceTypes.FuncType)(
       implicit val pos: Position) extends TopLevelExportDef
 
   // Miscellaneous

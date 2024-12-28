@@ -54,12 +54,10 @@ class Throwable protected (s: String, private var e: Throwable,
 
   def getStackTrace(): Array[StackTraceElement] = {
     if (stackTrace eq null) {
-      if (!LinkingInfo.targetPureWasm) {
-        if (writableStackTrace)
-          stackTrace = StackTrace.extract(jsErrorForStackTrace)
-        else
-          stackTrace = new Array[StackTraceElement](0)
-      }
+      if (!LinkingInfo.targetPureWasm && writableStackTrace)
+        stackTrace = StackTrace.extract(jsErrorForStackTrace)
+      else
+        stackTrace = new Array[StackTraceElement](0)
     }
     stackTrace
   }

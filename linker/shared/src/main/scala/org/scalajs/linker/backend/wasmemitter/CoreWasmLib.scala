@@ -143,8 +143,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       }
       genScalaValueType()
       genBoxUnboxEquals()
-    }
 
+      // component model
+      genMemoryAndAllocator()
+      genCABIHelpers()
+    }
 
     genEmptyITable()
     genPrimitiveTypeDataGlobals()
@@ -166,6 +169,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genUndefinedAndIsUndef()
       genNaiveFmod()
       genItoa()
+      // genPrintlnInt()
+      // genPrintMemory()
     }
   }
 
@@ -576,6 +581,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     for (primType <- List(BooleanType, FloatType, DoubleType)) {
       val primRef = primType.primRef
       val wasmType = transformPrimType(primType)
+
       if (primType != BooleanType)
         addHelperImport(genFunctionID.box(primRef), List(wasmType), List(RefType.any))
       addHelperImport(genFunctionID.unbox(primRef), List(anyref), List(wasmType))
@@ -653,6 +659,251 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         Expr(List(StructNewDefault(genTypeID.itables)))
       )
     )
+  }
+
+  private def genPrintMemory()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.dumpMemory)
+    val offset = fb.addParam("offset", Int32)
+    val byteLength = fb.addParam("byte_length", Int32)
+
+    val iLocal = fb.addLocal("i", Int32)
+    val end = fb.addLocal("end", Int32)
+
+    fb += LocalGet(offset)
+    fb += LocalGet(byteLength)
+    fb += I32Add
+    fb += LocalSet(end)
+
+    fb += LocalGet(offset)
+    fb += LocalSet(iLocal)
+
+    fb.block() { exit =>
+      fb.loop() { loop =>
+        fb += LocalGet(iLocal)
+        fb += LocalGet(end)
+        fb += I32GeU
+        fb += BrIf(exit)
+
+        fb += LocalGet(iLocal)
+        fb += I32Load8U()
+
+        // print
+        fb += Call(genFunctionID.printlnInt)
+
+        fb += LocalGet(iLocal)
+        fb += I32Const(1)
+        fb += I32Add
+        fb += LocalSet(iLocal)
+
+        fb += Br(loop)
+      }
+    }
+
+    fb += I32Const(999999)
+    fb += Call(genFunctionID.printlnInt)
+
+    fb.buildAndAddToModule()
+  }
+
+  private def genPrintlnInt()(implicit ctx: WasmContext): Unit = {
+    // (type (;1;) (func (result i32)))
+    // (import "wasi:cli/stdout@0.2.2" "get-stdout" (func (;1;) (type 1)))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:cli/stdout@0.2.0",
+        "get-stdout",
+        ImportDesc.Func(
+          genFunctionID.wasiCliGetStdout,
+          OriginalName(genFunctionID.wasiCliGetStdout.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(Nil, List(Int32)))
+        )
+      )
+    )
+
+    // (type (;0;) (func (param i32 i32 i32 i32)))
+    // (import "wasi:io/streams" "[method]output-stream.blocking-write-and-flush" (func (;0;) (type 0)))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:io/streams@0.2.0",
+        "[method]output-stream.blocking-write-and-flush",
+        ImportDesc.Func(
+          genFunctionID.blockingWriteAndFlush,
+          OriginalName(genFunctionID.blockingWriteAndFlush.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(List(Int32, Int32, Int32, Int32), Nil))
+        )
+      )
+    )
+
+    // (import "wasi:io/streams@0.2.2" "[resource-drop]output-stream" ... ))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:io/streams@0.2.0",
+        "[resource-drop]output-stream",
+        ImportDesc.Func(
+          genFunctionID.dropOutputStream,
+          OriginalName(genFunctionID.dropOutputStream.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(List(Int32), Nil))
+        )
+      )
+    )
+
+
+    val fb = newFunctionBuilder(genFunctionID.printlnInt)
+    val num = fb.addParam("num", Int32)
+
+    val tmp = fb.addLocal("tmp", Int32)
+    val negative = fb.addLocal("negative", Int32)
+    val length = fb.addLocal("length", Int32)
+    val ptr = fb.addLocal("ptr", Int32)
+    val idx = fb.addLocal("idx", Int32)
+    val retAddr = fb.addLocal("ret_addr", Int32)
+
+    val sp = fb.addLocal("sp", Int32)
+
+    fb += GlobalGet(genGlobalID.stackPointer)
+    fb += LocalSet(sp)
+
+    fb += LocalGet(num)
+    fb += I32Eqz
+    fb.ifThenElse() {
+      fb += I32Const(2)
+      fb += LocalTee(length)
+      fb += Call(genFunctionID.malloc)
+      fb += LocalTee(ptr)
+      fb += I32Const(48) // '0'
+      fb += I32Store8()
+
+      fb += LocalGet(ptr)
+      fb += I32Const(1)
+      fb += I32Add
+      fb += I32Const(10) // \n
+      fb += I32Store8()
+    } {
+      fb += LocalGet(num)
+      fb += I32Const(0)
+      fb += I32LtS
+      fb.ifThenElse(Int32) {
+        fb += LocalGet(num)
+        fb += I32Const(-1)
+        fb += I32Mul
+        fb += LocalSet(num)
+
+        fb += I32Const(1)
+        fb += LocalSet(negative)
+        fb += I32Const(2) // for '-' and '\n'
+      } {
+        fb += I32Const(0)
+        fb += LocalSet(negative)
+        fb += I32Const(1) // for '\n'
+      }
+      fb += LocalSet(length)
+
+      fb += LocalGet(num)
+      fb += LocalSet(tmp)
+      fb.loop() { loop =>
+        fb += LocalGet(tmp)
+        fb += I32Eqz
+        fb.ifThenElse() { // break
+        } {
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32DivS
+          fb += LocalSet(tmp)
+
+          fb += LocalGet(length)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(length)
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(length)
+      fb += Call(genFunctionID.malloc)
+      fb += LocalSet(ptr)
+
+      // fill
+      fb += LocalGet(num)
+      fb += LocalSet(tmp)
+
+      // append '\n'
+      fb += LocalGet(ptr)
+      fb += LocalGet(length)
+      fb += I32Const(1)
+      fb += I32Sub
+      fb += I32Add
+      fb += I32Const(10)
+      fb += I32Store8()
+
+      fb += LocalGet(length)
+      fb += I32Const(2) // skip the last for '\n'
+      fb += I32Sub
+      fb += LocalSet(idx)
+
+      fb.loop() { loop =>
+        fb += LocalGet(tmp)
+        fb += I32Eqz
+        fb.ifThenElse() { // break
+        } {
+          fb += LocalGet(ptr)
+          fb += LocalGet(idx)
+          fb += I32Add // ptr to store
+
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32RemS
+          fb += I32Const(48) // '0'
+          fb += I32Add
+          fb += I32Store8()
+
+          fb += LocalGet(idx)
+          fb += I32Const(1)
+          fb += I32Sub
+          fb += LocalSet(idx)
+
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32DivS
+          fb += LocalSet(tmp)
+
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(negative)
+      fb.ifThen() {
+        fb += LocalGet(ptr)
+        fb += I32Const(45) // '-'
+        fb += I32Store8()
+      }
+    }
+
+
+    val out = fb.addLocal("out", Int32)
+    // now, $ptr has memory offset, and $length has array length
+    // get stdout
+    fb += Call(genFunctionID.wasiCliGetStdout)
+    fb += LocalTee(out)
+    fb += LocalGet(ptr)
+    fb += LocalGet(length)
+    fb += I32Const(12) // result<_, stream-error>
+    fb += Call(genFunctionID.malloc)
+    fb += LocalTee(retAddr)
+
+    fb += Call(genFunctionID.blockingWriteAndFlush)
+
+    // cleanup
+    fb += LocalGet(sp)
+    fb += GlobalSet(genGlobalID.stackPointer)
+
+    // drop outputstream
+    fb += LocalGet(out)
+    fb += Call(genFunctionID.dropOutputStream)
+
+    fb.buildAndAddToModule()
   }
 
   private def genPrimitiveTypeDataGlobals()(implicit ctx: WasmContext): Unit = {
@@ -833,6 +1084,240 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     }
   }
 
+ /** Memory allocation using a global stack pointer.
+   *
+   * Instead of using dynamic memory allocation, memory management can be performed using a global
+   * stack pointer. The free memory is tracked by a global variable `stackPointer`.
+   * `malloc` simply increments `stackPointer` by `nbytes` (+ 8-byte alignment).
+   * When the allocated memory is no longer needed, `stackPointer` is restored to its previous value.
+   *
+   * This memory management model is simple and efficient.
+   * Given that memory allocation mainly occurs when interacting with external components in the Component Model,
+   *
+   * When calling an external function, `stackPointer` is saved before the call and restored
+   * afterward.
+   * However, issues arise when a function exported via the Component Model is called.
+   *
+   * ## Problem with stack pointer based memory management
+   * When the VM passes arguments to an exported function, it may require additional memory (e.g.,
+   * for strings, lists, or when the argument count exceeds 16 in core Wasm).
+   * In such cases, the VM uses the exported `cabi_realloc` function to allocate memory and passes the memory offset as
+   * an argument. These allocations occur before the function call itself.
+   * In that scenario, it's difficult to determine which address to restore the stack pointer,
+   * since we cannot save the stack pointer at callee site.
+   *
+   * ## Possible workaround for the problem
+   * Ideally, the caller should save the stack pointer, but since the caller is the VM, the language
+   * cannot enforce such an operation to VM.
+   *
+   * An alternative approach is to save the stack pointer within `cabi_realloc`.
+   * However, determining which address to restore the stack pointer is problematic because `realloc`
+   * calls are not directly linked to a specific function invocation.
+   * It is not sufficient to remember only the most recent value, because multiple `realloc` calls
+   * may occur before the function execution.
+   *
+   * ## Our workaround
+   * Our workaround is that, find a minimum pointer value to restore from the memory offset
+   * values given as arguments of the exported function.
+   * For example, the memory offset of string might be the offset to restore after function call.
+   *
+   * A challenge with this approach is that when storing a string, `realloc` may allocate a certain
+   * memory size initially and later modify it again with another `realloc` call.
+   * However, for UTF-16 system like Scala, the Canonical ABI specification states that `realloc` does not
+   * increase memory size with `realloc` when storing a string (just shrink it).
+   * At least of the current spec: https://github.com/WebAssembly/component-model/commit/2489e3d614a0f6f95089e8d1a71ddc0708b68851
+   *
+   * If our `realloc` implementation does not copy existing memory segments when shrinking,
+   * then the memory offsets passed as arguments will always include the correct memory address to restore.
+   *
+   * By resetting the stack pointer to the minimum of these memory addresses in `post-return`,
+   * it should be possible to free memory allocated by the VM when calling an externally exported
+   * function.
+   */
+  private def genMemoryAndAllocator()(implicit ctx: WasmContext): Unit = {
+    ctx.moduleBuilder.addMemory(
+      Memory(genMemoryID.memory, OriginalName.NoOriginalName, Memory.Limits(1, None))
+    )
+    // > all modules accessing WASI APIs also export a linear memory with the name `memory`.
+    // > Data pointers in WASI API calls are relative to this memory's index space.
+    // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md
+    ctx.moduleBuilder.addExport(Export("memory", ExportDesc.Memory(genMemoryID.memory)))
+
+    ctx.addGlobal(
+      Global(
+        genGlobalID.stackPointer,
+        OriginalName(genGlobalID.stackPointer.toString()),
+        isMutable = true,
+        Int32,
+        Expr(List(I32Const(0)))
+      )
+    )
+
+    ctx.addGlobal(
+      Global(
+        genGlobalID.savedStackPointer,
+        OriginalName(genGlobalID.savedStackPointer.toString()),
+        isMutable = true,
+        Int32,
+        Expr(List(I32Const(0)))
+      )
+    )
+
+    locally {
+      val fb = newFunctionBuilder(genFunctionID.malloc)
+      val nbytes = fb.addParam("nbytes", Int32)
+      fb.setResultType(Int32)
+
+      val alignment = 8 // max alignment?
+
+      val base = fb.addLocal("base", Int32)
+
+      fb += GlobalGet(genGlobalID.stackPointer)
+
+      // align
+      // ((base + alignment - 1) / alignment) * alignment
+      fb += I32Const(alignment)
+      fb += I32Add
+      fb += I32Const(1)
+      fb += I32Sub
+      fb += I32Const(alignment)
+      fb += I32DivU
+      fb += I32Const(alignment)
+      fb += I32Mul
+      fb += LocalTee(base)
+
+      fb += LocalGet(nbytes) // newPtr = stackPointer + nbytes
+      fb += I32Add
+
+      fb += GlobalSet(genGlobalID.stackPointer)
+
+      fb += LocalGet(base)
+
+      fb.buildAndAddToModule()
+    }
+
+    genRealloc()
+    ctx.moduleBuilder.addExport(
+      Export(
+        "cabi_realloc",
+        ExportDesc.Func(genFunctionID.realloc)
+      )
+    )
+  }
+
+  // TODO: generate only if they are needed? maybe we don't need to care
+  //   because wasm-opt should dce them.
+  private def genCABIHelpers()(implicit ctx: WasmContext): Unit = {
+    {
+      val fb = newFunctionBuilder(genFunctionID.cabiLoadString)
+      val offset = fb.addParam("offset", Int32)
+      val units = fb.addParam("units", Int32)
+      fb.setResultType(RefType(genTypeID.i16Array))
+
+      val array = fb.addLocal("array", RefType(genTypeID.i16Array))
+      val i = fb.addLocal("i", Int32)
+
+      fb += LocalGet(units)
+      fb += ArrayNewDefault(genTypeID.i16Array)
+      fb += LocalSet(array)
+
+      fb += I32Const(0)
+      fb += LocalSet(i)
+
+      fb.block() { exit =>
+        fb.loop() { loop =>
+          // if i >= units, break
+          fb += LocalGet(i)
+          fb += LocalGet(units)
+          fb += I32GeU
+          fb += BrIf(exit)
+
+          // for array.set
+          fb += LocalGet(array)
+          fb += LocalGet(i)
+
+          // load i16 value
+          fb += LocalGet(offset)
+          fb += LocalGet(i)
+          fb += I32Const(2)
+          fb += I32Mul
+          fb += I32Add
+          fb += I32Load16U()
+
+          fb += ArraySet(genTypeID.i16Array)
+
+          fb += LocalGet(i)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(i)
+
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(array)
+
+      fb.buildAndAddToModule()
+    }
+
+    {
+      val fb = newFunctionBuilder(genFunctionID.cabiStoreString)
+      val str = fb.addParam("str", RefType(true, genTypeID.i16Array))
+      fb.setResultTypes(List(Int32, Int32)) // baseAddr, units
+
+      val baseAddr = fb.addLocal("baseAddr", Int32)
+      val iLocal = fb.addLocal("i", Int32)
+
+      // required bytes
+      fb += LocalGet(str)
+      fb += ArrayLen
+      fb += I32Const(2)
+      fb += I32Mul
+      fb += Call(genFunctionID.malloc)
+      fb += LocalSet(baseAddr)
+
+      // i := 0
+      fb += I32Const(0)
+      fb += LocalSet(iLocal)
+
+      fb.block() { exit =>
+        fb.loop() { loop =>
+          fb += LocalGet(iLocal)
+          fb += LocalGet(str)
+          fb += ArrayLen
+          fb += I32Eq
+          fb += BrIf(exit)
+
+          // store
+          // position (baseAddr + i * 2)
+          fb += LocalGet(baseAddr)
+          fb += LocalGet(iLocal)
+          fb += I32Const(2)
+          fb += I32Mul
+          fb += I32Add
+
+          // value
+          fb += LocalGet(str)
+          fb += LocalGet(iLocal)
+          fb += ArrayGetU(genTypeID.i16Array) // i32 here
+          fb += I32Store16() // store 2 bytes
+
+          // i := i + 1
+          fb += LocalGet(iLocal)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(iLocal)
+          fb += Br(loop)
+        }
+      }
+      fb += LocalGet(baseAddr) // offset
+      fb += LocalGet(str)
+      fb += ArrayLen // unit length
+
+      fb.buildAndAddToModule()
+    }
+  }
+
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(
       implicit ctx: WasmContext): FunctionBuilder = {
     new FunctionBuilder(ctx.moduleBuilder, functionID, originalName, noPos)
@@ -841,6 +1326,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
   private def newFunctionBuilder(functionID: FunctionID)(
       implicit ctx: WasmContext): FunctionBuilder = {
     newFunctionBuilder(functionID, OriginalName(functionID.toString()))
+  }
+
+  private def genUnboxBoolean()(implicit ctx: WasmContext): Unit = {
+    assert(true /* isWASI */) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.unbox(BooleanRef))
+    val xParam = fb.addParam("x", RefType.i31)
+    fb.setResultType(Int32)
+
+    fb += LocalGet(xParam)
+    fb += I31GetS
+    fb.buildAndAddToModule()
   }
 
   private def genBoxBoolean()(implicit ctx: WasmContext): Unit = {
@@ -1574,16 +2070,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                   fb += LocalGet(valueParam)
                   fb += BrOnCastFail(notOurObjectLabel, anyref, objectType)
 
-                  // If is a long or char box, jump out to the appropriate label
                   fb += BrOnCast(isLongLabel, objectType, RefType(genTypeID.forClass(SpecialNames.LongBoxClass)))
                   fb += BrOnCast(isCharLabel, objectType, RefType(genTypeID.forClass(SpecialNames.CharBoxClass)))
-                  // TODO: add block only when it's WASI
                   fb += BrOnCast(isIntegerLabel, objectType, RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
                   fb += BrOnCast(isFloatLabel, objectType, RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
                   fb += BrOnCast(isDoubleLabel, objectType, RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
-                  // boolean, short, long は? いずれも not our object で box されたときは
-                  // i31ref もしくは、BoxedLongClass
-                  // ていうか integer の場合は
 
                   // Get and return the class name
                   fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
@@ -4337,6 +4828,85 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule()
   }
 
+  // (func (param $originalPtr i32)
+  //       (param $originalSize i32)
+  //       (param $alignment i32)
+  //       (param $newSize i32)
+  //       (result i32))
+  private def genRealloc()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.realloc)
+    val originalPtr = fb.addParam("originalPtr", Int32)
+    val originalSize = fb.addParam("originalSize", Int32)
+    val _alignment = fb.addParam("alignment", Int32)
+    val newSize = fb.addParam("newSize", Int32)
+    fb.setResultType(Int32)
+
+    val newPtr = fb.addLocal("newPtr", Int32)
+
+    // $originalPtr == 0 && originalSzie == 0
+    fb += LocalGet(originalPtr)
+    fb += I32Const(0)
+    fb += I32Eq
+    fb += LocalGet(originalSize)
+    fb += I32Const(0)
+    fb += I32Eq
+    fb += I32And
+    fb.ifThen() {
+      fb += LocalGet(newSize)
+      fb += Call(genFunctionID.malloc)
+      fb += Return
+    }
+
+    fb += LocalGet(newSize)
+    fb += LocalGet(originalSize)
+    fb += I32LeU
+    fb.ifThen() { // newSize <= originalSize
+      // TODO?
+      // For a typical `realloc`, when `newSize` is smaller than `originalSize`,
+      // it is desirable to shrink the allocated memory segment and free the excess memory.
+      //
+      // However, since we use memory only in the context of the component model
+      // and it has a short-lived nature where memory is freed once the function call ends,
+      // the benefits of shrinking may be minimal.
+      //
+      // Additionally, in our implementation,
+      // instead of allocating a new memory space when shrinking,
+      // we need to reuse the existing memory segment. For details,
+      // see `genFunctionID.malloc`.
+      fb += LocalGet(originalPtr)
+      fb += Return
+    }
+
+
+
+    fb += LocalGet(newSize)
+    fb += Call(genFunctionID.malloc)
+    fb += LocalTee(newPtr)
+    fb += LocalGet(originalPtr)
+
+    // copy size
+    // if originalSize < newSize { originalSize } else { newSize }
+    fb += LocalGet(originalSize)
+    fb += LocalGet(newSize)
+    fb += I32LeS
+    fb.ifThenElse(Int32) {
+      fb += LocalGet(originalSize)
+    } {
+      fb += LocalGet(newSize)
+    }
+
+    // destination address
+    // source address
+    // copy size
+    fb += MemoryCopy(genMemoryID.memory, genMemoryID.memory)
+
+    // no need to free original pointer, that should be freed after function return
+
+    fb += LocalGet(newPtr)
+
+    fb.buildAndAddToModule()
+  }
 
   private def maybeWrapInUBE(fb: FunctionBuilder, behavior: CheckedBehavior)(
       genExceptionInstance: => Unit): Unit = {

@@ -44,6 +44,9 @@ object SpecialNames {
   val UndefinedBehaviorErrorClass =
     ClassName("org.scalajs.linker.runtime.UndefinedBehaviorError")
 
+  val WasmComponentResultClass =
+    ClassName("scala.scalajs.component.Result")
+
   // Field names
 
   val valueFieldSimpleName = SimpleFieldName("value")

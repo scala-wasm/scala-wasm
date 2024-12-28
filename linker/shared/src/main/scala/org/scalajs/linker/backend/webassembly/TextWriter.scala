@@ -75,6 +75,11 @@ private class TextWriter(module: Module) {
     }).toMap
   }
 
+  private val memoryNames: Map[MemoryID, String] = {
+    val nameGen = new FreshNameGenerator
+    module.memories.map(m => m.id -> nameGen.genName(m.originalName)).toMap
+  }
+
   private var localNames: Option[Map[LocalID, String]] = None
   private var labelNames: Option[mutable.Map[LabelID, String]] = None
   private var labelNameGen: Option[FreshNameGenerator] = None
@@ -84,6 +89,7 @@ private class TextWriter(module: Module) {
       module.types.foreach(writeRecType)
       module.imports.foreach(writeImport)
       module.funcs.foreach(writeFunction)
+      module.memories.foreach(writeMemory)
       module.tags.foreach(writeTag)
       module.globals.foreach(writeGlobal)
       module.exports.foreach(writeExport)
@@ -118,6 +124,9 @@ private class TextWriter(module: Module) {
 
   private def appendName(labelID: LabelID): Unit =
     b.appendElement(labelNames.get(labelID))
+
+  private def appendName(memoryID: MemoryID): Unit =
+    b.appendElement(memoryNames(memoryID))
 
   private def writeRecType(recType: RecType): Unit = {
     val RecType(subTypes) = recType
@@ -304,6 +313,10 @@ private class TextWriter(module: Module) {
           b.sameLineList("global") {
             appendName(id)
           }
+        case ExportDesc.Memory(id) =>
+          b.sameLineList("memory") {
+            appendName(id)
+          }
       }
     }
   }
@@ -340,6 +353,14 @@ private class TextWriter(module: Module) {
           // do nothing
       }
       b.appendElement("\"" + bytes.map("\\%02x".format(_)).mkString + "\"")
+    }
+  }
+
+  private def writeMemory(mem: Memory) = {
+    b.newLineList("memory") {
+      appendName(mem.id)
+      b.appendElement(mem.limits.min.toString)
+      mem.limits.max.foreach(max => b.appendElement(max.toString))
     }
   }
 
@@ -463,6 +484,11 @@ private class TextWriter(module: Module) {
         appendName(instr.structTypeID)
         appendName(instr.structTypeID, instr.fieldID)
 
+      // https://www.w3.org/TR/wasm-core-2/#memory-instructions%E2%91%A8
+      case instr: LoadStoreInstr =>
+        if (instr.memoryArg.align != 0) b.appendElement(s"align=${instr.memoryArg.offset}")
+        if (instr.memoryArg.offset != 0) b.appendElement(s"offset=${instr.memoryArg.offset}")
+
       // Specific instructions with unique-ish shapes
 
       case I32Const(v) => b.appendElement(v.toString())
@@ -508,6 +534,10 @@ private class TextWriter(module: Module) {
         appendName(labelIdx)
         writeType(from)
         writeType(to)
+
+      case MemoryCopy(src, dst) =>
+        appendName(src)
+        appendName(dst)
 
       case PositionMark(_) =>
         throw new AssertionError(s"Unexpected $instr")

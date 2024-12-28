@@ -38,6 +38,9 @@ object SWasmGen {
           GlobalGet(genGlobalID.emptyString)
       case UndefType  => GlobalGet(genGlobalID.undef)
 
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        I32Const(0)
       case ClassType(BoxedStringClass, true) =>
         if (ctx.coreSpec.wasmFeatures.targetPureWasm)
           RefNull(Types.HeapType(genTypeID.i16Array))
