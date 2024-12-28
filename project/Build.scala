@@ -2020,8 +2020,11 @@ object Build {
       moduleName := "helloworld",
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
-        _.withPrettyPrint(true)
-      }
+        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false))
+      },
+      // scalacOptions ++= Seq(
+      //   "-Ydebug",
+      // ),
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(
