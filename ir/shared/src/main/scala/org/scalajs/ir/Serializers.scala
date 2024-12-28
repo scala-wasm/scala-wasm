@@ -25,7 +25,7 @@ import Names._
 import OriginalName.NoOriginalName
 import Position._
 import Trees._
-import LinkTimeProperty.{ProductionMode, ESVersion, UseECMAScript2015Semantics, IsWebAssembly, LinkerVersion}
+import LinkTimeProperty.{ProductionMode, ESVersion, UseECMAScript2015Semantics, IsWebAssembly, LinkerVersion, TargetPureWasm}
 import Types._
 import Tags._
 import Version.Unversioned
@@ -1392,6 +1392,8 @@ object Serializers {
                 LinkTimeProperty(LinkerVersion)(StringType)
               case StringLiteral("fileLevelThis") =>
                 JSGlobalRef(JSGlobalRef.FileLevelThis)
+              case StringLiteral("targetPureWasm") =>
+                LinkTimeProperty(TargetPureWasm)(BooleanType)
               case otherItem =>
                 JSSelect(jsLinkingInfo, otherItem)
           }
@@ -1427,7 +1429,8 @@ object Serializers {
               (StringLiteral("assumingES6"), LinkTimeProperty(UseECMAScript2015Semantics)(BooleanType)),
               (StringLiteral("isWebAssembly"), LinkTimeProperty(IsWebAssembly)(BooleanType)),
               (StringLiteral("linkerVersion"), LinkTimeProperty(LinkerVersion)(StringType)),
-              (StringLiteral("fileLevelThis"), JSGlobalRef(JSGlobalRef.FileLevelThis))
+              (StringLiteral("fileLevelThis"), JSGlobalRef(JSGlobalRef.FileLevelThis)),
+              (StringLiteral("targetPureWasm"), LinkTimeProperty(TargetPureWasm)(BooleanType))
             ))
           } else {
             throw new IOException(

@@ -16,11 +16,12 @@ import org.scalajs.ir.{Types => jstpe, Trees => js}
 import org.scalajs.ir.Trees.LinkTimeProperty._
 import org.scalajs.ir.ScalaJSVersions
 import org.scalajs.ir.Position.NoPosition
-import org.scalajs.linker.interface.{Semantics, ESFeatures}
+import org.scalajs.linker.interface.{Semantics, ESFeatures, WasmFeatures}
 
 private[linker] final class LinkTimeProperties (
   semantics: Semantics,
   esFeatures: ESFeatures,
+  wasmFeatures: WasmFeatures,
   targetIsWebAssembly: Boolean
 ) {
   import LinkTimeProperties._
@@ -35,7 +36,9 @@ private[linker] final class LinkTimeProperties (
     ProductionMode ->
       LinkTimeBoolean(semantics.productionMode),
     LinkerVersion ->
-      LinkTimeString(ScalaJSVersions.current)
+      LinkTimeString(ScalaJSVersions.current),
+    TargetPureWasm ->
+      LinkTimeBoolean(wasmFeatures.targetPureWasm)
   )
 
   def validate(name: String, tpe: jstpe.Type): Boolean = {
