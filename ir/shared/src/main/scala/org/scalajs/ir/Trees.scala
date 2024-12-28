@@ -1076,6 +1076,7 @@ object Trees {
     final val UseECMAScript2015Semantics = "core/useECMAScript2015Semantics"
     final val IsWebAssembly = "core/isWebAssembly"
     final val LinkerVersion = "core/linkerVersion"
+    final val WasmUseJavaScript = "core/wasmUseJavaScript"
   }
 
   // Atomic expressions
