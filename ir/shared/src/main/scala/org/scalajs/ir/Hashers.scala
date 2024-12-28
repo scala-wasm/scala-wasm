@@ -114,6 +114,9 @@ object Hashers {
     case TopLevelMethodExportDef(moduleID, methodDef) =>
       TopLevelMethodExportDef(moduleID, hashJSMethodDef(methodDef))(tle.pos)
 
+    case WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType) =>
+      WasmComponentExportDef(moduleID, exportName, hashMethodDef(methodDef), paramTypes, resultType)(tle.pos)
+
     case _:TopLevelFieldExportDef | _:TopLevelModuleExportDef |
         _:TopLevelJSClassExportDef =>
       tle
@@ -131,7 +134,7 @@ object Hashers {
     val newTopLevelExportDefs = topLevelExportDefs.map(hashTopLevelExportDef(_))
     ClassDef(name, originalName, kind, jsClassCaptures, superClass, interfaces,
         jsSuperClass, jsNativeLoadSpec, fields, newMethods, newJSConstructorDef,
-        newExportedMembers, jsNativeMembers, newTopLevelExportDefs)(
+        newExportedMembers, jsNativeMembers, componentNativeMembers, newTopLevelExportDefs)(
         optimizerHints)
   }
 
@@ -525,6 +528,13 @@ object Hashers {
           mixString(name)
           mixType(tree.tpe)
 
+        case ComponentFunctionApply(className, method, args) =>
+          mixTag(TagComponentFunctionApply)
+          mixName(className)
+          mixMethodIdent(method)
+          mixTrees(args)
+          mixType(tree.tpe)
+
         case Transient(value) =>
           throw new InvalidIRException(tree,
               "Cannot hash a transient IR node (its value is of class " +
@@ -612,6 +622,11 @@ object Hashers {
           mixType(tpe)
           mixBoolean(mutable)
         }
+
+      case WasmComponentResultType(ok, err) =>
+        mixTag(TagWasmComponentResultType)
+        mixType(ok)
+        mixType(err)
     }
 
     def mixLocalIdent(ident: LocalIdent): Unit = {

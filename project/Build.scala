@@ -2017,8 +2017,8 @@ object Build {
   ).settings(
       exampleSettings,
       name := "Hello World - Scala.js example",
-      moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true,
+      // moduleName := "helloworld",
+      // scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
         _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false))
       },

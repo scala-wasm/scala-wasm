@@ -62,6 +62,7 @@ object Infos {
       val referencedFieldClasses: Map[FieldName, ClassName],
       val methods: Array[Map[MethodName, MethodInfo]],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
+      val componentNativeMembers: List[ReachabilityInfo],
       val jsMethodProps: List[ReachabilityInfo],
       val topLevelExports: List[TopLevelExportInfo]
   ) {
@@ -254,7 +255,7 @@ object Infos {
         case NullType | NothingType =>
           // Nothing to do
 
-        case VoidType | RecordType(_) =>
+        case VoidType | RecordType(_) | _:WasmComponentResultType =>
           throw new IllegalArgumentException(
               s"Illegal receiver type: $receiverTpe")
       }
@@ -550,8 +551,21 @@ object Infos {
         topLevelExportDef.topLevelExportName)
   }
 
+  def generateComponentNativeMember(member: ComponentNativeMemberDef): MethodInfo =
+    new GenInfoTraverser(Version.Unversioned).generateComponentNativeMember(member)
+
   private final class GenInfoTraverser(version: Version) extends Traverser {
     private val builder = new ReachabilityInfoBuilder(version)
+
+    def generateComponentNativeMember(member: ComponentNativeMemberDef): MethodInfo = {
+      val methodName = member.name.name
+      methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+      builder.maybeAddReferencedClass(methodName.resultTypeRef)
+
+      val reachabilityInfo = builder.result()
+
+      MethodInfo(false, reachabilityInfo)
+    }
 
     def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
       val methodName = methodDef.methodName
@@ -605,6 +619,10 @@ object Infos {
           val field = topLevelFieldExport.field.name
           builder.addStaticFieldRead(field)
           builder.addStaticFieldWritten(field)
+
+        case wasmComponentExport: WasmComponentExportDef =>
+          assert(wasmComponentExport.methodDef.body.isDefined)
+          traverse(wasmComponentExport.methodDef.body.get)
       }
 
       builder.result()
@@ -758,6 +776,12 @@ object Infos {
 
             case VarDef(_, _, vtpe, _, _) =>
               builder.maybeAddReferencedClass(vtpe)
+
+            // Maybe it's better to treat Component class to be a special case like JSClass?
+            case ComponentFunctionApply(className, _, _) =>
+              builder.addAccessedModule(className)
+              // TODO:
+              // builder.addComponentNativeMemberUsed(className, member.name)
 
             case linkTimeProperty: LinkTimeProperty =>
               builder.addReferencedLinkTimeProperty(linkTimeProperty)

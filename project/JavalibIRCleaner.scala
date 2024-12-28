@@ -152,7 +152,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
       val preprocessedTree = ClassDef(name, originalName, kind, jsClassCaptures,
           superClass, newInterfaces, jsSuperClass, jsNativeLoadSpec, fields,
           newMethods, jsConstructor, jsMethodProps, jsNativeMembers,
-          topLevelExportDefs)(
+          componentNativeMembers, topLevelExportDefs)(
           optimizerHints)(pos)
 
       // Only validate the hierarchy; do not transform
@@ -290,6 +290,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         classDef.jsConstructor,
         classDef.jsMethodProps,
         classDef.jsNativeMembers,
+        classDef.componentNativeMembers,
         classDef.topLevelExportDefs
       )(classDef.optimizerHints)(classDef.pos)
     }

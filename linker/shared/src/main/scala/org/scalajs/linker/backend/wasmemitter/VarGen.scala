@@ -107,6 +107,8 @@ object VarGen {
 
     case object start extends FunctionID
 
+    final case class forComponentFunction(module: String, name: String) extends FunctionID
+
     // WASI
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
@@ -384,6 +386,10 @@ object VarGen {
     val ClassStruct = forClass(ClassClass)
     val ThrowableStruct = forClass(ThrowableClass)
     val JSExceptionStruct = forClass(SpecialNames.JSExceptionClass)
+
+    val WasmComponentResultStruct = forClass(SpecialNames.WasmComponentResultClass)
+    val WasmComponentOkStruct = forClass(SpecialNames.WasmComponentOkClass)
+    val WasmComponentErrStruct = forClass(SpecialNames.WasmComponentErrClass)
 
     val ObjectVTable: TypeID = forVTable(ObjectClass)
 

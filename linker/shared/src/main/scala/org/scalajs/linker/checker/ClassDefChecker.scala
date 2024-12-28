@@ -452,6 +452,10 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case topLevelExportDef: TopLevelFieldExportDef =>
         checkTopLevelFieldExportDef(topLevelExportDef)
+
+      case wasmComponentExportDef: WasmComponentExportDef =>
+        // TODO
+        // checkWasmComponentExportDef(wasmComponentExportDef)
     }
   }
 
@@ -930,6 +934,9 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case JSTypeOfGlobalRef(_) =>
 
+      case ComponentFunctionApply(_, _, args) =>
+        checkTrees(args, env)
+
       // Literals
 
       case ClassOf(typeRef) =>
@@ -1061,6 +1068,7 @@ object ClassDefChecker {
       jsConstructorDef,
       exportedMembers,
       jsNativeMembers,
+      componentNativeMembers,
       topLevelExportDefs = Nil
     )(optimizerHints)
 

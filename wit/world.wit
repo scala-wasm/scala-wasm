@@ -1,0 +1,6 @@
+package tanishiking:test@1.0.0;
+
+world run {
+    import addr;
+    export wasi:cli/run@0.2.2;
+}

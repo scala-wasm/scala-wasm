@@ -1112,6 +1112,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
           for (reachabilityInfo <- data.jsMethodProps)
             followReachabilityInfo(reachabilityInfo, this)(FromExports)
+
+          // TODO: don't reach from the unreachable component native members
+          for (reachabilityInfo <- data.componentNativeMembers)
+            followReachabilityInfo(reachabilityInfo, this)
         }
       }
     }
@@ -1514,7 +1518,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     new Infos.ClassInfo(className, ClassKind.Class,
         superClass = superClass, interfaces = Nil, jsNativeLoadSpec = None,
         referencedFieldClasses = Map.empty, methods = methods,
-        jsNativeMembers = Map.empty, jsMethodProps = Nil, topLevelExports = Nil)
+        jsNativeMembers = Map.empty, componentNativeMembers = Nil,
+        jsMethodProps = Nil, topLevelExports = Nil)
   }
 
   private def makeSyntheticMethodInfo(

@@ -143,6 +143,7 @@ object DerivedClasses {
       jsConstructorDef = None,
       exportedMembers = Nil,
       jsNativeMembers = Nil,
+      componentNativeMembers = Nil,
       EOH,
       pos,
       ancestors = derivedClassName :: clazz.ancestors.tail,

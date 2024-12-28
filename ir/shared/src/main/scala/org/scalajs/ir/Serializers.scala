@@ -552,6 +552,13 @@ object Serializers {
           writeString(name)
           writeType(tree.tpe)
 
+        case ComponentFunctionApply(className, method, args) =>
+          writeTagAndPos(TagComponentFunctionApply)
+          writeName(className)
+          writeMethodIdent(method)
+          writeTrees(args)
+          writeType(tree.tpe)
+
         case Transient(value) =>
           throw new InvalidIRException(tree,
               "Cannot serialize a transient IR node (its value is of class " +
@@ -602,7 +609,8 @@ object Serializers {
       writeClassIdents(interfaces)
       writeOptTree(jsSuperClass)
       writeJSNativeLoadSpec(jsNativeLoadSpec)
-      writeMemberDefs(fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers)
+      writeMemberDefs(fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
+        ::: componentNativeMembers)
       writeTopLevelExportDefs(topLevelExportDefs)
       writeInt(OptimizerHints.toBits(optimizerHints))
     }
@@ -718,6 +726,15 @@ object Serializers {
           writeInt(MemberFlags.toBits(flags))
           writeMethodIdent(name)
           writeJSNativeLoadSpec(Some(jsNativeLoadSpec))
+
+        case ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType) =>
+          writeByte(TagComponentNativeMemberDef)
+          writeInt(MemberFlags.toBits(flags))
+          writeMethodIdent(name)
+          writeString(importModule)
+          writeString(importName)
+          writeParamDefs(args)
+          writeType(resultType)
       }
     }
 
@@ -745,6 +762,17 @@ object Serializers {
         case TopLevelFieldExportDef(moduleID, exportName, field) =>
           writeByte(TagTopLevelFieldExportDef)
           writeString(moduleID); writeString(exportName); writeFieldIdentForEnclosingClass(field)
+
+        case WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType) =>
+          writeByte(TagWasmComponentExportDef)
+          writeString(moduleID)
+          writeString(exportName)
+          writeMemberDef(methodDef)
+          buffer.writeInt(paramTypes.length)
+          for (t <- paramTypes) {
+            writeType(t)
+          }
+          writeType(resultType)
       }
     }
 
@@ -861,6 +889,11 @@ object Serializers {
             writeType(tpe)
             buffer.writeBoolean(mutable)
           }
+
+        case WasmComponentResultType(ok, err) =>
+          buffer.write(TagWasmComponentResultType)
+          writeType(ok)
+          writeType(err)
       }
     }
 
@@ -1406,6 +1439,9 @@ object Serializers {
 
         case TagLinkTimeProperty =>
           LinkTimeProperty(readString())(readType())
+
+        case TagComponentFunctionApply =>
+          ComponentFunctionApply(readClassName(), readMethodIdent(), readTrees())(readType())
       }
     }
 
@@ -1507,6 +1543,7 @@ object Serializers {
       val jsConstructorBuilder = new OptionBuilder[JSConstructorDef]
       val jsMethodPropsBuilder = List.newBuilder[JSMethodPropDef]
       val jsNativeMembersBuilder = List.newBuilder[JSNativeMemberDef]
+      val componentNativeMembersBuilder = List.newBuilder[ComponentNativeMemberDef]
 
       for (_ <- 0 until readInt()) {
         implicit val pos = readPosition()
@@ -1518,10 +1555,11 @@ object Serializers {
           case TagJSMethodDef       => jsMethodPropsBuilder += readJSMethodDef()
           case TagJSPropertyDef     => jsMethodPropsBuilder += readJSPropertyDef()
           case TagJSNativeMemberDef => jsNativeMembersBuilder += readJSNativeMemberDef()
+          case TagComponentNativeMemberDef => componentNativeMembersBuilder += readComponentNativeMemberDef()
         }
       }
 
-      val topLevelExportDefs = readTopLevelExportDefs()
+      val topLevelExportDefs = readTopLevelExportDefs(cls, kind)
       val optimizerHints = OptimizerHints.fromBits(readInt())
 
       val fields = fieldsBuilder.result()
@@ -1550,10 +1588,11 @@ object Serializers {
       }
 
       val jsNativeMembers = jsNativeMembersBuilder.result()
+      val componentNativeMembers = componentNativeMembersBuilder.result()
 
       ClassDef(name, originalName, kind, jsClassCaptures, superClass, parents,
           jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-          jsMethodProps, jsNativeMembers, topLevelExportDefs)(
+          jsMethodProps, jsNativeMembers, componentNativeMembers, topLevelExportDefs)(
           optimizerHints)
     }
 
@@ -2031,6 +2070,17 @@ object Serializers {
       JSNativeMemberDef(flags, name, jsNativeLoadSpec)
     }
 
+    private def readComponentNativeMemberDef()(implicit pos: Position): ComponentNativeMemberDef = {
+      val flags = MemberFlags.fromBits(readInt())
+      val name = readMethodIdent()
+      val importModule = readString()
+      val importName = readString()
+      val args = readParamDefs()
+      val resultType = readType()
+
+      ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType)
+    }
+
     /* #4442 and #4601: Patch Labeled, If, Match and TryCatch nodes in
      * statement position to have type VoidType. These 4 nodes are the
      * control structures whose result type is explicitly specified (and
@@ -2096,7 +2146,7 @@ object Serializers {
 
     private def bodyHack5Expr(body: Tree): Tree = bodyHack5(body, isStat = false)
 
-    def readTopLevelExportDef(): TopLevelExportDef = {
+    def readTopLevelExportDef(owner: ClassName, ownerKind: ClassKind): TopLevelExportDef = {
       implicit val pos = readPosition()
       val tag = readByte()
 
@@ -2118,11 +2168,22 @@ object Serializers {
 
         case TagTopLevelFieldExportDef =>
           TopLevelFieldExportDef(readModuleID(), readString(), readFieldIdentForEnclosingClass())
+
+        case TagWasmComponentExportDef =>
+          val moduleID = readModuleID()
+          val exportName = readString()
+          val methodPos = readPosition()
+          val tag = readByte()
+          assert(tag == TagMethodDef, s"unexpected tag $tag")
+          val methodDef = readMethodDef(owner, ownerKind)(methodPos)
+          val paramTypes = List.fill(readInt())(readType())
+          val resultType = readType()
+          WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType)
       }
     }
 
-    def readTopLevelExportDefs(): List[TopLevelExportDef] =
-      List.fill(readInt())(readTopLevelExportDef())
+    def readTopLevelExportDefs(owner: ClassName, ownerKind: ClassKind): List[TopLevelExportDef] =
+      List.fill(readInt())(readTopLevelExportDef(owner, ownerKind))
 
     def readLocalIdent(): LocalIdent = {
       implicit val pos = readPosition()
@@ -2241,6 +2302,9 @@ object Serializers {
             val mutable = readBoolean()
             RecordType.Field(name, readOriginalName(), tpe, mutable)
           })
+
+        case TagWasmComponentResultType =>
+          WasmComponentResultType(readType(), readType())
       }
     }
 

@@ -680,7 +680,8 @@ private[optimizer] abstract class OptimizerCore(
 
       case _:Skip | _:Debugger | _:StoreModule |
           _:SelectStatic | _:JSNewTarget | _:JSImportMeta |
-          _:JSGlobalRef | _:JSTypeOfGlobalRef | _:Literal =>
+          _:JSGlobalRef | _:JSTypeOfGlobalRef | _:Literal |
+          _:ComponentFunctionApply =>
         tree
 
       case _ =>

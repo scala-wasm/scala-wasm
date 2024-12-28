@@ -42,11 +42,23 @@ object SpecialNames {
   val UndefinedBehaviorErrorClass =
     ClassName("org.scalajs.linker.runtime.UndefinedBehaviorError")
 
+  // Wasm Component Model
+  val WasmComponentResultClass =
+    ClassName("scala.scalajs.component.Result")
+  val WasmComponentOkClass =
+    ClassName("scala.scalajs.component.Ok")
+  val WasmComponentErrClass =
+    ClassName("scala.scalajs.component.Err")
+
+
   // Field names
 
   val valueFieldSimpleName = SimpleFieldName("value")
 
   val exceptionFieldName = FieldName(JSExceptionClass, SimpleFieldName("exception"))
+
+  val wasmComponentOkValueFieldName = FieldName(WasmComponentOkClass, SimpleFieldName("value"))
+  val wasmComponentErrValueFieldName = FieldName(WasmComponentErrClass, SimpleFieldName("value"))
 
   // Method names
 

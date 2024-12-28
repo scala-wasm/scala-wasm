@@ -95,9 +95,16 @@ trait JSGlobalAddons extends JSDefinitions
     private val staticExports =
       mutable.Map.empty[Symbol, List[StaticExportInfo]]
 
+    /** Wasm Components exports, by method */
+    private val wasmComponentExports =
+      mutable.Map.empty[Symbol, WasmComponentExportInfo]
+
     /** JS native load specs of the symbols in the current compilation run. */
     private val jsNativeLoadSpecs =
       mutable.Map.empty[Symbol, JSNativeLoadSpec]
+
+    private val componentFunctionTypes =
+      mutable.Map.empty[Symbol, ComponentFunctionType]
 
     private val exportPrefix = "$js$exported$"
     private val methodExportPrefix = exportPrefix + "meth$"
@@ -115,6 +122,12 @@ trait JSGlobalAddons extends JSDefinitions
         val pos: Position) extends ExportInfo
     case class StaticExportInfo(jsName: String)(val pos: Position)
         extends ExportInfo
+    case class WasmComponentExportInfo(name: String, signature: ComponentFunctionType)(
+        val pos: Position) extends ExportInfo
+    case class ComponentFunctionType(
+      params: List[Type],
+      resultType: Type
+    )
 
     sealed abstract class JSName {
       def displayName: String
@@ -274,6 +287,16 @@ trait JSGlobalAddons extends JSDefinitions
       staticExports.put(sym, infos)
     }
 
+    def wasmComponentExportOf(sym: Symbol): WasmComponentExportInfo = {
+      wasmComponentExports(sym)
+    }
+
+    def registerWasmComponentExport(sym: Symbol, info: WasmComponentExportInfo): Unit = {
+      assert(!wasmComponentExports.contains(sym), s"symbol exported twice: $sym")
+      assert(sym.isMethod)
+      wasmComponentExports.put(sym, info)
+    }
+
     def topLevelExportsOf(sym: Symbol): List[TopLevelExportInfo] =
       topLevelExports.getOrElse(sym, Nil)
 
@@ -392,6 +415,11 @@ trait JSGlobalAddons extends JSDefinitions
     def jsNativeLoadSpecOfOption(sym: Symbol): Option[JSNativeLoadSpec] =
       jsNativeLoadSpecs.get(sym)
 
+    def storeComponentFunctionType(sym: Symbol, funcType: ComponentFunctionType): Unit =
+      componentFunctionTypes(sym) = funcType
+
+    def componentFunctionTypeOf(sym: Symbol): ComponentFunctionType =
+      componentFunctionTypes(sym)
   }
 
 }

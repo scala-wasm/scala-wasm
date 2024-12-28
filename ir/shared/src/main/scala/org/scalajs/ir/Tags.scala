@@ -130,6 +130,8 @@ private[ir] object Tags {
   // New in 1.18
   final val TagLinkTimeProperty = TagUnwrapFromThrowable + 1
 
+  final val TagComponentFunctionApply = TagLinkTimeProperty + 1
+
   // Tags for member defs
 
   final val TagFieldDef = 1
@@ -146,12 +148,15 @@ private[ir] object Tags {
 
   final val TagJSConstructorDef = TagJSNativeMemberDef + 1
 
+  final val TagComponentNativeMemberDef = TagJSConstructorDef + 1
+
   // Tags for top-level export defs
 
   final val TagTopLevelJSClassExportDef = 1
   final val TagTopLevelModuleExportDef = TagTopLevelJSClassExportDef + 1
   final val TagTopLevelMethodExportDef = TagTopLevelModuleExportDef + 1
   final val TagTopLevelFieldExportDef = TagTopLevelMethodExportDef + 1
+  final val TagWasmComponentExportDef = TagTopLevelFieldExportDef + 1
 
   // Tags for Types
 
@@ -181,6 +186,9 @@ private[ir] object Tags {
   final val TagAnyNotNullType = TagVoidType + 1
   final val TagNonNullClassType = TagAnyNotNullType + 1
   final val TagNonNullArrayType = TagNonNullClassType + 1
+
+  // Component
+  final val TagWasmComponentResultType = TagNonNullArrayType + 1
 
   // Tags for TypeRefs
 

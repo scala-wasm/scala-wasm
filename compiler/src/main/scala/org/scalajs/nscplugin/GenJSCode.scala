@@ -35,7 +35,8 @@ import org.scalajs.ir.Names.{
   SimpleMethodName,
   MethodName,
   ClassName,
-  BoxedStringClass
+  BoxedStringClass,
+  DefaultModuleID
 }
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Trees.OptimizerHints
@@ -649,10 +650,16 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       val methodsBuilder = List.newBuilder[js.MethodDef]
       val jsNativeMembersBuilder = List.newBuilder[js.JSNativeMemberDef]
+      val componentNativeMembersBuilder = List.newBuilder[js.ComponentNativeMemberDef]
+      val wasmComponentExportDefsBuilder = List.newBuilder[js.WasmComponentExportDef]
 
       for (dd <- collectDefDefs(impl)) {
         if (dd.symbol.hasAnnotation(JSNativeAnnotation))
           jsNativeMembersBuilder += genJSNativeMemberDef(dd)
+        else if (dd.symbol.hasAnnotation(ComponentImportAnnotation))
+          componentNativeMembersBuilder += genComponentNativeMemberDef(dd)
+        else if (dd.symbol.hasAnnotation(ComponentExportAnnotation))
+          wasmComponentExportDefsBuilder += genWasmComponentExport(dd)
         else
           methodsBuilder ++= genMethod(dd)
       }
@@ -660,11 +667,12 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val fields = if (!isHijacked) genClassFields(cd) else Nil
 
       val jsNativeMembers = jsNativeMembersBuilder.result()
+      val componentNativeMembers = componentNativeMembersBuilder.result()
       val generatedMethods = methodsBuilder.result()
 
       val memberExports = genMemberExports(sym)
 
-      val topLevelExportDefs = genTopLevelExports(sym)
+      val topLevelExportDefs = genTopLevelExports(sym) ++ wasmComponentExportDefsBuilder.result()
 
       // Static initializer
       val optStaticInitializer = {
@@ -732,6 +740,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                   jsConstructor = None,
                   jsMethodProps = Nil,
                   jsNativeMembers = Nil,
+                  componentNativeMembers = Nil,
                   topLevelExportDefs = Nil
               )(js.OptimizerHints.empty)
               generatedStaticForwarderClasses += sym -> forwardersClassDef
@@ -765,6 +774,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsConstructor = None,
           memberExports,
           jsNativeMembers,
+          componentNativeMembers,
           topLevelExportDefs)(
           optimizerHints)
     }
@@ -898,6 +908,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           Some(generatedCtor),
           jsMethodProps,
           jsNativeMembers = Nil,
+          componentNativeMembers = Nil,
           topLevelExports)(
           OptimizerHints.empty)
     }
@@ -948,7 +959,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             ClassKind.AbstractJSType, None, Some(parent), interfaces = Nil,
             jsSuperClass = None, jsNativeLoadSpec = None, fields = Nil,
             methods = origJsClass.methods, jsConstructor = None, jsMethodProps = Nil,
-            jsNativeMembers = Nil, topLevelExportDefs = Nil)(
+            jsNativeMembers = Nil, Nil, topLevelExportDefs = Nil)(
             origJsClass.optimizerHints)
       }
 
@@ -1123,7 +1134,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass,
           genClassInterfaces(sym, forJSClass = true), None, jsNativeLoadSpec,
-          Nil, Nil, None, Nil, Nil, Nil)(
+          Nil, Nil, None, Nil, Nil, Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -1146,7 +1157,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), ClassKind.Interface,
           None, None, interfaces, None, None, fields = Nil, methods = allMemberDefs,
-          None, Nil, Nil, Nil)(
+          None, Nil, Nil, Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -2196,6 +2207,59 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val methodName = encodeMethodSym(sym)
       val jsNativeLoadSpec = jsInterop.jsNativeLoadSpecOf(sym)
       js.JSNativeMemberDef(flags, methodName, jsNativeLoadSpec)
+    }
+
+    private def toComponentIRType(tpe: Type): jstpe.Type = {
+      tpe.typeSymbol match {
+        case ComponentResultClass =>
+          val List(ok, err) = tpe.typeArgs
+          jstpe.WasmComponentResultType(toComponentIRType(ok), toComponentIRType(err))
+        case _ =>
+          toIRType(tpe)
+      }
+    }
+
+    private def genComponentNativeMemberDef(tree: DefDef): js.ComponentNativeMemberDef = {
+      implicit val pos = tree.pos
+
+      val sym = tree.symbol
+      val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic)
+      val methodName = encodeMethodSym(sym)
+
+      val annot = sym.annotations.find { annot => annot.symbol == ComponentImportAnnotation }
+      annot match {
+        case Some(annot) =>
+          withNewLocalNameScope {
+            val module = annot.stringArg(0).get
+            val name = annot.stringArg(1).get
+            val funcType = jsInterop.componentFunctionTypeOf(sym)
+            val params =
+              (if (tree.vparamss.isEmpty) Nil else tree.vparamss.head.map(_.symbol))
+            val paramDefs = params.zip(funcType.params).map { case (sym, tpe) =>
+              genParamDef(sym, toComponentIRType(tpe))
+            }
+            val resultType = toComponentIRType(funcType.resultType)
+            js.ComponentNativeMemberDef(flags, methodName, module, name, paramDefs, resultType)
+          }
+        case None => ???
+      }
+    }
+
+    def genWasmComponentExport(method: DefDef): js.WasmComponentExportDef = {
+      val sym = method.symbol
+      val info = jsInterop.wasmComponentExportOf(sym)
+      withNewLocalNameScope {
+        val methodDef = genMethod(method).get
+        val paramTypes = info.signature.params.map(toComponentIRType(_))
+        val resultType = toComponentIRType(info.signature.resultType)
+        js.WasmComponentExportDef(
+          DefaultModuleID,
+          info.name,
+          methodDef,
+          paramTypes,
+          resultType
+        )(method.pos)
+      }
     }
 
     /** Generates the MethodDef of a (non-constructor) method
@@ -3533,6 +3597,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           genApplyJSClassMethod(genExpr(receiver), sym, genActualArgs(sym, args))
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
+      } else if (sym.hasAnnotation(ComponentImportAnnotation)) {
+        genComponentNativeMemberCall(sym, tree, isStat)
       } else if (compileAsStaticMethod(sym)) {
         if (sym.isMixinConstructor) {
           /* Do not emit a call to the $init$ method of JS traits.
@@ -5474,6 +5540,17 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       genJSCallGeneric(sym, receiver, args, isStat)
     }
 
+    private def genComponentNativeMemberCall(method: Symbol, tree: Apply, isStat: Boolean): js.Tree = {
+      val sym = tree.symbol
+      val Apply(_, args) = tree
+
+      implicit val pos = tree.pos
+
+      val methodIdent = encodeMethodSym(method)
+      val className = encodeClassName(method.owner)
+      js.ComponentFunctionApply(className, methodIdent, genActualArgs(sym, args))(toIRType(tree.tpe))
+    }
+
     /** Gen JS code for a call to a native JS def or val. */
     private def genJSNativeMemberCall(tree: Apply, isStat: Boolean): js.Tree = {
       val sym = tree.symbol
@@ -6498,6 +6575,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           fields = fFieldDef :: Nil,
           methods = ctorDef :: samMethodDefs,
           jsConstructor = None,
+          Nil,
           Nil,
           Nil,
           Nil)(

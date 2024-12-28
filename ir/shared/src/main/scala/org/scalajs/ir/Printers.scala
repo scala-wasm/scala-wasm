@@ -938,7 +938,7 @@ object Printers {
       }
       print(" ")
       printColumn(fields ::: methods ::: jsConstructor.toList :::
-          jsMethodProps ::: jsNativeMembers ::: topLevelExportDefs, "{", "", "}")
+          jsMethodProps ::: jsNativeMembers ::: componentNativeMembers ::: topLevelExportDefs, "{", "", "}")
     }
 
     def print(memberDef: MemberDef): Unit = {
@@ -1022,6 +1022,16 @@ object Printers {
           print(name)
           print(" loadfrom ")
           print(jsNativeLoadSpec)
+
+        case ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType) =>
+          print(flags.namespace.prefixString)
+          print("component ")
+          print(name)
+          print(" importfrom \"")
+          print(importModule)
+          print("\" \"")
+          print(importName)
+          print("\"")
       }
     }
 
@@ -1050,7 +1060,30 @@ object Printers {
           print(" as \"")
           printEscapeJS(exportName, out)
           print("\"")
+
+        case WasmComponentExportDef(_, exportName, methodDef, paramTypes, resultType) =>
+          print("wasm \"")
+          printEscapeJS(exportName, out)
+          print("\" :")
+          var first = true
+          for (ty <- paramTypes) {
+            if (first) first = false
+            else print(", ")
+            print(ty)
+          }
+          print("-> ")
+          print(resultType)
+          print(" = ")
+          print(methodDef)
       }
+    }
+
+    def print(wasmExport: WasmComponentExportDef): Unit = {
+      print("(export \"")
+      print(wasmExport.exportName)
+      print("\" ")
+      print(wasmExport.methodDef)
+      print(")")
     }
 
     def print(typeRef: TypeRef): Unit = typeRef match {
@@ -1105,6 +1138,13 @@ object Printers {
           print(": ")
           print(tpe)
         }
+        print(')')
+
+      case WasmComponentResultType(ok, err) =>
+        print("Result(")
+        print(ok)
+        print(", ")
+        print(err)
         print(')')
     }
 

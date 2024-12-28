@@ -74,6 +74,13 @@ trait JSDefinitions {
     lazy val JSGlobalScopeAnnotation   = getRequiredClass("scala.scalajs.js.annotation.JSGlobalScope")
     lazy val JSOperatorAnnotation      = getRequiredClass("scala.scalajs.js.annotation.JSOperator")
 
+    lazy val ScalaJSComponentPackageModule = getPackageObject("scala.scalajs.component")
+      lazy val ComponentPackage_native = getMemberMethod(ScalaJSComponentPackageModule, newTermName("native"))
+    lazy val ComponentNativeAnnotation = getRequiredClass("scala.scalajs.component.native")
+    lazy val ComponentImportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentImport")
+    lazy val ComponentExportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentExport")
+    lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.component.Result")
+
     lazy val JSImportNamespaceObject = getRequiredModule("scala.scalajs.js.annotation.JSImport.Namespace")
 
     lazy val ExposedJSMemberAnnot = getRequiredClass("scala.scalajs.js.annotation.internal.ExposedJSMember")
