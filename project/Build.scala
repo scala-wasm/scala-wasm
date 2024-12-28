@@ -2018,7 +2018,10 @@ object Build {
       exampleSettings,
       name := "Hello World - Scala.js example",
       moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false))
+      },
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val testSuiteWASI: MultiScalaProject = MultiScalaProject(
