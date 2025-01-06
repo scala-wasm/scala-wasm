@@ -3859,7 +3859,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         genGetSizeOf(fb, p)
         fb += LocalGet(nunits)
         fb += I32GeU
-        fb.ifThenElse() {
+        fb.ifThen() {
           // block size >= nunits (the block size is big enough)
           genGetSizeOf(fb, p)
           fb += LocalGet(nunits)
@@ -3895,28 +3895,28 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           fb += LocalGet(p)
           fb += Return
           // end block_size >= nunits
-        } {
-          // block_size < nunits
-
-          // if p == freep (block not found)
-          fb += LocalGet(p)
-          fb += GlobalGet(genGlobalID.freep)
-          fb += I32Eq
-          fb.ifThen() {
-            fb += I32Const(-1)
-            fb += Return
-            // TODO: memory.grow here
-          }
-
-          // prevp = p
-          fb += LocalGet(p)
-          fb += LocalSet(prevp)
-
-          // p = p->next
-          genGetNextOf(fb, p)
-          fb += LocalSet(p)
-          fb += Br(loop)
         }
+        // block_size < nunits
+
+        // if p == freep (block not found)
+        fb += LocalGet(p)
+        fb += GlobalGet(genGlobalID.freep)
+        fb += I32Eq
+        fb.ifThen() {
+          fb += I32Const(-1)
+          fb += Return
+          // TODO: memory.grow here
+        }
+
+        // prevp = p
+        fb += LocalGet(p)
+        fb += LocalSet(prevp)
+
+        // p = p->next
+        genGetNextOf(fb, p)
+        fb += LocalSet(p)
+        fb += Br(loop)
+
       }
       fb += I32Const(-1)
       fb.buildAndAddToModule()
@@ -4001,6 +4001,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genGetSizeOf(fb, p)
       fb += I32Const(8)
       fb += I32Mul
+      fb += I32Add
       fb += LocalGet(ptr)
       fb += I32Eq
       fb.ifThenElse() { // join to lower neighbor

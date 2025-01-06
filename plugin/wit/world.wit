@@ -1,8 +1,7 @@
 package tanishiking:test@0.0.1;
 
-world socket {
-    import test;
-    export wasi:cli/run@0.2.0;
+world plug {
+    export test;
 }
 
 interface test {

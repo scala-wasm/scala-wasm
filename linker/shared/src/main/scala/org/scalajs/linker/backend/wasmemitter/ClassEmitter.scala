@@ -118,7 +118,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         member.importName,
         wamod.ImportDesc.Func(
           functionID,
-          NoOriginalName,
+          OriginalName(s"${member.importModule}#${member.importName}"),
           ctx.moduleBuilder.functionTypeToTypeID(coreWasmFunctionType)
         )
       )
@@ -137,7 +137,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,
       functionID,
-      NoOriginalName,
+      OriginalName(s"${member.importModule}#${member.importName}-adapter"),
       member.pos,
     )
 

@@ -10,9 +10,9 @@ import scala.scalajs.component
 import component.annotation._
 
 object Cli {
-  @ComponentExport("wasi:cli/run@0.2.2#run")
+  @ComponentExport("wasi:cli/run@0.2.0#run")
   def run(): component.Result[Unit, Unit] = {
-    Test.add(0, 2)
+    val res = Test.add(1, 2)
     component.Ok(())
   }
 }

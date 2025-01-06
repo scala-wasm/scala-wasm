@@ -207,6 +207,9 @@ object Instructions {
   case class F64Store(arg: MemoryArg) extends LoadStoreInstr("f64.store", 0x39, arg)
   case class I32Store8(arg: MemoryArg) extends LoadStoreInstr("i32.store8", 0x3A, arg)
   case class I32Store16(arg: MemoryArg) extends LoadStoreInstr("i32.store16", 0x3B, arg)
+  object I32Store16 {
+    def apply(): I32Store16 = I32Store16(MemoryArg())
+  }
   case class I64tore8(arg: MemoryArg) extends LoadStoreInstr("i64.store8", 0x3C, arg)
   case class I64tore16(arg: MemoryArg) extends LoadStoreInstr("i64.store16", 0x3D, arg)
   case class I64tore32(arg: MemoryArg) extends LoadStoreInstr("i64.store32", 0x3E, arg)

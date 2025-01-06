@@ -1,4 +1,4 @@
-package wasi:sockets@0.2.2;
+package wasi:sockets@0.2.0;
 
 interface network {
   resource network;
@@ -66,7 +66,7 @@ interface instance-network {
 }
 
 interface udp {
-  use wasi:io/poll@0.2.2.{pollable};
+  use wasi:io/poll@0.2.0.{pollable};
   use network.{network, error-code, ip-socket-address, ip-address-family};
 
   record incoming-datagram {
@@ -115,9 +115,9 @@ interface udp-create-socket {
 }
 
 interface tcp {
-  use wasi:io/streams@0.2.2.{input-stream, output-stream};
-  use wasi:io/poll@0.2.2.{pollable};
-  use wasi:clocks/monotonic-clock@0.2.2.{duration};
+  use wasi:io/streams@0.2.0.{input-stream, output-stream};
+  use wasi:io/poll@0.2.0.{pollable};
+  use wasi:clocks/monotonic-clock@0.2.0.{duration};
   use network.{network, error-code, ip-socket-address, ip-address-family};
 
   enum shutdown-type {
@@ -166,7 +166,7 @@ interface tcp-create-socket {
 }
 
 interface ip-name-lookup {
-  use wasi:io/poll@0.2.2.{pollable};
+  use wasi:io/poll@0.2.0.{pollable};
   use network.{network, error-code, ip-address};
 
   resource resolve-address-stream {

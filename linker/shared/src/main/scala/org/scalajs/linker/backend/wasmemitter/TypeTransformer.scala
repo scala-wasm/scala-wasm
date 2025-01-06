@@ -164,6 +164,8 @@ object TypeTransformer {
       case LongType    => Some(wit.S64Type)
       case FloatType   => Some(wit.F32Type)
       case DoubleType  => Some(wit.F64Type)
+      case ClassType(className, true) if className == BoxedStringClass =>
+        Some(wit.StringType)
       case WasmComponentResultType(ok, err) =>
         Some(wit.ResultType(
           transformWIT(ok),

@@ -12,6 +12,7 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 
 import org.scalajs.linker.backend.webassembly.component.{Types => wit}
 import org.scalajs.linker.backend.webassembly.component.Flatten
+import _root_.org.scalajs.ir.Names.BoxedStringClass
 
 
 object ScalaJSToCABI {
@@ -23,6 +24,61 @@ object ScalaJSToCABI {
 
       case VoidType =>
         fb += wa.Drop // there shouldbe undef on the stack
+
+      case ClassType(className, nullable) if className == BoxedStringClass =>
+        // array i16
+        val str = fb.addLocal(NoOriginalName, watpe.RefType(nullable, genTypeID.i16Array))
+        val baseAddr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val iLocal = fb.addLocal(NoOriginalName, watpe.Int32)
+        fb += wa.LocalTee(str)
+
+        // required bytes
+        fb += wa.ArrayLen
+        fb += wa.I32Const(2)
+        fb += wa.I32Mul
+        fb += wa.Call(genFunctionID.malloc)
+        fb += wa.LocalSet(baseAddr)
+
+        // i := 0
+        fb += wa.I32Const(0)
+        fb += wa.LocalSet(iLocal)
+
+        fb.block() { exit =>
+          fb.loop() { loop =>
+            fb += wa.LocalGet(iLocal)
+            fb += wa.LocalGet(str)
+            fb += wa.ArrayLen
+            fb += wa.I32Eq
+            fb.ifThen() {
+              fb += wa.Br(exit)
+            }
+            // store
+            // position (baseAddr + i * 2)
+            fb += wa.LocalGet(baseAddr)
+            fb += wa.LocalGet(iLocal)
+            fb += wa.I32Const(2)
+            fb += wa.I32Mul
+            fb += wa.I32Add
+
+            // value
+            fb += wa.LocalGet(str)
+            fb += wa.LocalGet(iLocal)
+            fb += wa.ArrayGetU(genTypeID.i16Array) // i32 here
+            fb += wa.I32Store16() // store 2 bytes
+
+            // i := i + 1
+            fb += wa.LocalGet(iLocal)
+            fb += wa.I32Const(1)
+            fb += wa.I32Add
+            fb += wa.LocalSet(iLocal)
+            fb += wa.Br(loop)
+          }
+        }
+        fb += wa.LocalGet(baseAddr) // offset
+        fb += wa.LocalGet(str)
+        fb += wa.ArrayLen
+        fb += wa.I32Const(2)
+        fb += wa.I32Mul // byte length
 
       case tpe @ WasmComponentResultType(ok, err) =>
         val tmp = fb.addLocal("tmp", watpe.RefType(genTypeID.WasmComponentResultStruct))
