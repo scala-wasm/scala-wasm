@@ -51,6 +51,8 @@ object VarGen {
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
     case object emptyStringArray extends GlobalID
+    /** Offset of the linear memory pointing to the starting point of freelist. */
+    case object freep extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -63,6 +65,7 @@ object VarGen {
     case object bTrue extends JSHelperGlobalID
     case object emptyString extends JSHelperGlobalID
     case object idHashCodeMap extends JSHelperGlobalID
+
   }
 
   object genFunctionID {
@@ -112,6 +115,8 @@ object VarGen {
     // WASI
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
+    final case object malloc extends FunctionID
+    final case object free extends FunctionID
 
     // JS helpers
 
@@ -471,4 +476,7 @@ object VarGen {
     case object string extends DataID
   }
 
+  object genMemoryID {
+    case object memory extends MemoryID
+  }
 }

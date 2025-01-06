@@ -133,6 +133,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genPrimitiveTypeDataGlobals()
 
     genHelperDefinitions()
+
+    genMemoryAndAllocator()
   }
 
   /** Generates definitions that must come *after* the code generated for regular classes.
@@ -664,6 +666,28 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         Expr(List(ArrayNewFixed(genTypeID.i16Array, 0)))
       )
     )
+  }
+
+  private def genMemoryAndAllocator()(implicit ctx: WasmContext): Unit = {
+    ctx.moduleBuilder.addMemory(
+      Memory(genMemoryID.memory, OriginalName.NoOriginalName, Memory.Limits(1, None))
+    )
+    // > all modules accessing WASI APIs also export a linear memory with the name `memory`.
+    // > Data pointers in WASI API calls are relative to this memory's index space.
+    // https://github.com/WebAssembly/WASI/blob/main/legacy/application-abi.md
+    ctx.moduleBuilder.addExport(Export("memory", ExportDesc.Memory(genMemoryID.memory)))
+
+    ctx.addGlobal(
+      Global(
+        genGlobalID.freep,
+        OriginalName(genGlobalID.freep.toString()),
+        isMutable = true,
+        Int32,
+        Expr(List(I32Const(-1)))
+      )
+    )
+
+    genMallocAndFree()
   }
 
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(
@@ -3724,6 +3748,281 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule()
   }
 
+  private def genMallocAndFree()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+
+    def genGetNextOf(fb: FunctionBuilder, p: LocalID) = {
+      fb += LocalGet(p)
+      fb += I32Const(8)
+      fb += I32Sub
+      fb += I32Load()
+    }
+
+    def genGetNext(fb: FunctionBuilder, genPointer: => Unit) = {
+      genPointer
+      fb += I32Const(8)
+      fb += I32Sub
+      fb += I32Load()
+    }
+
+    def genGetSizeOf(fb: FunctionBuilder, p: LocalID) = {
+      fb += LocalGet(p)
+      fb += I32Const(4)
+      fb += I32Sub
+      fb += I32Load()
+    }
+
+    def genGetSize(fb: FunctionBuilder, genPointer: => Unit) = {
+      genPointer
+      fb += I32Const(4)
+      fb += I32Sub
+      fb += I32Load()
+    }
+
+    def genSetNextOf(fb: FunctionBuilder, p: LocalID, genBody: => Unit) = {
+      fb += LocalGet(p)
+      fb += I32Const(8)
+      fb += I32Sub
+      genBody
+      fb += I32Store()
+    }
+
+    def genSetSizeOf(fb: FunctionBuilder, p: LocalID, genBody: => Unit) = {
+      fb += LocalGet(p)
+      fb += I32Const(4)
+      fb += I32Sub
+      genBody
+      fb += I32Store()
+    }
+
+    {
+      val fb = newFunctionBuilder(genFunctionID.malloc)
+      val nbytes = fb.addParam("nbytes", Int32)
+      fb.setResultType(Int32)
+
+      val p = fb.addLocal("pointer", Int32)
+      val prevp = fb.addLocal("prevPointer", Int32)
+      val nunits = fb.addLocal("nunits", Int32)
+      val blockSize = fb.addLocal("blockSize", Int32)
+
+      val mem = genMemoryID.memory
+
+      fb += GlobalGet(genGlobalID.freep)
+      fb += I32Const(0)
+      fb += I32LtS
+      fb.ifThen() {
+        fb += I32Const(16)
+        fb += GlobalSet(genGlobalID.freep)
+
+        // initialize base block
+        // next pointer
+        fb += I32Const(0)
+        fb += GlobalGet(genGlobalID.freep) // 16
+        fb += I32Store()
+
+        // size
+        fb += I32Const(4)
+        fb += I32Const(1)
+        fb += I32Store()
+
+        // initialize freep
+        // next pointer
+        fb += I32Const(8)
+        fb += I32Const(8)
+        fb += I32Store()
+
+        // size
+        fb += I32Const(12)
+        fb += I32Const(8191)
+        fb += I32Store()
+      }
+
+      // prevp = freep
+      fb += GlobalGet(genGlobalID.freep)
+      fb += LocalSet(prevp)
+
+      // p = prevp->next
+      genGetNextOf(fb, prevp)
+      fb += LocalSet(p)
+
+      // nunits = (nbytes + 8 - 1) / 8 + 1
+      fb += LocalGet(nbytes)
+      fb += I32Const(7) // 8 -1
+      fb += I32Add
+      fb += I32Const(8)
+      fb += I32DivU
+      fb += I32Const(1)
+      fb += I32Add
+      fb += LocalSet(nunits)
+
+      fb.loop() { loop =>
+        genGetSizeOf(fb, p)
+        fb += LocalGet(nunits)
+        fb += I32GeU
+        fb.ifThenElse() {
+          // block size >= nunits (the block size is big enough)
+          genGetSizeOf(fb, p)
+          fb += LocalGet(nunits)
+          fb += I32Eq
+          fb.ifThenElse() { // blocksize == nunits
+            // prevp->next = p->next
+            genSetNextOf(fb, prevp, { genGetNextOf(fb, p) })
+          } { // else (blocksize > nunits)
+            // p->size = p->size - nunits
+            genSetSizeOf(fb, p, {
+              genGetSizeOf(fb, p)
+              fb += LocalGet(nunits)
+              fb += I32Sub
+            })
+
+            // p = p + p->size * 8
+            fb += LocalGet(p)
+            genGetSizeOf(fb, p)
+            fb += I32Const(8)
+            fb += I32Mul
+            fb += I32Add
+            fb += LocalSet(p)
+
+            // p->size = nunits
+            genSetSizeOf(fb, p, { fb += LocalGet(nunits) })
+          }
+
+          // freep = prevp
+          fb += LocalGet(prevp)
+          fb += GlobalSet(genGlobalID.freep)
+
+          // return p
+          fb += LocalGet(p)
+          fb += Return
+          // end block_size >= nunits
+        } {
+          // block_size < nunits
+
+          // if p == freep (block not found)
+          fb += LocalGet(p)
+          fb += GlobalGet(genGlobalID.freep)
+          fb += I32Eq
+          fb.ifThen() {
+            fb += I32Const(-1)
+            fb += Return
+            // TODO: memory.grow here
+          }
+
+          // prevp = p
+          fb += LocalGet(p)
+          fb += LocalSet(prevp)
+
+          // p = p->next
+          genGetNextOf(fb, p)
+          fb += LocalSet(p)
+          fb += Br(loop)
+        }
+      }
+      fb += I32Const(-1)
+      fb.buildAndAddToModule()
+    }
+
+    // free
+    {
+      val fb = newFunctionBuilder(genFunctionID.free)
+      val ptr = fb.addParam("ptr", Int32)
+
+      val p = fb.addLocal("p", Int32)
+      fb.block() { exit =>
+        // p = freep
+        fb += GlobalGet(genGlobalID.freep)
+        fb += LocalSet(p)
+
+        fb.loop() { loop =>
+          // loop until we find a block p, where the ptr is withing the p and block pointed by p
+          // !(ptr > p && ptr < p->next)
+          fb += LocalGet(ptr)
+          fb += LocalGet(p)
+          fb += I32GtU
+
+          fb += LocalGet(ptr)
+          genGetNextOf(fb, p)
+          fb += I32LtU
+
+          fb += I32And
+          fb += BrIf(exit)
+
+          // special case (ptr is on the edge of arena)
+          // (p >= p->next && ptr > p || ptr < p->next)
+          fb += LocalGet(p)
+          genGetNextOf(fb, p)
+          fb += I32GeU
+
+          // ptr > p
+          fb += LocalGet(ptr)
+          fb += LocalGet(p)
+          fb += I32GtU
+          // ptr < p->next
+          fb += LocalGet(ptr)
+          genGetNextOf(fb, p)
+          fb += I32LtU
+          fb += I32Or // ptr > p || ptr < p->next
+          fb += I32And
+          fb += BrIf(exit)
+
+          // p = p->next
+          genGetNextOf(fb, p)
+          fb += LocalSet(p)
+          fb += Br(loop)
+        } // end loop
+      } // end exit
+
+      // ptr + ptr->size * 8 == p->next
+      fb += LocalGet(ptr)
+      genGetSizeOf(fb, ptr)
+      fb += I32Const(8)
+      fb += I32Mul
+      fb += I32Add
+      genGetNextOf(fb, p)
+      fb += I32Eq
+      fb.ifThenElse() { // join to upper neighbor
+        // ptr->size = ptr->size + p->next->size
+        genSetSizeOf(fb, ptr, {
+          genGetSizeOf(fb, ptr)
+          genGetSize(fb, { genGetNextOf(fb, p) })
+          fb += I32Add
+        })
+        // ptr->next = p->next->next
+        genSetNextOf(fb, ptr, {
+          genGetNext(fb, { genGetNextOf(fb, p) })
+        })
+      } { // otherwise, set next pointer of ptr to p->next
+        // ptr->next = p->next
+        genSetNextOf(fb, ptr, { genGetNextOf(fb, p) })
+      }
+
+      // p + p->size * 8 == ptr
+      fb += LocalGet(p)
+      genGetSizeOf(fb, p)
+      fb += I32Const(8)
+      fb += I32Mul
+      fb += LocalGet(ptr)
+      fb += I32Eq
+      fb.ifThenElse() { // join to lower neighbor
+        // p->size = p->size + ptr->size
+        genSetSizeOf(fb, p, {
+          genGetSizeOf(fb, p)
+          genGetSizeOf(fb, ptr)
+          fb += I32Add
+        })
+        // p->next = ptr->next
+        genSetNextOf(fb, p, { genGetNextOf(fb, ptr) })
+      } { // otherwise, set p->next to be ptr
+        // p->next = ptr
+        genSetNextOf(fb, p, { fb += LocalGet(ptr) })
+      }
+
+      // freep = p
+      fb += LocalGet(p)
+      fb += GlobalSet(genGlobalID.freep)
+      fb.buildAndAddToModule()
+    }
+  }
 
   private def maybeWrapInUBE(fb: FunctionBuilder, behavior: CheckedBehavior)(
       genExceptionInstance: => Unit): Unit = {
