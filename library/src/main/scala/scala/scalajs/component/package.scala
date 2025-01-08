@@ -29,8 +29,6 @@ package object component {
   @field @getter @setter
   class native extends scala.annotation.StaticAnnotation
 
-  class variant extends scala.annotation.StaticAnnotation
-
   /** Denotes a method body as imported from Wasm Component. For use in facade types:
    *
    *  {{{

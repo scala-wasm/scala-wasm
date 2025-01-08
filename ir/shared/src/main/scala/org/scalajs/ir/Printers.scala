@@ -1146,6 +1146,17 @@ object Printers {
         print(", ")
         print(err)
         print(')')
+
+      case WasmComponentVariantType(variantas) =>
+        print("variant {")
+        var first = true
+        for (t <- variantas) {
+          if (first)
+            first = false
+          else
+            print(", ")
+          print(t)
+        }
     }
 
     def print(ident: LocalIdent): Unit =

@@ -13,10 +13,11 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 import org.scalajs.linker.backend.webassembly.component.{Types => wit}
 import org.scalajs.linker.backend.webassembly.component.Flatten
 import _root_.org.scalajs.ir.Names.BoxedStringClass
+import org.scalajs.linker.backend.wasmemitter.WasmContext
 
 
 object ScalaJSToCABI {
-  def genAdaptCABI(fb: FunctionBuilder, irType: Type): Unit = {
+  def genAdaptCABI(fb: FunctionBuilder, irType: Type)(implicit ctx: WasmContext): Unit = {
     irType match {
       // Scala.js has a same representation
       case BooleanType | ByteType | ShortType | IntType |
@@ -79,6 +80,36 @@ object ScalaJSToCABI {
         fb += wa.ArrayLen
         fb += wa.I32Const(2)
         fb += wa.I32Mul // byte length
+
+      case tpe @ WasmComponentVariantType(types) =>
+        val tmp = fb.addLocal(NoOriginalName, watpe.RefType(genTypeID.WasmComponentVariantStruct))
+        val flattened = Flatten.flattenVariants(types.flatMap(transformWIT(_)))
+        fb += wa.LocalTee(tmp)
+        fb += wa.StructGet(
+          genTypeID.WasmComponentVariantStruct,
+          genFieldID.forClassInstanceField(SpecialNames.WasmComponentVariant.indexFieldName)
+        )
+
+        fb += wa.LocalGet(tmp)
+        fb += wa.StructGet(
+          genTypeID.WasmComponentVariantStruct,
+          genFieldID.forClassInstanceField(SpecialNames.WasmComponentVariant.valueFieldName)
+        )
+
+        val variants = types.map(t => (t, fb.genLabel()))
+        for ((t, label) <- variants.reverse) {
+          fb += wa.Block(wa.BlockType.ValueType(transformSingleType(t)), Some(label))
+        }
+
+        // fb += wa.LocalGet(tmp)
+        // for ((t, label) <- variants) {
+        //   fb += wa.BrOnCast(
+        //     label,
+        //     watpe.RefType(genTypeID.WasmComponentVariantStruct),
+        //     t
+        //   )
+        // }
+
 
       case tpe @ WasmComponentResultType(ok, err) =>
         val tmp = fb.addLocal("tmp", watpe.RefType(genTypeID.WasmComponentResultStruct))

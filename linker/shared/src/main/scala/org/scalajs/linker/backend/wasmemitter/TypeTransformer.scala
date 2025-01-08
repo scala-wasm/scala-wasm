@@ -99,6 +99,9 @@ object TypeTransformer {
       case WasmComponentResultType(ok, err) =>
         watpe.RefType(false, genTypeID.WasmComponentResultStruct)
 
+      case WasmComponentVariantType(_) =>
+        watpe.RefType(false, genTypeID.WasmComponentVariantStruct)
+
       case RecordType(fields) =>
         throw new AssertionError(s"Unexpected record type $tpe")
 
@@ -170,6 +173,10 @@ object TypeTransformer {
         Some(wit.ResultType(
           transformWIT(ok),
           transformWIT(err)
+        ))
+      case WasmComponentVariantType(variants) =>
+        Some(wit.VariantType(
+          variants.map { t => wit.CaseType("dummy", transformWIT(t)) }
         ))
       case _ =>
         throw new AssertionError(s"Unexpected type: $tpe")

@@ -50,6 +50,9 @@ object SpecialNames {
   val WasmComponentErrClass =
     ClassName("scala.scalajs.component.Err")
 
+  val WasmComponentVariantClass =
+    ClassName("scala.scalajs.component.Variant")
+
 
   // Field names
 
@@ -59,6 +62,10 @@ object SpecialNames {
 
   val wasmComponentOkValueFieldName = FieldName(WasmComponentOkClass, SimpleFieldName("value"))
   val wasmComponentErrValueFieldName = FieldName(WasmComponentErrClass, SimpleFieldName("value"))
+  object WasmComponentVariant {
+    val indexFieldName = FieldName(WasmComponentVariantClass, SimpleFieldName("_index"))
+    val valueFieldName = FieldName(WasmComponentVariantClass, SimpleFieldName("value"))
+  }
 
   // Method names
 

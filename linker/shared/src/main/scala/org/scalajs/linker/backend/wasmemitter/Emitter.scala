@@ -473,6 +473,7 @@ object Emitter {
       instantiateClass(WasmComponentResultClass, NoArgConstructorName),
       instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
       instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
+      instantiateClass(WasmComponentVariantClass, NoArgConstructorName),
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),

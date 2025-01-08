@@ -255,7 +255,7 @@ object Infos {
         case NullType | NothingType =>
           // Nothing to do
 
-        case VoidType | RecordType(_) | _:WasmComponentResultType =>
+        case VoidType | RecordType(_) | _:WasmComponentResultType | _:WasmComponentVariantType =>
           throw new IllegalArgumentException(
               s"Illegal receiver type: $receiverTpe")
       }

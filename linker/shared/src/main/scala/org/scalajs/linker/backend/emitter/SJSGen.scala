@@ -444,7 +444,8 @@ private[emitter] final class SJSGen(
       case AnyNotNullType => expr !== Null()
 
       case VoidType | NullType | NothingType | AnyType |
-          ClassType(_, true) | ArrayType(_, true) | _:RecordType | _:WasmComponentResultType =>
+          ClassType(_, true) | ArrayType(_, true) | _:RecordType | _:WasmComponentResultType |
+          _: WasmComponentVariantType =>
         throw new AssertionError(s"Unexpected type $tpe in genIsInstanceOf")
     }
   }
@@ -528,7 +529,8 @@ private[emitter] final class SJSGen(
           else wg(UnaryOp(irt.JSUnaryOp.+, expr))
 
         case VoidType | NullType | NothingType | AnyNotNullType |
-            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType =>
+            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType |
+            _: WasmComponentVariantType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
     } else {
@@ -554,7 +556,8 @@ private[emitter] final class SJSGen(
         case AnyType     => expr
 
         case VoidType | NullType | NothingType | AnyNotNullType |
-            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType =>
+            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType |
+            _: WasmComponentVariantType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
 

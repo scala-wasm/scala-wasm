@@ -396,6 +396,8 @@ object VarGen {
     val WasmComponentOkStruct = forClass(SpecialNames.WasmComponentOkClass)
     val WasmComponentErrStruct = forClass(SpecialNames.WasmComponentErrClass)
 
+    val WasmComponentVariantStruct = forClass(SpecialNames.WasmComponentVariantClass)
+
     val ObjectVTable: TypeID = forVTable(ObjectClass)
 
     case object typeData extends TypeID

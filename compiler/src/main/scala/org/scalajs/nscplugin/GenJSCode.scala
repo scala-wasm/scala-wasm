@@ -2211,6 +2211,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
     private def toComponentIRType(tpe: Type): jstpe.Type = {
       tpe.typeSymbol match {
+        case tsym if tsym.isSubClass(ComponentVariantClass) && tsym.isSealed =>
+          // TODO: check all children are final
+          val children = tsym.sealedChildren.map { child => toComponentIRType(child.info) }
+          jstpe.WasmComponentVariantType(children.toList)
         case ComponentResultClass =>
           val List(ok, err) = tpe.typeArgs
           jstpe.WasmComponentResultType(toComponentIRType(ok), toComponentIRType(err))

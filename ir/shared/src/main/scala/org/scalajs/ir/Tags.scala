@@ -189,6 +189,7 @@ private[ir] object Tags {
 
   // Component
   final val TagWasmComponentResultType = TagNonNullArrayType + 1
+  final val TagWasmComponentVariantType = TagWasmComponentResultType + 1
 
   // Tags for TypeRefs
 

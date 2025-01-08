@@ -80,6 +80,7 @@ trait JSDefinitions {
     lazy val ComponentImportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentImport")
     lazy val ComponentExportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentExport")
     lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.component.Result")
+    lazy val ComponentVariantClass     = getRequiredClass("scala.scalajs.component.Variant")
 
     lazy val JSImportNamespaceObject = getRequiredModule("scala.scalajs.js.annotation.JSImport.Namespace")
 

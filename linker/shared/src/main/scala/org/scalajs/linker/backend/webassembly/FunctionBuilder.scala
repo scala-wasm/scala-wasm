@@ -321,6 +321,16 @@ final class FunctionBuilder(
     switch(FunctionType.NilToNil)(scrutinee)(clauses: _*)(default)
   }
 
+  def switchType(scrutineeSig: FunctionType, clauseSig: FunctionType)(
+      scrutinee: () => Unit)(
+      clauses: (List[Type], () => Unit)*)(
+      default: () => Unit): Unit = {
+
+    val doneLabel = genLabel()
+    val defaultLabel = genLabel()
+    val clauseLabels = clauses.map(_ => genLabel())
+  }
+
   // Final result
 
   def buildAndAddToModule(): Function = {

@@ -627,6 +627,11 @@ object Hashers {
         mixTag(TagWasmComponentResultType)
         mixType(ok)
         mixType(err)
+
+      case WasmComponentVariantType(variants) =>
+        mixTag(TagWasmComponentVariantType)
+        for (t <- variants)
+          mixType(t)
     }
 
     def mixLocalIdent(ident: LocalIdent): Unit = {

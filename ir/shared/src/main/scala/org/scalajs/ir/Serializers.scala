@@ -894,6 +894,12 @@ object Serializers {
           buffer.write(TagWasmComponentResultType)
           writeType(ok)
           writeType(err)
+
+        case WasmComponentVariantType(variants) =>
+          buffer.write(TagWasmComponentVariantType)
+          buffer.writeInt(variants.size)
+          for (t <- variants)
+            writeType(t)
       }
     }
 
@@ -2305,6 +2311,9 @@ object Serializers {
 
         case TagWasmComponentResultType =>
           WasmComponentResultType(readType(), readType())
+
+        case TagWasmComponentVariantType =>
+          WasmComponentVariantType(List.fill(readInt()) { readType() })
       }
     }
 
