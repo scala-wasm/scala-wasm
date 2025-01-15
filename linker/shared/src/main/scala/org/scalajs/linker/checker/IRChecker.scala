@@ -690,7 +690,8 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
 
       case JSTypeOfGlobalRef(_) =>
 
-      case ComponentFunctionApply(_, _, args) =>
+      case ComponentFunctionApply(receiver, _, _, args) =>
+        receiver.foreach { r => typecheckExpr(r, env) } // TODO: typecheck WasmComponentResourceType
         for (arg <- args)
           typecheckExpr(arg, env)
 

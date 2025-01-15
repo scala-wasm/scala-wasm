@@ -33,9 +33,19 @@ object Cli {
   @ComponentExport("wasi:cli/run@0.2.0#run")
   def run(): component.Result[Unit, Unit] = {
     val res = Test.add(1, 2)
-    val err = component.Err(())
-    val ok = component.Ok(())
-    ok
+    Test.say("foo")
+    // val err = component.Err(())
+
+    val counter = Test.newCounter()
+    counter.up()
+    counter.up()
+    counter.down()
+    val value = counter.valueOf()
+    Test.add(value, value) // 2
+
+    // val out = Stdio.getStdout()
+    // out.test(0)
+    component.Ok(())
   }
 
 }

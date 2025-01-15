@@ -161,6 +161,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
        *   reserved for @js.native members (namely, JS native load spec annots)
        */
       val isJSNative = sym.hasAnnotation(JSNativeAnnotation)
+      val isComponentNative = sym.hasAnnotation(ComponentNativeAnnotation) // TODO
       if (isJSNative)
         checkJSNativeDefinition(tree.pos, sym)
       else

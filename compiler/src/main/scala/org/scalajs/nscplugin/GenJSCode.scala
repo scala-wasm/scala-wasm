@@ -153,6 +153,13 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val paramSyms: List[Symbol])
       extends EnclosingLabelDefInfo
 
+
+  override def toIRType(t: Type): jstpe.Type = {
+    if (t.typeSymbol.isSubClass(ComponentResourceClass))
+      jstpe.WasmComponentResourceType(encodeClassName(t.typeSymbol))
+    else super.toIRType(t)
+  }
+
   class JSCodePhase(prev: Phase) extends StdPhase(prev) with JSExportsPhase {
 
     override def name: String = phaseName
@@ -475,14 +482,14 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 } else {
                   genJSClassData(cd) // AbstractJSClass or Native JS Class/Module Class (trait?)
                 }
-              } else if (sym.isTraitOrInterface) {
-                genInterface(cd)
-              } else if (sym.isSubClass(ComponentResourceClass)) {
+              } else if (sym.tpe.typeSymbol.isSubClass(ComponentResourceClass)) {
                 if (sym.hasAnnotation(ComponentNativeAnnotation)) {
                   genWasmComponentResourceClassData(cd)
                 } else {
                   ???
                 }
+              } else if (sym.isTraitOrInterface) {
+                genInterface(cd)
               } else {
                 genClass(cd)
               }
@@ -2260,7 +2267,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
               receiverOpt.toList ++ funcType.params.map { p => toWIT(p) },
               toWIT(funcType.resultType)
             )
-            println(ft)
             js.ComponentNativeMemberDef(flags, encodeMethodSym(sym), module, name, ft)
           }
         case None => ???
@@ -2277,7 +2283,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       jstpe.FloatType -> wit.F32Type,
       jstpe.DoubleType -> wit.F64Type,
       jstpe.CharType -> wit.CharType,
-      jstpe.StringType -> wit.StringType
+      jstpe.StringType -> wit.StringType,
+      jstpe.ClassType(ClassName("java.lang.String"), true) -> wit.StringType
     )
 
     lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
@@ -2293,6 +2300,9 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         primitiveIRWIT.get(toIRType(tpe))
       }.getOrElse {
         tpe.typeSymbol match {
+          case tsym if tsym.isSubClass(ComponentResourceClass) =>
+            wit.ResourceType(encodeClassName(tsym))
+
           case tsym if tsym.isSubClass(ComponentResultClass) && tsym.isSealed =>
             val List(ok, err) = tpe.typeArgs
             wit.VariantType(
@@ -2320,7 +2330,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
               encodeClassName(tsym),
               cases
             )
-          case _ => ???
+          case _ => throw new AssertionError(s"invalid tpe: $tpe")
         }
       }
     }
@@ -5633,8 +5643,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       val methodIdent = encodeMethodSym(method)
       val className = encodeClassName(method.owner)
-      val arguments = receiver.map(genExpr(_)).toList ++ genActualArgs(sym, args)
-      js.ComponentFunctionApply(className, methodIdent, arguments)(toIRType(tree.tpe))
+      js.ComponentFunctionApply(receiver.map(genExpr(_)), className, methodIdent, genActualArgs(sym, args))(
+          toWIT(tree.tpe).toIRType())
     }
 
     /** Gen JS code for a call to a native JS def or val. */

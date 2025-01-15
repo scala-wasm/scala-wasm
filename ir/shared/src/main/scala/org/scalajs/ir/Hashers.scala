@@ -528,8 +528,9 @@ object Hashers {
           mixString(name)
           mixType(tree.tpe)
 
-        case ComponentFunctionApply(className, method, args) =>
+        case ComponentFunctionApply(receiver, className, method, args) =>
           mixTag(TagComponentFunctionApply)
+          mixOptTree(receiver)
           mixName(className)
           mixMethodIdent(method)
           mixTrees(args)

@@ -17,15 +17,7 @@ import scala.annotation.meta._
 /** Types, methods and values for interoperability with Wasm Component Model libraries.
  */
 package object component {
-  /** Marks the annotated class, trait or object as a Wasm Component instance.
-   *
-   *  Wasm Component instances are not implemented in Scala.js. They are facade types
-   *  for Wasm Component libraries.
-   *
-   *  Only types extending [[Any js.Any]] can be annotated with `@js.native`.
-   *  The body of all concrete members in a native JS class, trait or object
-   *  must be `= js.native`.
-   */
+
   @field @getter @setter
   class native extends scala.annotation.StaticAnnotation
 

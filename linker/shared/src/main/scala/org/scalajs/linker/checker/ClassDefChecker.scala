@@ -170,6 +170,10 @@ private final class ClassDefChecker(classDef: ClassDef,
         if (classDef.superClass.isDefined)
           reportError("java.lang.Object cannot have a superClass")
 
+      case ClassKind.NativeWasmComponentResourceClass =>
+        if (classDef.superClass.isDefined)
+          reportError("Wasm component resource cannot have a superClass")
+
       case ClassKind.Class | ClassKind.ModuleClass | ClassKind.HijackedClass |
           ClassKind.JSClass | ClassKind.JSModuleClass |
           ClassKind.NativeJSClass | ClassKind.NativeJSModuleClass =>
@@ -937,7 +941,8 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case JSTypeOfGlobalRef(_) =>
 
-      case ComponentFunctionApply(_, _, args) =>
+      case ComponentFunctionApply(receiver, _, _, args) =>
+        receiver.foreach { r => checkTree(r, env) }
         checkTrees(args, env)
 
       // Literals

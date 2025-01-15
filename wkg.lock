@@ -3,15 +3,6 @@
 version = 1
 
 [[packages]]
-name = "tanishiking:ferris"
-registry = "warg.wa.dev"
-
-[[packages.versions]]
-requirement = "=0.0.2"
-version = "0.0.2"
-digest = "sha256:704b32fbad39f9bae2a6242af0b4c7039d638173cda56a1ca9d633ced5e77413"
-
-[[packages]]
 name = "wasi:cli"
 registry = "warg.wa.dev"
 

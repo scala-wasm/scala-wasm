@@ -177,8 +177,8 @@ object Transformers {
         case JSTypeOfGlobalRef(globalRef) =>
           JSTypeOfGlobalRef(transform(globalRef).asInstanceOf[JSGlobalRef])
 
-        case ComponentFunctionApply(module, name, args) =>
-          ComponentFunctionApply(module, name, args.map(transform))(tree.tpe)
+        case ComponentFunctionApply(receiver, module, name, args) =>
+          ComponentFunctionApply(receiver.map(transform), module, name, args.map(transform))(tree.tpe)
 
         // Atomic expressions
 

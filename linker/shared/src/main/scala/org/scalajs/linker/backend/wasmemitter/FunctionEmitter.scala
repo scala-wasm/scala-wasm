@@ -3525,13 +3525,17 @@ private class FunctionEmitter private (
   }
 
   private def genComponentFunctionApply(tree: ComponentFunctionApply): Type = {
-    val ComponentFunctionApply(className, method, args) = tree
+    val ComponentFunctionApply(optReceiver, className, method, args) = tree
     val functionID = genFunctionID.forMethod(
       MemberNamespace.PublicStatic,
       className,
       method.name
     )
 
+    optReceiver.foreach { receiver =>
+      assert(receiver.tpe == WasmComponentResourceType(className), s"invalid receiver type: ${receiver.tpe}")
+      genTreeAuto(receiver)
+    }
     genArgs(args, method.name)
     fb += wa.Call(functionID)
     tree.tpe

@@ -603,8 +603,8 @@ object Trees {
     val tpe = AnyType
   }
 
-  sealed case class ComponentFunctionApply(className: ClassName, method: MethodIdent, args: List[Tree])(
-      val tpe: Type)(implicit val pos: Position) extends Tree
+  sealed case class ComponentFunctionApply(receiver: Option[Tree], className: ClassName, method: MethodIdent,
+      args: List[Tree])(   val tpe: Type)(implicit val pos: Position) extends Tree
 
 
   sealed case class JSMethodApply(receiver: Tree, method: Tree,

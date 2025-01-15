@@ -1,9 +1,0 @@
-package tanishiking:ferris@0.0.2;
-
-interface ferris-says {
-  say: func(content: string, width: u32);
-}
-
-world says {
-  export ferris-says;
-}

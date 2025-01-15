@@ -878,8 +878,8 @@ object Printers {
           print(name)
           print(")")
 
-        case ComponentFunctionApply(receiver, method, args) =>
-          print(receiver)
+        case ComponentFunctionApply(receiver, className, method, args) =>
+          print(className)
           print(".")
           print(method)
           printArgs(args)

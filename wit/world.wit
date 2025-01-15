@@ -5,6 +5,19 @@ world socket {
     export wasi:cli/run@0.2.0;
 }
 
+world plug {
+    export test;
+}
+
 interface test {
     add: func(a: s32, b: s32) -> s32;
+    say: func(content: string);
+    new-counter: func() -> counter;
+
+    resource counter {
+      // new: static func() -> counter; TODO: support static method
+      up: func();
+      down: func();
+      value-of: func() -> s32;
+    }
 }

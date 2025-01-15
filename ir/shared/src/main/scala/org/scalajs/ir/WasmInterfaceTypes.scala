@@ -111,7 +111,7 @@ object WasmInterfaceTypes {
   }
 
   final case class ResourceType(className: ClassName) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(className, false)
+    def toIRType(): jstpe.Type = jstpe.WasmComponentResourceType(className)
   }
 
   // ExternTypes

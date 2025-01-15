@@ -42,6 +42,7 @@ import Platform._
 
 import Analysis._
 import Infos.{NamespacedMethodName, ReachabilityInfo, ReachabilityInfoInClass}
+import org.scalajs.ir.ClassKind.NativeWasmComponentResourceClass
 
 final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
     checkIRFor: Option[CheckingPhase], failOnError: Boolean, irLoader: IRLoader) {
@@ -567,6 +568,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
                 None
             }
           }
+
+        case NativeWasmComponentResourceClass =>
+          assert(superClass.isEmpty)
+          None
       }
     }
 
@@ -1042,8 +1047,6 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       for (tle <- data.topLevelExports) {
         val key = (tle.moduleID, tle.exportName)
         val info = new TopLevelExportInfo(className, tle)
-        println(info.exportName)
-        println(tle.reachability.byClass.map(_.className).toList)
         info.reach()
 
         _topLevelExportInfos.put(key, info).foreach { other =>

@@ -6,4 +6,5 @@ world plug {
 
 interface test {
     add: func(a: s32, b: s32) -> s32;
+    say: func(content: string);
 }

@@ -656,10 +656,11 @@ object Infos {
         case wit.FuncType(paramTypes, resultType) =>
           for (t <- paramTypes) generateForWIT(t)
           generateForWIT(resultType)
-        case wit.VariantType(_, cases) =>
+        case wit.VariantType(className, cases) =>
           // reference to all the children types so we can type test in interop
           // and make field read so we can read those fields in interop
           for (c <- cases) {
+            builder.addInstantiatedClass(c.className)
             builder.maybeAddReferencedClass(ClassRef(c.className))
             builder.addFieldRead(FieldName(c.className, SimpleFieldName("_index")))
             builder.addFieldRead(FieldName(c.className, SimpleFieldName("value")))
@@ -819,7 +820,7 @@ object Infos {
             case VarDef(_, _, vtpe, _, _) =>
               builder.maybeAddReferencedClass(vtpe)
 
-            case ComponentFunctionApply(className, method, _) =>
+            case ComponentFunctionApply(_, className, method, _) =>
               builder.addWasmComponentNativeMemberUsed(className, method.name)
 
             case linkTimeProperty: LinkTimeProperty =>

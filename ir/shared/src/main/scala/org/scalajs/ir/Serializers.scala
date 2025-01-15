@@ -553,8 +553,9 @@ object Serializers {
           writeString(name)
           writeType(tree.tpe)
 
-        case ComponentFunctionApply(className, method, args) =>
+        case ComponentFunctionApply(receiver, className, method, args) =>
           writeTagAndPos(TagComponentFunctionApply)
+          writeOptTree(receiver)
           writeName(className)
           writeMethodIdent(method)
           writeTrees(args)
@@ -1486,7 +1487,7 @@ object Serializers {
           LinkTimeProperty(readString())(readType())
 
         case TagComponentFunctionApply =>
-          ComponentFunctionApply(readClassName(), readMethodIdent(), readTrees())(readType())
+          ComponentFunctionApply(readOptTree(), readClassName(), readMethodIdent(), readTrees())(readType())
       }
     }
 

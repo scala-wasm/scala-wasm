@@ -28,6 +28,8 @@ object CABIToScalaJS {
           wit.F32Type | wit.F64Type =>
         fb += wa.LocalGet(vi.next())
 
+      case wit.VoidType =>
+
       case wit.ResourceType(_) =>
         fb += wa.LocalGet(vi.next())
 

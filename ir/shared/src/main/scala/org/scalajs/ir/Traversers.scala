@@ -182,7 +182,8 @@ object Traversers {
       case JSTypeOfGlobalRef(globalRef) =>
         traverse(globalRef)
 
-      case ComponentFunctionApply(module, name, args) =>
+      case ComponentFunctionApply(receiver, module, name, args) =>
+        receiver.foreach(traverse)
         args.foreach(traverse)
 
       // Atomic expressions

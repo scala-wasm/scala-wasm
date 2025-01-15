@@ -27,9 +27,6 @@ object ScalaJSToCABI {
           wit.U8Type | wit.U16Type | wit.U32Type | wit.U64Type |
           wit.F32Type | wit.F64Type =>
 
-      // case VoidType =>
-      //   fb += wa.Drop // there shouldbe undef on the stack
-
       case wit.ResourceType(_) =>
 
       case wit.StringType =>
@@ -43,7 +40,7 @@ object ScalaJSToCABI {
         fb += wa.ArrayLen
         fb += wa.I32Const(2)
         fb += wa.I32Mul
-        fb += wa.Call(genFunctionID.malloc)
+        fb += wa.Call(genFunctionID.malloc) // TODO: free after call
         fb += wa.LocalSet(baseAddr)
 
         // i := 0
@@ -83,9 +80,7 @@ object ScalaJSToCABI {
         }
         fb += wa.LocalGet(baseAddr) // offset
         fb += wa.LocalGet(str)
-        fb += wa.ArrayLen
-        fb += wa.I32Const(2)
-        fb += wa.I32Mul // byte length
+        fb += wa.ArrayLen // unit length
 
       case wit.VariantType(_, cases) =>
         val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
@@ -121,41 +116,6 @@ object ScalaJSToCABI {
           fb += wa.Unreachable
         }
 
-
-      // case tpe @ WasmComponentResultType(ok, err) =>
-      //   val tmp = fb.addLocal("tmp", watpe.RefType(genTypeID.WasmComponentResultStruct))
-      //   val okType = transformWIT(ok)
-      //   val errType = transformWIT(err)
-      //   val flattened = Flatten.flattenVariants(okType.toList ++ errType.toList)
-
-      //   fb += wa.LocalTee(tmp)
-      //   // ok => 0, err => 1
-      //   fb += wa.RefTest(watpe.RefType(genTypeID.WasmComponentErrStruct))
-      //   fb.block(flattened) { doneLabel =>
-      //     fb.block(watpe.RefType(genTypeID.WasmComponentErrStruct)) { errLabel =>
-      //       fb += wa.LocalGet(tmp)
-      //       fb += wa.BrOnCast(
-      //         errLabel,
-      //         watpe.RefType(genTypeID.WasmComponentResultStruct),
-      //         watpe.RefType(genTypeID.WasmComponentErrStruct)
-      //       )
-      //       // if it's VoidType, there's no value, drop
-      //       fb += wa.RefCast(watpe.RefType(genTypeID.WasmComponentOkStruct))
-      //       fb += wa.StructGet(
-      //         genTypeID.WasmComponentOkStruct,
-      //         genFieldID.forClassInstanceField(SpecialNames.wasmComponentOkValueFieldName)
-      //       )
-      //       genAdaptCABI(fb, ok)
-      //       genCoerceValues(fb, Flatten.flattenType(okType), flattened)
-      //       fb += wa.Br(doneLabel)
-      //     }
-      //     fb += wa.StructGet(
-      //       genTypeID.WasmComponentErrStruct,
-      //       genFieldID.forClassInstanceField(SpecialNames.wasmComponentErrValueFieldName)
-      //     )
-      //     genAdaptCABI(fb, err)
-      //     genCoerceValues(fb, Flatten.flattenType(errType), flattened)
-      //   }
       case _ => throw new AssertionError(s"Unexpected type: $tpe")
 
     }
