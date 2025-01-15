@@ -443,9 +443,10 @@ private[emitter] final class SJSGen(
 
       case AnyNotNullType => expr !== Null()
 
+      case _: WasmComponentResourceType => ??? // TODO
+
       case VoidType | NullType | NothingType | AnyType |
-          ClassType(_, true) | ArrayType(_, true) | _:RecordType | _:WasmComponentResultType |
-          _: WasmComponentVariantType =>
+          ClassType(_, true) | ArrayType(_, true) | _:RecordType =>
         throw new AssertionError(s"Unexpected type $tpe in genIsInstanceOf")
     }
   }
@@ -528,9 +529,10 @@ private[emitter] final class SJSGen(
           if (semantics.strictFloats) genCallPolyfillableBuiltin(FroundBuiltin, expr)
           else wg(UnaryOp(irt.JSUnaryOp.+, expr))
 
+        case WasmComponentResourceType(className) => ??? // TODO
+
         case VoidType | NullType | NothingType | AnyNotNullType |
-            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType |
-            _: WasmComponentVariantType =>
+            ClassType(_, false) | ArrayType(_, false) | _:RecordType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
     } else {
@@ -555,9 +557,10 @@ private[emitter] final class SJSGen(
         case StringType  => genCallHelper(VarField.uT, expr)
         case AnyType     => expr
 
+        case WasmComponentResourceType(className) => ??? // TODO
+
         case VoidType | NullType | NothingType | AnyNotNullType |
-            ClassType(_, false) | ArrayType(_, false) | _:RecordType | _:WasmComponentResultType |
-            _: WasmComponentVariantType =>
+            ClassType(_, false) | ArrayType(_, false) | _:RecordType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
 

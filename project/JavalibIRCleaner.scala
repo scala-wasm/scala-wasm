@@ -71,7 +71,9 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case JSClass | JSModuleClass =>
+        case NativeWasmComponentResourceClass => ??? // TODO
+
+        case JSClass | JSModuleClass  =>
           errorManager.reportError(
               s"found non-native JS class ${tree.className.nameString}")(tree.pos)
       }

@@ -1,6 +1,7 @@
 package scala.scalajs.component
 
-trait Variant[T] extends scala.AnyRef {
-  protected val _index: Int
+trait Variant {
+  type T
   val value: T
+  protected val _index: Int
 }

@@ -1,34 +1,40 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
-import org.scalajs.ir.Types._
+import org.scalajs.ir.{Types => jstpe}
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.OriginalName.NoOriginalName
+import org.scalajs.ir.Names._
 
 import org.scalajs.linker.backend.webassembly.FunctionBuilder
 import org.scalajs.linker.backend.webassembly.{Instructions => wa}
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
+import org.scalajs.linker.backend.webassembly.Types.{FunctionType => Sig}
+import org.scalajs.linker.backend.webassembly.component.Flatten
+
+import org.scalajs.linker.backend.wasmemitter.WasmContext
 import org.scalajs.linker.backend.wasmemitter.VarGen._
 import org.scalajs.linker.backend.wasmemitter.SpecialNames
 import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 
-import org.scalajs.linker.backend.webassembly.component.{Types => wit}
-import org.scalajs.linker.backend.webassembly.component.Flatten
-import _root_.org.scalajs.ir.Names.BoxedStringClass
-import org.scalajs.linker.backend.wasmemitter.WasmContext
-
 
 object ScalaJSToCABI {
-  def genAdaptCABI(fb: FunctionBuilder, irType: Type)(implicit ctx: WasmContext): Unit = {
-    irType match {
+  def genAdaptCABI(fb: FunctionBuilder, tpe: wit.WasmInterfaceType)(implicit ctx: WasmContext): Unit = {
+    tpe match {
+      case wit.VoidType =>
+        fb += wa.Drop
       // Scala.js has a same representation
-      case BooleanType | ByteType | ShortType | IntType |
-          CharType | LongType | FloatType | DoubleType =>
+      case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type | wit.S64Type |
+          wit.U8Type | wit.U16Type | wit.U32Type | wit.U64Type |
+          wit.F32Type | wit.F64Type =>
 
-      case VoidType =>
-        fb += wa.Drop // there shouldbe undef on the stack
+      // case VoidType =>
+      //   fb += wa.Drop // there shouldbe undef on the stack
 
-      case ClassType(className, nullable) if className == BoxedStringClass =>
+      case wit.ResourceType(_) =>
+
+      case wit.StringType =>
         // array i16
-        val str = fb.addLocal(NoOriginalName, watpe.RefType(nullable, genTypeID.i16Array))
+        val str = fb.addLocal(NoOriginalName, watpe.RefType(true, genTypeID.i16Array))
         val baseAddr = fb.addLocal(NoOriginalName, watpe.Int32)
         val iLocal = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.LocalTee(str)
@@ -81,71 +87,76 @@ object ScalaJSToCABI {
         fb += wa.I32Const(2)
         fb += wa.I32Mul // byte length
 
-      case tpe @ WasmComponentVariantType(types) =>
-        val tmp = fb.addLocal(NoOriginalName, watpe.RefType(genTypeID.WasmComponentVariantStruct))
-        val flattened = Flatten.flattenVariants(types.flatMap(transformWIT(_)))
-        fb += wa.LocalTee(tmp)
-        fb += wa.StructGet(
-          genTypeID.WasmComponentVariantStruct,
-          genFieldID.forClassInstanceField(SpecialNames.WasmComponentVariant.indexFieldName)
-        )
+      case wit.VariantType(_, cases) =>
+        val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+        val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
+        fb += wa.LocalSet(tmp)
 
-        fb += wa.LocalGet(tmp)
-        fb += wa.StructGet(
-          genTypeID.WasmComponentVariantStruct,
-          genFieldID.forClassInstanceField(SpecialNames.WasmComponentVariant.valueFieldName)
-        )
-
-        val variants = types.map(t => (t, fb.genLabel()))
-        for ((t, label) <- variants.reverse) {
-          fb += wa.Block(wa.BlockType.ValueType(transformSingleType(t)), Some(label))
-        }
-
-        // fb += wa.LocalGet(tmp)
-        // for ((t, label) <- variants) {
-        //   fb += wa.BrOnCast(
-        //     label,
-        //     watpe.RefType(genTypeID.WasmComponentVariantStruct),
-        //     t
-        //   )
-        // }
-
-
-      case tpe @ WasmComponentResultType(ok, err) =>
-        val tmp = fb.addLocal("tmp", watpe.RefType(genTypeID.WasmComponentResultStruct))
-        val okType = transformWIT(ok)
-        val errType = transformWIT(err)
-        val flattened = Flatten.flattenVariants(okType.toList ++ errType.toList)
-
-        fb += wa.LocalTee(tmp)
-        // ok => 0, err => 1
-        fb += wa.RefTest(watpe.RefType(genTypeID.WasmComponentErrStruct))
-        fb.block(flattened) { doneLabel =>
-          fb.block(watpe.RefType(genTypeID.WasmComponentErrStruct)) { errLabel =>
+        fb.switchByType(watpe.Int32 +: flattened) {
+          () =>
             fb += wa.LocalGet(tmp)
-            fb += wa.BrOnCast(
-              errLabel,
-              watpe.RefType(genTypeID.WasmComponentResultStruct),
-              watpe.RefType(genTypeID.WasmComponentErrStruct)
-            )
-            // if it's VoidType, there's no value, drop
-            fb += wa.RefCast(watpe.RefType(genTypeID.WasmComponentOkStruct))
-            fb += wa.StructGet(
-              genTypeID.WasmComponentOkStruct,
-              genFieldID.forClassInstanceField(SpecialNames.wasmComponentOkValueFieldName)
-            )
-            genAdaptCABI(fb, ok)
-            genCoerceValues(fb, Flatten.flattenType(okType), flattened)
-            fb += wa.Br(doneLabel)
-          }
-          fb += wa.StructGet(
-            genTypeID.WasmComponentErrStruct,
-            genFieldID.forClassInstanceField(SpecialNames.wasmComponentErrValueFieldName)
-          )
-          genAdaptCABI(fb, err)
-          genCoerceValues(fb, Flatten.flattenType(errType), flattened)
+        } {
+          cases.map { case c =>
+            (c.className, () => {
+              val l = fb.addLocal(NoOriginalName, watpe.RefType(genTypeID.forClass(c.className)))
+              fb += wa.LocalTee(l)
+              fb += wa.StructGet(
+                genTypeID.forClass(c.className),
+                genFieldID.forClassInstanceField(
+                  FieldName(c.className, SimpleFieldName("_index"))
+                )
+              )
+              fb += wa.LocalGet(l)
+              fb += wa.StructGet(
+                genTypeID.forClass(c.className),
+                genFieldID.forClassInstanceField(
+                  FieldName(c.className, SimpleFieldName("value"))
+                )
+              )
+              genAdaptCABI(fb, c.tpe)
+              genCoerceValues(fb, Flatten.flattenType(c.tpe), flattened)
+            })
+          }: _*
+        } { () =>
+          fb += wa.Unreachable
         }
-      case _ => throw new AssertionError(s"Unexpected type: $irType")
+
+
+      // case tpe @ WasmComponentResultType(ok, err) =>
+      //   val tmp = fb.addLocal("tmp", watpe.RefType(genTypeID.WasmComponentResultStruct))
+      //   val okType = transformWIT(ok)
+      //   val errType = transformWIT(err)
+      //   val flattened = Flatten.flattenVariants(okType.toList ++ errType.toList)
+
+      //   fb += wa.LocalTee(tmp)
+      //   // ok => 0, err => 1
+      //   fb += wa.RefTest(watpe.RefType(genTypeID.WasmComponentErrStruct))
+      //   fb.block(flattened) { doneLabel =>
+      //     fb.block(watpe.RefType(genTypeID.WasmComponentErrStruct)) { errLabel =>
+      //       fb += wa.LocalGet(tmp)
+      //       fb += wa.BrOnCast(
+      //         errLabel,
+      //         watpe.RefType(genTypeID.WasmComponentResultStruct),
+      //         watpe.RefType(genTypeID.WasmComponentErrStruct)
+      //       )
+      //       // if it's VoidType, there's no value, drop
+      //       fb += wa.RefCast(watpe.RefType(genTypeID.WasmComponentOkStruct))
+      //       fb += wa.StructGet(
+      //         genTypeID.WasmComponentOkStruct,
+      //         genFieldID.forClassInstanceField(SpecialNames.wasmComponentOkValueFieldName)
+      //       )
+      //       genAdaptCABI(fb, ok)
+      //       genCoerceValues(fb, Flatten.flattenType(okType), flattened)
+      //       fb += wa.Br(doneLabel)
+      //     }
+      //     fb += wa.StructGet(
+      //       genTypeID.WasmComponentErrStruct,
+      //       genFieldID.forClassInstanceField(SpecialNames.wasmComponentErrValueFieldName)
+      //     )
+      //     genAdaptCABI(fb, err)
+      //     genCoerceValues(fb, Flatten.flattenType(errType), flattened)
+      //   }
+      case _ => throw new AssertionError(s"Unexpected type: $tpe")
 
     }
   }

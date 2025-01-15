@@ -31,6 +31,7 @@ import Tags._
 import Version.Unversioned
 
 import Utils.JumpBackByteArrayOutputStream
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 object Serializers {
   /** Scala.js IR File Magic Number
@@ -727,14 +728,13 @@ object Serializers {
           writeMethodIdent(name)
           writeJSNativeLoadSpec(Some(jsNativeLoadSpec))
 
-        case ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType) =>
+        case ComponentNativeMemberDef(flags, name, importModule, importName, signature) =>
           writeByte(TagComponentNativeMemberDef)
           writeInt(MemberFlags.toBits(flags))
           writeMethodIdent(name)
           writeString(importModule)
           writeString(importName)
-          writeParamDefs(args)
-          writeType(resultType)
+          writeWITType(signature)
       }
     }
 
@@ -763,16 +763,12 @@ object Serializers {
           writeByte(TagTopLevelFieldExportDef)
           writeString(moduleID); writeString(exportName); writeFieldIdentForEnclosingClass(field)
 
-        case WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType) =>
+        case WasmComponentExportDef(moduleID, exportName, methodDef, signature) =>
           writeByte(TagWasmComponentExportDef)
           writeString(moduleID)
           writeString(exportName)
           writeMemberDef(methodDef)
-          buffer.writeInt(paramTypes.length)
-          for (t <- paramTypes) {
-            writeType(t)
-          }
-          writeType(resultType)
+          writeWITType(signature)
       }
     }
 
@@ -890,17 +886,60 @@ object Serializers {
             buffer.writeBoolean(mutable)
           }
 
-        case WasmComponentResultType(ok, err) =>
-          buffer.write(TagWasmComponentResultType)
-          writeType(ok)
-          writeType(err)
-
-        case WasmComponentVariantType(variants) =>
-          buffer.write(TagWasmComponentVariantType)
-          buffer.writeInt(variants.size)
-          for (t <- variants)
-            writeType(t)
+        case WasmComponentResourceType(className) =>
+          buffer.write(TagWasmComponentResourceType)
+          writeName(className)
       }
+    }
+
+    def writeWITType(tpe: wit.WasmInterfaceType): Unit = tpe match {
+      case wit.VoidType => buffer.writeByte(TagWITVoidType)
+      case wit.BoolType => buffer.writeByte(TagWITBoolType)
+      case wit.U8Type => buffer.writeByte(TagWITU8Type)
+      case wit.U16Type => buffer.writeByte(TagWITU16Type)
+      case wit.U32Type => buffer.writeByte(TagWITU32Type)
+      case wit.U64Type => buffer.writeByte(TagWITU64Type)
+      case wit.S8Type => buffer.writeByte(TagWITS8Type)
+      case wit.S16Type => buffer.writeByte(TagWITS16Type)
+      case wit.S32Type => buffer.writeByte(TagWITS32Type)
+      case wit.S64Type => buffer.writeByte(TagWITS64Type)
+      case wit.F32Type => buffer.writeByte(TagWITF32Type)
+      case wit.F64Type => buffer.writeByte(TagWITF64Type)
+      case wit.CharType => buffer.writeByte(TagWITCharType)
+      case wit.StringType => buffer.writeByte(TagWITStringType)
+      case wit.ListType(_, _) =>
+        buffer.writeByte(TagWITListType)
+        ???
+      case wit.RecordType(_) =>
+        buffer.writeByte(TagWITRecordType)
+        ???
+      case wit.TupleType(_) =>
+        buffer.writeByte(TagWITTupleType)
+        ???
+      case wit.VariantType(className, cases) =>
+        buffer.writeByte(TagWITVariantType)
+        writeName(className)
+        buffer.writeInt(cases.length)
+        for (c <- cases) {
+          writeName(c.className)
+          writeWITType(c.tpe)
+        }
+      case wit.EnumType(_) =>
+        buffer.writeByte(TagWITEnumType)
+        ???
+      case wit.OptionType(_) =>
+        buffer.writeByte(TagWITOptionType)
+        ???
+      // case wit.ResultType(_, _) => buffer.writeByte(TagWITResultType)
+      case wit.FlagsType(_) => buffer.writeByte(TagWITFlagsType)
+      case wit.ResourceType(className) =>
+        buffer.writeByte(TagWITResourceType)
+        writeName(className)
+      case wit.FuncType(params, result) =>
+        buffer.writeByte(TagWITFuncType)
+        buffer.writeInt(params.length)
+        for (p <- params) writeWITType(p)
+        writeWITType(result)
     }
 
     def writeTypeRef(typeRef: TypeRef): Unit = typeRef match {
@@ -2081,10 +2120,9 @@ object Serializers {
       val name = readMethodIdent()
       val importModule = readString()
       val importName = readString()
-      val args = readParamDefs()
-      val resultType = readType()
+      val signature = readWITFuncType()
 
-      ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType)
+      ComponentNativeMemberDef(flags, name, importModule, importName, signature)
     }
 
     /* #4442 and #4601: Patch Labeled, If, Match and TryCatch nodes in
@@ -2182,9 +2220,8 @@ object Serializers {
           val tag = readByte()
           assert(tag == TagMethodDef, s"unexpected tag $tag")
           val methodDef = readMethodDef(owner, ownerKind)(methodPos)
-          val paramTypes = List.fill(readInt())(readType())
-          val resultType = readType()
-          WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType)
+          val signature = readWITFuncType()
+          WasmComponentExportDef(moduleID, exportName, methodDef, signature)
       }
     }
 
@@ -2275,7 +2312,53 @@ object Serializers {
       }
     }
 
+    def readWITFuncType(): wit.FuncType = {
+      val tag = readByte()
+      assert(tag == TagWITFuncType)
+      wit.FuncType(
+        List.fill(readInt()) { readWITType() },
+        readWITType()
+      )
+    }
+
+    private def readWITType(): wit.ValType = {
+      val tag = readByte()
+      tag match {
+        case TagWITVoidType => wit.VoidType
+        case TagWITBoolType => wit.BoolType
+        case TagWITU8Type => wit.U8Type
+        case TagWITU16Type => wit.U16Type
+        case TagWITU32Type => wit.U32Type
+        case TagWITU64Type => wit.U64Type
+        case TagWITS8Type => wit.S8Type
+        case TagWITS16Type => wit.S16Type
+        case TagWITS32Type => wit.S32Type
+        case TagWITS64Type => wit.S64Type
+        case TagWITF32Type => wit.F32Type
+        case TagWITF64Type => wit.F64Type
+        case TagWITCharType => wit.CharType
+        case TagWITStringType => wit.StringType
+        case TagWITListType => ???
+        case TagWITRecordType => ???
+        case TagWITVariantType =>
+          wit.VariantType(
+            readClassName(),
+            List.fill(readInt()) { wit.CaseType(readClassName(), readWITType()) }
+          )
+        case TagWITEnumType => ???
+        case TagWITOptionType => ???
+        // case TagWITResultType => ???
+        case TagWITFlagsType => ???
+        case TagWITResourceType => wit.ResourceType(readClassName())
+      }
+    }
+
     def readType(): Type = {
+      def readClassType(): ClassType = {
+        val t = readByte()
+        assert(t == TagClassType)
+        ClassType(readClassName(), nullable = true)
+      }
       val tag = readByte()
       (tag: @switch) match {
         case TagAnyType        => AnyType
@@ -2309,11 +2392,8 @@ object Serializers {
             RecordType.Field(name, readOriginalName(), tpe, mutable)
           })
 
-        case TagWasmComponentResultType =>
-          WasmComponentResultType(readType(), readType())
-
-        case TagWasmComponentVariantType =>
-          WasmComponentVariantType(List.fill(readInt()) { readType() })
+        case TagWasmComponentResourceType =>
+          WasmComponentResourceType(readClassName())
       }
     }
 

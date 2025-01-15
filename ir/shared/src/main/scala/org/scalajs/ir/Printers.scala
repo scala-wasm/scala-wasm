@@ -878,6 +878,12 @@ object Printers {
           print(name)
           print(")")
 
+        case ComponentFunctionApply(receiver, method, args) =>
+          print(receiver)
+          print(".")
+          print(method)
+          printArgs(args)
+
         // Transient
 
         case Transient(value) =>
@@ -910,6 +916,7 @@ object Printers {
         case ClassKind.JSModuleClass       => print("js module class ")
         case ClassKind.NativeJSClass       => print("native js class ")
         case ClassKind.NativeJSModuleClass => print("native js module class ")
+        case ClassKind.NativeWasmComponentResourceClass => print("native wasm resource class ")
       }
       print(name)
       print(originalName)
@@ -1023,7 +1030,7 @@ object Printers {
           print(" loadfrom ")
           print(jsNativeLoadSpec)
 
-        case ComponentNativeMemberDef(flags, name, importModule, importName, args, resultType) =>
+        case ComponentNativeMemberDef(flags, name, importModule, importName, tpe) =>
           print(flags.namespace.prefixString)
           print("component ")
           print(name)
@@ -1032,6 +1039,7 @@ object Printers {
           print("\" \"")
           print(importName)
           print("\"")
+          // TODO
       }
     }
 
@@ -1061,20 +1069,21 @@ object Printers {
           printEscapeJS(exportName, out)
           print("\"")
 
-        case WasmComponentExportDef(_, exportName, methodDef, paramTypes, resultType) =>
+        case WasmComponentExportDef(_, exportName, methodDef, signature) =>
           print("wasm \"")
           printEscapeJS(exportName, out)
           print("\" :")
-          var first = true
-          for (ty <- paramTypes) {
-            if (first) first = false
-            else print(", ")
-            print(ty)
-          }
-          print("-> ")
-          print(resultType)
-          print(" = ")
-          print(methodDef)
+          // TODO: print signature
+          // var first = true
+          // for (ty <- paramTypes) {
+          //   if (first) first = false
+          //   else print(", ")
+          //   print(ty)
+          // }
+          // print("-> ")
+          // print(resultType)
+          // print(" = ")
+          // print(methodDef)
       }
     }
 
@@ -1140,23 +1149,9 @@ object Printers {
         }
         print(')')
 
-      case WasmComponentResultType(ok, err) =>
-        print("Result(")
-        print(ok)
-        print(", ")
-        print(err)
-        print(')')
-
-      case WasmComponentVariantType(variantas) =>
-        print("variant {")
-        var first = true
-        for (t <- variantas) {
-          if (first)
-            first = false
-          else
-            print(", ")
-          print(t)
-        }
+      case WasmComponentResourceType(className) =>
+        print("wasm component resource ")
+        print(className)
     }
 
     def print(ident: LocalIdent): Unit =

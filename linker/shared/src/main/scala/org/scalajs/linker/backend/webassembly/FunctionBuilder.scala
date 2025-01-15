@@ -15,7 +15,9 @@ package org.scalajs.linker.backend.webassembly
 import scala.collection.mutable
 
 import org.scalajs.ir.{OriginalName, Position}
+import org.scalajs.ir.Names.ClassName
 
+import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID
 import Instructions._
 import Identitities._
 import Modules._
@@ -316,19 +318,66 @@ final class FunctionBuilder(
     switch(FunctionType(Nil, List(resultType)))(scrutinee)(clauses: _*)(default)
   }
 
+  def switch(resultType: List[Type])(scrutinee: () => Unit)(
+      clauses: (List[Int], () => Unit)*)(default: () => Unit): Unit = {
+    switch(FunctionType(Nil, resultType))(scrutinee)(clauses: _*)(default)
+  }
+
   def switch()(scrutinee: () => Unit)(
       clauses: (List[Int], () => Unit)*)(default: () => Unit): Unit = {
     switch(FunctionType.NilToNil)(scrutinee)(clauses: _*)(default)
   }
 
-  def switchType(scrutineeSig: FunctionType, clauseSig: FunctionType)(
+  def switchByType(resultType: List[Type])(
       scrutinee: () => Unit)(
-      clauses: (List[Type], () => Unit)*)(
+      clauses: (ClassName, () => Unit)*)(
       default: () => Unit): Unit = {
 
+    // Allocate all the labels we will use
     val doneLabel = genLabel()
     val defaultLabel = genLabel()
-    val clauseLabels = clauses.map(_ => genLabel())
+    val clauseLabels = clauses.map(c => (c, genLabel()))
+
+    // Compute the BlockType's we will need
+    val doneBlockType = sigToBlockType(FunctionType(Nil, resultTypes))
+    // val clauseBlockType = sigToBlockType(FunctionType(switchInputParams, clauseSig.params))
+
+    // Open done block
+    instrs += Block(doneBlockType, Some(doneLabel))
+    // TODO: default block (currently unreachable)
+
+    // Open case and default blocks (in reverse order: default block is outermost!)
+    for ((c, label) <- (clauseLabels.reverse)) {
+      val className = c._1
+      instrs += Block(
+        sigToBlockType(FunctionType(
+          Nil,
+          List(RefType(genTypeID.forClass(className)))
+        )),
+        Some(label)
+      )
+    }
+
+    // Load the scrutinee and dispatch
+    scrutinee()
+    for ((c, label) <- clauseLabels) {
+      val className = c._1
+      instrs += BrOnCast(label, RefType.anyref, RefType(genTypeID.forClass(className)))
+    }
+    instrs += Unreachable
+
+    // Close all the case blocks and emit their respective bodies
+    for ((_, caseBody) <- clauses) {
+      instrs += End // close the block whose label is the corresponding label for this clause
+      caseBody() // emit the body of that clause
+      instrs += Br(doneLabel) // jump to done
+    }
+
+    // Close the default block and emit its body (no jump to done necessary)
+    // instrs += End
+    // default()
+
+    instrs += End // close the done block
   }
 
   // Final result

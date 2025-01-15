@@ -73,6 +73,7 @@ object Analysis {
     def staticFieldsWritten: scala.collection.Set[FieldName]
 
     def jsNativeMembersUsed: scala.collection.Set[MethodName]
+    def wasmComponentNativeMembersUsed: scala.collection.Set[MethodName]
 
     def staticDependencies: scala.collection.Set[ClassName]
     def externalDependencies: scala.collection.Set[String]
@@ -181,6 +182,7 @@ object Analysis {
   final case class NotAModule(info: ClassInfo, from: From) extends Error
   final case class MissingMethod(info: MethodInfo, from: From) extends Error
   final case class MissingJSNativeMember(info: ClassInfo, name: MethodName, from: From) extends Error
+  final case class MissingWasmComponentNativeMember(info: ClassInfo, name: MethodName, from: From) extends Error
   final case class ConflictingDefaultMethods(infos: List[MethodInfo], from: From) extends Error
 
   final case class InvalidTopLevelExportInScript(info: TopLevelExportInfo) extends Error {
@@ -242,6 +244,8 @@ object Analysis {
         s"Referring to non-existent method ${info.fullDisplayName}"
       case MissingJSNativeMember(info, name, _) =>
         s"Referring to non-existent js native member ${info.displayName}.${name.displayName}"
+      case MissingWasmComponentNativeMember(info, name, _) =>
+        s"Referring to non-existent wasm component native member ${info.displayName}.${name.displayName}"
       case ConflictingDefaultMethods(infos, _) =>
         s"Conflicting default methods: ${infos.map(_.fullDisplayName).mkString(" ")}"
       case InvalidTopLevelExportInScript(info) =>

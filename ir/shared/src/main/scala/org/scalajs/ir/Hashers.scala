@@ -114,8 +114,8 @@ object Hashers {
     case TopLevelMethodExportDef(moduleID, methodDef) =>
       TopLevelMethodExportDef(moduleID, hashJSMethodDef(methodDef))(tle.pos)
 
-    case WasmComponentExportDef(moduleID, exportName, methodDef, paramTypes, resultType) =>
-      WasmComponentExportDef(moduleID, exportName, hashMethodDef(methodDef), paramTypes, resultType)(tle.pos)
+    case WasmComponentExportDef(moduleID, exportName, methodDef, signature) =>
+      WasmComponentExportDef(moduleID, exportName, hashMethodDef(methodDef), signature)(tle.pos)
 
     case _:TopLevelFieldExportDef | _:TopLevelModuleExportDef |
         _:TopLevelJSClassExportDef =>
@@ -623,15 +623,9 @@ object Hashers {
           mixBoolean(mutable)
         }
 
-      case WasmComponentResultType(ok, err) =>
-        mixTag(TagWasmComponentResultType)
-        mixType(ok)
-        mixType(err)
-
-      case WasmComponentVariantType(variants) =>
-        mixTag(TagWasmComponentVariantType)
-        for (t <- variants)
-          mixType(t)
+      case WasmComponentResourceType(className) =>
+        mixTag(TagWasmComponentResourceType)
+        mixName(className)
     }
 
     def mixLocalIdent(ident: LocalIdent): Unit = {

@@ -74,7 +74,7 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
           implicit val ctx = ErrorContext(methodDef)
           typecheckAny(methodDef.body, Env.empty)
 
-        case WasmComponentExportDef(_, _, methodDef, paramTypes, resultType) =>
+        case WasmComponentExportDef(_, _, methodDef, signature) =>
           implicit val ctx = ErrorContext(methodDef)
           // TODO: type check wasm component
 

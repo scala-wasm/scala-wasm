@@ -16,7 +16,6 @@ import org.scalajs.ir.Names._
 import org.scalajs.ir.Types._
 
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
-import org.scalajs.linker.backend.webassembly.component.{Types => wit}
 
 import VarGen._
 import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID.i16Array
@@ -96,17 +95,10 @@ object TypeTransformer {
       case ArrayType(arrayTypeRef, nullable) =>
         watpe.RefType(nullable, genTypeID.forArrayClass(arrayTypeRef))
 
-      case WasmComponentResultType(ok, err) =>
-        watpe.RefType(false, genTypeID.WasmComponentResultStruct)
-
-      case WasmComponentVariantType(_) =>
-        watpe.RefType(false, genTypeID.WasmComponentVariantStruct)
+      case _: WasmComponentResourceType => watpe.Int32
 
       case RecordType(fields) =>
         throw new AssertionError(s"Unexpected record type $tpe")
-
-      // case WasmComponentResultType(ok, err) =>
-      //   throw new AssertionError(s"Unexpected wasm component result type $tpe")
     }
   }
 
@@ -153,40 +145,6 @@ object TypeTransformer {
       case VoidType | NothingType =>
         throw new IllegalArgumentException(
             s"${tpe.show()} does not have a corresponding Wasm type")
-    }
-  }
-
-  def transformWIT(tpe: Type): Option[wit.ValType] = {
-    tpe match {
-      case VoidType    => None
-      case BooleanType => Some(wit.BoolType)
-      case ByteType    => Some(wit.S8Type)
-      case ShortType   => Some(wit.S16Type)
-      case IntType     => Some(wit.S32Type)
-      case CharType    => Some(wit.CharType)
-      case LongType    => Some(wit.S64Type)
-      case FloatType   => Some(wit.F32Type)
-      case DoubleType  => Some(wit.F64Type)
-      case ClassType(className, true) if className == BoxedStringClass =>
-        Some(wit.StringType)
-      case WasmComponentResultType(ok, err) =>
-        Some(wit.ResultType(
-          transformWIT(ok),
-          transformWIT(err)
-        ))
-      case WasmComponentVariantType(variants) =>
-        Some(wit.VariantType(
-          variants.map { t => wit.CaseType("dummy", transformWIT(t)) }
-        ))
-      case _ =>
-        throw new AssertionError(s"Unexpected type: $tpe")
-    }
-  }
-
-  def transformWITCore(tpe: Type): List[watpe.Type] = {
-    transformWIT(tpe) match {
-      case None => Nil
-      case Some(witType) => Flatten.flattenType(witType)
     }
   }
 }

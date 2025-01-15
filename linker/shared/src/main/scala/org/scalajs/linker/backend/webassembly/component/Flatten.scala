@@ -1,16 +1,15 @@
 package org.scalajs.linker.backend.webassembly.component
 
-import Types._
-
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 object Flatten {
   val MaxFlatParams = 16
   val MaxFlatResults = 1
 
-  def lowerFlattenFuncType(funcType: FuncType): watpe.FunctionType = {
+  def lowerFlattenFuncType(funcType: wit.FuncType): watpe.FunctionType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
-    val flatResultTypes = funcType.resultTypes.flatMap(flattenType)
+    val flatResultTypes = flattenType(funcType.resultType)
 
     val paramsViaMemory = flatParamTypes.length > MaxFlatParams
     val returnsViaMemory = flatResultTypes.length > MaxFlatResults
@@ -23,9 +22,9 @@ object Flatten {
       finalResultTypes)
   }
 
-  def liftFlattenFuncType(funcType: FuncType): watpe.FunctionType = {
+  def liftFlattenFuncType(funcType: wit.FuncType): watpe.FunctionType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
-    val flatResultTypes = funcType.resultTypes.flatMap(flattenType)
+    val flatResultTypes = flattenType(funcType.resultType)
 
     val paramsViaMemory = flatParamTypes.length > MaxFlatParams
     val returnsViaMemory = flatResultTypes.length > MaxFlatResults
@@ -36,43 +35,39 @@ object Flatten {
     watpe.FunctionType(finalParamTypes, finalResultTypes)
   }
 
-  def flattenType(tpe: Option[ValType]): List[watpe.Type] =
-    tpe match {
-      case None => Nil
-      case Some(t) => flattenType(t)
-    }
-
-  def flattenType(tpe: ValType): List[watpe.Type] =
+  def flattenType(tpe: wit.ValType): List[watpe.Type] =
     despecialize(tpe) match {
-      case BoolType => List(watpe.Int32)
-      case U8Type | U16Type | U32Type => List(watpe.Int32)
-      case S8Type | S16Type | S32Type => List(watpe.Int32)
-      case U64Type | S64Type => List(watpe.Int64)
-      case F32Type => List(watpe.Float32)
-      case F64Type => List(watpe.Float64)
-      case CharType => List(watpe.Int32)
-      case StringType => List(watpe.Int32, watpe.Int32)
-      case t: ListType => flattenList(t)
-      case t: RecordType => flattenRecord(t)
-      case t: VariantType => flattenVariant(t)
-      case _: FlagsType => List(watpe.Int32)
+      case wit.VoidType => Nil
+      case wit.BoolType => List(watpe.Int32)
+      case wit.U8Type | wit.U16Type | wit.U32Type => List(watpe.Int32)
+      case wit.S8Type | wit.S16Type | wit.S32Type => List(watpe.Int32)
+      case wit.U64Type | wit.S64Type => List(watpe.Int64)
+      case wit.F32Type => List(watpe.Float32)
+      case wit.F64Type => List(watpe.Float64)
+      case wit.CharType => List(watpe.Int32)
+      case wit.StringType => List(watpe.Int32, watpe.Int32)
+      case t: wit.ListType => flattenList(t)
+      case t: wit.RecordType => flattenRecord(t)
+      case t: wit.VariantType => flattenVariant(t)
+      case _: wit.FlagsType => List(watpe.Int32)
+      case _: wit.ResourceType => List(watpe.Int32)
     }
 
-    private def flattenList(t: ListType): List[watpe.Type] =
+    private def flattenList(t: wit.ListType): List[watpe.Type] =
       t.length match {
         case Some(length) => List.fill(length)(flattenType(t.elemType)).flatten
         case None => List(watpe.Int32, watpe.Int32)
       }
 
-    private def flattenRecord(t: RecordType): List[watpe.Type] =
+    private def flattenRecord(t: wit.RecordType): List[watpe.Type] =
       t.fields.flatMap(f => flattenType(f.tpe))
 
-    private def flattenVariant(t: VariantType): List[watpe.Type] = {
-      val variantTypes = t.cases.collect { case CaseType(_, Some(tpe)) => tpe }
+    private def flattenVariant(t: wit.VariantType): List[watpe.Type] = {
+      val variantTypes = t.cases.collect { case wit.CaseType(_, tpe) => tpe }
       List(watpe.Int32) ++ flattenVariants(variantTypes)
     }
 
-    def flattenVariants(variants: List[ValType]): List[watpe.Type] = {
+    def flattenVariants(variants: List[wit.ValType]): List[watpe.Type] = {
       variants.foldLeft(List.empty[watpe.Type]) { case (acc, variant) =>
         val flattened = flattenType(variant)
         val joined = acc.zip(flattened).map { case (a, b) => join(a, b) }
@@ -93,27 +88,27 @@ object Flatten {
     * @see
     *   [[https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#despecialization]]
     */
-  private def despecialize(t: ValType): FundamentalType = t match {
-    case st: SpecializedType => st match {
+  private def despecialize(t: wit.ValType): wit.FundamentalType = t match {
+    case st: wit.SpecializedType => st match {
 
-      case TupleType(ts) =>
-        RecordType(ts.zipWithIndex.map { case (t, i) => FieldType(i.toString, t) })
+      case wit.TupleType(ts) =>
+        wit.RecordType(ts.zipWithIndex.map { case (t, i) => wit.FieldType(i.toString, t) })
 
-      case EnumType(labels) =>
-        VariantType(labels.map(l => CaseType(l, None)))
+      case wit.EnumType(labels) =>
+        wit.VariantType(???, labels.map(l => wit.CaseType(???, wit.VoidType)))
 
-      case OptionType(t) =>
-        VariantType(List(
-          CaseType("none", None),
-          CaseType("some", Some(t))
+      case wit.OptionType(t) =>
+        wit.VariantType(???, List(
+          wit.CaseType(???, wit.VoidType),
+          wit.CaseType(???, t)
         ))
 
-      case ResultType(ok, err) =>
-        VariantType(List(
-          CaseType("ok", ok),
-          CaseType("error", err)
-        ))
+      // case wit.ResultType(ok, err) =>
+      //   wit.VariantType(???, List(
+      //     wit.CaseType(???, ok),
+      //     wit.CaseType(???, err)
+      //   ))
     }
-    case ft: FundamentalType => ft
+    case ft: wit.FundamentalType => ft
   }
 }

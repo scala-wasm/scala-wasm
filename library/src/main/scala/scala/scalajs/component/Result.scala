@@ -1,5 +1,12 @@
 package scala.scalajs.component
 
-sealed abstract class Result[+T, +E]
-final case class Ok[T](value: T) extends Result[T, Nothing]
-final case class Err[E](value: E) extends Result[Nothing, E]
+sealed trait Result[+A, +B] extends Variant
+
+final case class Ok[X](val value: X) extends Result[X, Nothing] {
+  type T = X
+  protected val _index: Int = 0
+}
+final case class Err[E](val value: E) extends Result[Nothing, E] {
+  type T = E
+  protected val _index: Int = 1
+}

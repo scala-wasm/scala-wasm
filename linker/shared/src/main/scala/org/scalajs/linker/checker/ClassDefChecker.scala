@@ -281,6 +281,9 @@ private final class ClassDefChecker(classDef: ClassDef,
       case ClassKind.Class | ClassKind.HijackedClass =>
         // all namespaces are allowed (except for class initializers as checked above)
 
+      case ClassKind.NativeWasmComponentResourceClass =>
+        // TODO
+
       case ClassKind.Interface =>
         if (isConstructor)
           reportError("Interfaces cannot declare constructors")

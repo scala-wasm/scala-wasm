@@ -48,7 +48,7 @@ object SWasmGen {
         RefNull(Types.HeapType.None)
 
       case NothingType | VoidType | ClassType(_, false) | ArrayType(_, false) |
-          AnyNotNullType | _:RecordType | _:WasmComponentResultType | _:WasmComponentVariantType =>
+          AnyNotNullType | _:RecordType | _: WasmComponentResourceType =>
         throw new AssertionError(s"Unexpected type for field: ${tpe.show()}")
     }
   }

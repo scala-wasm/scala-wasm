@@ -31,7 +31,6 @@ import org.scalajs.linker.backend.webassembly.{Instructions => wa}
 import org.scalajs.linker.backend.webassembly.{Modules => wamod}
 import org.scalajs.linker.backend.webassembly.{Identitities => wanme}
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
-import org.scalajs.linker.backend.webassembly.component.{Types => wit}
 import org.scalajs.linker.backend.webassembly.component.Flatten
 
 import canonicalabi.ScalaJSToCABI
@@ -78,7 +77,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
     }
 
     for (member <- clazz.componentNativeMembers) {
-      genComponentNativeInterop(clazz, member)
+      canonicalabi.InteropEmitter.genComponentNativeInterop(clazz, member)
     }
 
     // maybe better to Component Interface to be an another ClassKind?
@@ -91,106 +90,11 @@ class ClassEmitter(coreSpec: CoreSpec) {
       case ClassKind.JSClass | ClassKind.JSModuleClass =>
         genJSClass(clazz)
       case ClassKind.HijackedClass | ClassKind.AbstractJSType | ClassKind.NativeJSClass |
-          ClassKind.NativeJSModuleClass =>
+          ClassKind.NativeJSModuleClass | ClassKind.NativeWasmComponentResourceClass =>
         () // nothing to do
     }
   }
 
-  private def genComponentNativeInterop(clazz: LinkedClass, member: ComponentNativeMemberDef)(
-    implicit ctx: WasmContext
-  ): Unit = {
-
-    val importFunctionID = genComponentNativeImport(member)
-    genComponentAdapterFunction(clazz, member, importFunctionID)
-  }
-
-  private def genComponentNativeImport(member: ComponentNativeMemberDef)(implicit ctx: WasmContext): wanme.FunctionID = {
-    val functionID = genFunctionID.forComponentFunction(member.importModule, member.importName)
-    val witFunctionType = wit.FuncType(
-      member.args.flatMap(a => TypeTransformer.transformWIT(a.ptpe)),
-      TypeTransformer.transformWIT(member.resultType).toList
-    )
-    val coreWasmFunctionType = Flatten.lowerFlattenFuncType(witFunctionType)
-
-    ctx.moduleBuilder.addImport(
-      wamod.Import(
-        member.importModule,
-        member.importName,
-        wamod.ImportDesc.Func(
-          functionID,
-          OriginalName(s"${member.importModule}#${member.importName}"),
-          ctx.moduleBuilder.functionTypeToTypeID(coreWasmFunctionType)
-        )
-      )
-    )
-    functionID
-  }
-
-  private def genComponentAdapterFunction(clazz: LinkedClass, member: ComponentNativeMemberDef,
-      importFunctionID: wanme.FunctionID)(
-      implicit ctx: WasmContext): wanme.FunctionID = {
-    val functionID = genFunctionID.forMethod(
-      MemberNamespace.PublicStatic,
-      clazz.className,
-      member.name.name
-    )
-    val fb = new FunctionBuilder(
-      ctx.moduleBuilder,
-      functionID,
-      OriginalName(s"${member.importModule}#${member.importName}-adapter"),
-      member.pos,
-    )
-
-    val env = member.args.map { paramDef =>
-      val param = fb.addParam(
-        paramDef.originalName.orElse(paramDef.name.name),
-        transformParamType(paramDef.ptpe)
-      )
-      paramDef.name -> param
-    }.toMap
-    fb.setResultTypes(TypeTransformer.transformResultType(member.resultType))
-
-    val witFunctionType = wit.FuncType(
-      member.args.flatMap(a => TypeTransformer.transformWIT(a.ptpe)),
-      TypeTransformer.transformWIT(member.resultType).toList
-    )
-    val paramsViaMemory = witFunctionType.paramTypes.flatMap(Flatten.flattenType).length > Flatten.MaxFlatParams
-    val returnsViaMemory = witFunctionType.resultTypes.flatMap(Flatten.flattenType).length > Flatten.MaxFlatResults
-
-    // adapt params to CanonicalABI
-    if (paramsViaMemory) {
-      // TODO : put params onto linear memory
-    } else {
-      member.args.map { a =>
-        val ident = env.get(a.name).get
-        fb += wa.LocalGet(ident)
-        ScalaJSToCABI.genAdaptCABI(fb, a.ptpe)
-      }
-    }
-    if (returnsViaMemory) {
-      // TODO : allocate memoery and pass the ofset
-    }
-
-    // Call the component function
-    fb += wa.Call(importFunctionID)
-
-    // Response back to Scala.js representation
-    if (returnsViaMemory) {
-      // TODO
-    } else {
-      val resultTypes = TypeTransformer.transformWITCore(member.resultType)
-      val vi = resultTypes.map { t =>
-        val id = fb.addLocal(NoOriginalName, t)
-        fb += wa.LocalSet(id)
-        id
-      }.toIterator
-      CABIToScalaJS.genAdaptScalaJS(fb, member.resultType, vi)
-    }
-
-    fb.buildAndAddToModule()
-
-    functionID
-  }
 
   /** Generates code for a top-level export.
    *
@@ -238,7 +142,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
       implicit ctx: WasmContext): Unit = {
     topLevelExport.tree match {
       case d: WasmComponentExportDef =>
-        genWasmComponentExportDef(d)
+        canonicalabi.InteropEmitter.genWasmComponentExportDef(d)
       case d: TopLevelMethodExportDef =>
         genTopLevelExportSetter(topLevelExport.exportName)
         genTopLevelMethodExportDef(d)
@@ -345,6 +249,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
             KindClass
           case Interface =>
             KindInterface
+          case NativeWasmComponentResourceClass =>
+            KindClass // TODO
           case JSClass | JSModuleClass | AbstractJSType | NativeJSClass | NativeJSModuleClass =>
             if (clazz.superClass.isDefined)
               KindJSTypeWithSuperClass
@@ -1505,79 +1411,6 @@ class ClassEmitter(coreSpec: CoreSpec) {
       method.body,
       resultType = AnyType
     )
-  }
-
-  private def genWasmComponentExportDef(exportDef: WasmComponentExportDef)(
-      implicit ctx: WasmContext): Unit = {
-    implicit val pos = exportDef.pos
-
-    val method = exportDef.methodDef
-    val internalMethodName = exportDef.exportName + "$internal"
-    val internalFunctionID = genFunctionID.forExport(internalMethodName)
-    FunctionEmitter.emitFunction(
-      internalFunctionID,
-      makeDebugName(ns.TopLevelExport, internalMethodName),
-      enclosingClassName = None,
-      captureParamDefs = None,
-      receiverType = None,
-      method.args,
-      None,
-      method.body.get,
-      method.resultType
-    )
-
-    // gen export adapter func
-    val exportFunctionID = genFunctionID.forExport(exportDef.exportName)
-    val fb = new FunctionBuilder(
-      ctx.moduleBuilder,
-      exportFunctionID,
-      makeDebugName(ns.TopLevelExport, exportDef.exportName),
-      pos,
-    )
-    val witFunctionType = wit.FuncType(
-      exportDef.paramTypes.flatMap(TypeTransformer.transformWIT(_)),
-      TypeTransformer.transformWIT(exportDef.resultType).toList
-    )
-    val flatParamTypes = witFunctionType.paramTypes.flatMap(Flatten.flattenType)
-    val flatResultTypes = TypeTransformer.transformWITCore(exportDef.resultType)
-    val paramsViaMemory = flatParamTypes.length > Flatten.MaxFlatParams
-    val returnsViaMemory = flatResultTypes.length > Flatten.MaxFlatResults
-
-    if (paramsViaMemory) {
-      // TODO : put params onto linear memory
-      ???
-    } else {
-      fb.setResultTypes(flatResultTypes)
-      val vi = flatParamTypes.map { t =>
-        fb.addParam(NoOriginalName, t)
-      }.toIterator
-      exportDef.paramTypes.foreach { paramTy =>
-        CABIToScalaJS.genAdaptScalaJS(fb, paramTy, vi)
-      }
-    }
-    if (returnsViaMemory) {
-      // TODO : allocate memoery and pass the ofset
-    }
-
-    fb += wa.Call(internalFunctionID)
-    fb += wa.RefAsNonNull // TODO: NPE if null (based on semantcis)
-
-    // export adapter function
-    // Response back to Scala.js representation
-    if (returnsViaMemory) {
-      // TODO: read from return pointer
-    } else {
-      ScalaJSToCABI.genAdaptCABI(fb, exportDef.resultType)
-    }
-
-    fb.buildAndAddToModule()
-    ctx.moduleBuilder.addExport(
-      wamod.Export(
-        exportDef.exportName,
-        wamod.ExportDesc.Func(exportFunctionID)
-      )
-    )
-
   }
 
   private def genMethod(clazz: LinkedClass, method: MethodDef)(

@@ -215,12 +215,8 @@ object Types {
   @deprecated("Use VoidType instead", since = "1.18.0")
   lazy val NoType: VoidType.type = VoidType
 
-  final case class WasmComponentResultType(ok: Type, err: Type) extends Type {
-    def toNonNullable: this.type = this
-  }
-
-  final case class WasmComponentVariantType(variantas: List[Type]) extends Type {
-    def toNonNullable: this.type = this
+  final case class WasmComponentResourceType(className: ClassName) extends Type {
+    override def toNonNullable: Type = this
   }
 
   /** Type reference (allowed for classOf[], is/asInstanceOf[]).
@@ -384,7 +380,7 @@ object Types {
       RecordValue(tpe, tpe.fields.map(f => zeroOf(f.tpe)))
 
     case NothingType | VoidType | ClassType(_, false) | ArrayType(_, false) |
-        AnyNotNullType | _:WasmComponentResultType | _:WasmComponentVariantType =>
+        AnyNotNullType | _:WasmComponentResourceType =>
       throw new IllegalArgumentException(s"cannot generate a zero for $tpe")
   }
 

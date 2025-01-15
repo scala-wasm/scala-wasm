@@ -603,7 +603,7 @@ object Trees {
     val tpe = AnyType
   }
 
-  sealed case class ComponentFunctionApply(classNae: ClassName, method: MethodIdent, args: List[Tree])(
+  sealed case class ComponentFunctionApply(className: ClassName, method: MethodIdent, args: List[Tree])(
       val tpe: Type)(implicit val pos: Position) extends Tree
 
 
@@ -1323,8 +1323,7 @@ object Trees {
       extends MemberDef
 
   sealed case class ComponentNativeMemberDef(flags: MemberFlags, name: MethodIdent,
-      importModule: String, importName: String,
-      args: List[ParamDef], resultType: Type)(
+      importModule: String, importName: String, signature: WasmInterfaceTypes.FuncType)(
       implicit val pos: Position)
       extends MemberDef
 
@@ -1344,7 +1343,7 @@ object Trees {
         name
 
       case TopLevelFieldExportDef(_, name, _) => name
-      case WasmComponentExportDef(_, name, _, _, _) => name
+      case WasmComponentExportDef(_, name, _, _) => name
     }
 
     val isWasmComponentExport = this.isInstanceOf[WasmComponentExportDef]
@@ -1379,7 +1378,7 @@ object Trees {
 
   sealed case class WasmComponentExportDef(moduleID: String,
       exportName: String, methodDef: MethodDef,
-      paramTypes: List[Type], resultType: Type)(
+      signature: WasmInterfaceTypes.FuncType)(
       implicit val pos: Position) extends TopLevelExportDef
 
   // Miscellaneous

@@ -188,8 +188,7 @@ private[ir] object Tags {
   final val TagNonNullArrayType = TagNonNullClassType + 1
 
   // Component
-  final val TagWasmComponentResultType = TagNonNullArrayType + 1
-  final val TagWasmComponentVariantType = TagWasmComponentResultType + 1
+  final val TagWasmComponentResourceType = TagNonNullArrayType + 1
 
   // Tags for TypeRefs
 
@@ -213,5 +212,33 @@ private[ir] object Tags {
   final val TagJSNativeLoadSpecGlobal = TagJSNativeLoadSpecNone + 1
   final val TagJSNativeLoadSpecImport = TagJSNativeLoadSpecGlobal + 1
   final val TagJSNativeLoadSpecImportWithGlobalFallback = TagJSNativeLoadSpecImport + 1
+
+  // Tags for Wasm Interface Types
+  final val TagWITVoidType = 0
+  final val TagWITBoolType = TagWITVoidType + 1
+  final val TagWITU8Type = TagWITBoolType + 1
+  final val TagWITU16Type = TagWITU8Type + 1
+  final val TagWITU32Type = TagWITU16Type + 1
+  final val TagWITU64Type = TagWITU32Type + 1
+  final val TagWITS8Type = TagWITU64Type + 1
+  final val TagWITS16Type = TagWITS8Type + 1
+  final val TagWITS32Type = TagWITS16Type + 1
+  final val TagWITS64Type = TagWITS32Type + 1
+  final val TagWITF32Type = TagWITS64Type + 1
+  final val TagWITF64Type = TagWITF32Type + 1
+  final val TagWITCharType = TagWITF64Type + 1
+  final val TagWITStringType = TagWITCharType + 1
+  final val TagWITListType = TagWITStringType + 1
+  final val TagWITFieldType = TagWITListType + 1
+  final val TagWITRecordType = TagWITFieldType + 1
+  final val TagWITTupleType = TagWITRecordType + 1
+  final val TagWITCaseType = TagWITTupleType + 1
+  final val TagWITVariantType = TagWITCaseType + 1
+  final val TagWITEnumType = TagWITVariantType + 1
+  final val TagWITOptionType = TagWITEnumType + 1
+  final val TagWITResultType = TagWITOptionType + 1
+  final val TagWITFlagsType = TagWITResultType + 1
+  final val TagWITResourceType = TagWITFlagsType + 1
+  final val TagWITFuncType = TagWITResourceType + 1
 
 }

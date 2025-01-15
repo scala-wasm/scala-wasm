@@ -245,7 +245,7 @@ object Traversers {
         case TopLevelMethodExportDef(_, methodDef) =>
           traverseJSMethodPropDef(methodDef)
 
-        case WasmComponentExportDef(_, _, methodDef, _, _) =>
+        case WasmComponentExportDef(_, _, methodDef, _) =>
           traverseMethodDef(methodDef)
       }
     }

@@ -164,7 +164,7 @@ final class Emitter(config: Emitter.Config) {
            * opposed to the default `undefined` value of the JS `let`).
            */
           fb += wa.GlobalGet(genGlobalID.forStaticField(fieldIdent.name))
-        case WasmComponentExportDef(_, exportName, methodDef, paramTypes, resultType) =>
+        case WasmComponentExportDef(_, _, _, _) =>
       }
 
       if (!tle.tree.isWasmComponentExport)
@@ -470,10 +470,10 @@ object Emitter {
       instantiateClass(IllegalArgumentExceptionClass, NoArgConstructorName),
 
       // Wasm Component Model
-      instantiateClass(WasmComponentResultClass, NoArgConstructorName),
-      instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
-      instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
-      instantiateClass(WasmComponentVariantClass, NoArgConstructorName),
+      // instantiateClass(WasmComponentResultClass, NoArgConstructorName),
+      // instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
+      // instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
+      // instantiateClass(WasmComponentVariantClass, NoArgConstructorName),
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),

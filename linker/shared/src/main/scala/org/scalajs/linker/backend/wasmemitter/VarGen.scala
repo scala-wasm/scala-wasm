@@ -392,12 +392,6 @@ object VarGen {
     val ThrowableStruct = forClass(ThrowableClass)
     val JSExceptionStruct = forClass(SpecialNames.JSExceptionClass)
 
-    val WasmComponentResultStruct = forClass(SpecialNames.WasmComponentResultClass)
-    val WasmComponentOkStruct = forClass(SpecialNames.WasmComponentOkClass)
-    val WasmComponentErrStruct = forClass(SpecialNames.WasmComponentErrClass)
-
-    val WasmComponentVariantStruct = forClass(SpecialNames.WasmComponentVariantClass)
-
     val ObjectVTable: TypeID = forVTable(ObjectClass)
 
     case object typeData extends TypeID

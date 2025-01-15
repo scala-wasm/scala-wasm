@@ -844,7 +844,9 @@ private class FunctionEmitter private (
             cls
           case AnyType | AnyNotNullType | ArrayType(_, _) =>
             ObjectClass
-          case _:RecordType | _:WasmComponentResultType | _:WasmComponentVariantType =>
+
+          // WasmComponentResourceType should be compiled to WasmComponentFunctionApply in frontend
+          case _:RecordType | _: WasmComponentResourceType =>
             throw new AssertionError(s"Invalid receiver type ${receiver.tpe}")
         }
         val receiverClassInfo = ctx.getClassInfo(receiverClassName)
@@ -2107,7 +2109,7 @@ private class FunctionEmitter private (
       case ArrayType(_, _) =>
         genWithDispatch(isAncestorOfHijackedClass = false)
 
-      case _:RecordType | _:WasmComponentResultType | _:WasmComponentVariantType =>
+      case _:RecordType | _: WasmComponentResourceType =>
         throw new AssertionError(
             s"Invalid type ${tree.tpe} for String_+ at ${tree.pos}: $tree")
     }
@@ -2340,9 +2342,11 @@ private class FunctionEmitter private (
             }
         }
 
-      case AnyType | ClassType(_, true) | ArrayType(_, true) | _:RecordType | _:WasmComponentResultType |
-          _: WasmComponentVariantType =>
+      case AnyType | ClassType(_, true) | ArrayType(_, true) | _:RecordType =>
         throw new AssertionError(s"Illegal type in IsInstanceOf: $testType")
+
+      case WasmComponentResourceType(className) =>
+        ??? // TODO
     }
 
     BooleanType

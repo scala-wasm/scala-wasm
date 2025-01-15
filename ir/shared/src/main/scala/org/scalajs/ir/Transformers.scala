@@ -278,9 +278,9 @@ object Transformers {
         case TopLevelMethodExportDef(moduleID, methodDef) =>
           TopLevelMethodExportDef(moduleID, transformJSMethodDef(methodDef))
 
-        case WasmComponentExportDef(moduleID, name, methodDef, paramTypes, resultType) =>
+        case WasmComponentExportDef(moduleID, name, methodDef, signature) =>
           WasmComponentExportDef(exportDef.moduleID, name,
-              transformMethodDef(methodDef), paramTypes,resultType)
+              transformMethodDef(methodDef), signature)
       }
     }
   }

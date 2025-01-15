@@ -15,6 +15,7 @@ package org.scalajs.nscplugin
 import scala.tools.nsc._
 
 import org.scalajs.ir.Types
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 /** Conversions from scalac `Type`s to the IR `Type`s and `TypeRef`s. */
 trait TypeConversions[G <: Global with Singleton] extends SubComponent {
@@ -53,6 +54,27 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
         NothingClass -> Types.ClassRef(encodeClassName(RuntimeNothingClass)),
         NullClass    -> Types.ClassRef(encodeClassName(RuntimeNullClass))
     )
+  }
+
+  def toWITType(t: Type): wit.WasmInterfaceType = {
+    val (base, arrayDepth) = convert(t)
+    base match {
+      case BooleanClass => wit.BoolType
+      case ByteClass    => wit.S8Type
+      case ShortClass   => wit.S16Type
+      case IntClass     => wit.S32Type
+      case LongClass    => wit.S64Type
+      case FloatClass   => wit.F32Type
+      case DoubleClass  => wit.F64Type
+      case CharClass    => wit.CharType
+      case StringClass  => wit.StringType
+      // list
+      // record
+      // tuple
+      // variant
+      // case sym if sym.isSubClass(jsDefinitions.ComponentVariantClass) && sym.isSealed =>
+
+    }
   }
 
   def toIRType(t: Type): Types.Type = {

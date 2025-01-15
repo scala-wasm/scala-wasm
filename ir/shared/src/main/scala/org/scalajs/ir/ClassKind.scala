@@ -69,6 +69,7 @@ object ClassKind {
   case object JSModuleClass extends ClassKind
   case object NativeJSClass extends ClassKind
   case object NativeJSModuleClass extends ClassKind
+  case object NativeWasmComponentResourceClass extends ClassKind
 
   private[ir] def toByte(kind: ClassKind): Byte = kind match {
     case ClassKind.Class               => 1
@@ -80,6 +81,7 @@ object ClassKind {
     case ClassKind.JSModuleClass       => 7
     case ClassKind.NativeJSClass       => 8
     case ClassKind.NativeJSModuleClass => 9
+    case ClassKind.NativeWasmComponentResourceClass => 10
   }
 
   private[ir] def fromByte(b: Byte): ClassKind = (b: @switch) match {
@@ -92,5 +94,6 @@ object ClassKind {
     case 7 => ClassKind.JSModuleClass
     case 8 => ClassKind.NativeJSClass
     case 9 => ClassKind.NativeJSModuleClass
+    case 10 => ClassKind.NativeWasmComponentResourceClass
   }
 }
