@@ -25,6 +25,7 @@ import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.linker.backend.emitter.Transients._
 import org.scalajs.linker.standard.LinkedTopLevelExport
 import org.scalajs.linker.standard.ModuleSet.ModuleID
+import _root_.org.scalajs.linker.backend.wasmemitter.SpecialNames
 
 object Infos {
 
@@ -642,10 +643,10 @@ object Infos {
         case wasmComponentExport: WasmComponentExportDef =>
           assert(wasmComponentExport.methodDef.body.isDefined)
           val methodName = wasmComponentExport.methodDef.name.name
-          methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
-          builder.maybeAddReferencedClass(methodName.resultTypeRef)
           generateForWIT(wasmComponentExport.signature)
-          traverse(wasmComponentExport.methodDef.body.get)
+          builder.maybeAddReferencedClass(methodName.resultTypeRef)
+          methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+          wasmComponentExport.methodDef.body.foreach(traverse)
       }
 
       builder.result()
@@ -656,14 +657,29 @@ object Infos {
         case wit.FuncType(paramTypes, resultType) =>
           for (t <- paramTypes) generateForWIT(t)
           generateForWIT(resultType)
+
+        case wit.ResultType(ok, err) =>
+          val cases = List(
+            wit.CaseType(ComponentResultOkClass, ok),
+            wit.CaseType(ComponentResultErrClass, err),
+          )
+          for (c <- cases) {
+            builder.addInstantiatedClass(c.className)
+            builder.maybeAddReferencedClass(ClassRef(c.className))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(c.tpe)
+          }
+
         case wit.VariantType(className, cases) =>
           // reference to all the children types so we can type test in interop
           // and make field read so we can read those fields in interop
           for (c <- cases) {
-            builder.addInstantiatedClass(c.className)
+            val ctor = wit.makeCtorName(c.tpe)
+            builder.addInstantiatedClass(c.className, ctor)
             builder.maybeAddReferencedClass(ClassRef(c.className))
-            builder.addFieldRead(FieldName(c.className, SimpleFieldName("_index")))
-            builder.addFieldRead(FieldName(c.className, SimpleFieldName("value")))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
             generateForWIT(c.tpe)
           }
         case _ =>

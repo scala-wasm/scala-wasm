@@ -8,32 +8,51 @@ package helloworld
 import scala.scalajs.js
 import scala.scalajs.component
 import component.annotation._
+import component.unsigned._
+import java.nio.charset.StandardCharsets
+// import helloworld.Test._
 
 /*
 object helloworld {
   def main(args: Array[String]): Unit = {
-    val res = Test.add(1, 2)
-    val f = foo(res)
-    println(f.x)
+    println("hello")
   }
-
-  private def foo(x: Int): Base = {
-    if (x < 0) A(x)
-    else B(x)
-  }
-  sealed trait Base {
-    def x: Int
-  }
-  case class A(x: Int) extends Base
-  case class B(x: Int) extends Base
 }
-*/
+
+object Foo {
+  @js.annotation.JSExportTopLevel("foo")
+  def foo(): Unit = {
+    Hoge.hoge() match {
+      case Foo(x) => println(x)
+      case Bar(x) => println(x)
+      case Baz(x) => println(x)
+    }
+    Test.parse(100) match {
+      case Test.FloatValue(value) =>
+      case Test.NumValue(value) => Test.add(value, value) // 200
+      case Test.StrValue(value) =>
+    }
+  }
+  sealed trait Hoge
+  case class Foo(x: Int) extends Hoge
+  case class Bar(x: String) extends Hoge
+  case class Baz(x: Float) extends Hoge
+
+  object Hoge {
+    def hoge(): Hoge = {
+      Foo(1)
+    }
+  }
+}
+  */
 
 object Cli {
   @ComponentExport("wasi:cli/run@0.2.0#run")
   def run(): component.Result[Unit, Unit] = {
     val res = Test.add(1, 2)
-    Test.say("foo")
+    Test.printNumber(res)
+
+    Test.say("Hello from Scala!")
     // val err = component.Err(())
 
     val counter = Test.newCounter()
@@ -41,11 +60,47 @@ object Cli {
     counter.up()
     counter.down()
     val value = counter.valueOf()
-    Test.add(value, value) // 2
+    Test.printNumber(value) // 1
+
+    // Test.parse(100) match {
+    //   case Test.FloatValue(value) =>
+    //   case Test.NumValue(value) => Test.add(value, value) // 200
+    //   case Test.StrValue(value) =>
+    // }
 
     // val out = Stdio.getStdout()
+    // // hello
+    // val hello: Array[UByte] = new Array[UByte](5)
+    // hello.update(0, new UByte(104))
+    // hello.update(0, new UByte(101))
+    // hello.update(0, new UByte(108))
+    // hello.update(0, new UByte(108))
+    // hello.update(0, new UByte(111))
+    //  Array[Byte](104, 101, 108, 108, 111)
+
     // out.test(0)
+    // out.blockingWriteAndFlush(hello)
+
+
+    /*
+    Hoge.hoge() match {
+      case Foo(x) => println(x)
+      case Bar(x) => println(x)
+      case Baz(x) => println(x)
+    }
+    */
     component.Ok(())
+  }
+
+  sealed trait Hoge
+  case class Foo(x: Int) extends Hoge
+  case class Bar(x: String) extends Hoge
+  case class Baz(x: Float) extends Hoge
+
+  object Hoge {
+    def hoge(): Hoge = {
+      Foo(1)
+    }
   }
 
 }

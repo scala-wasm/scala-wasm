@@ -46,6 +46,9 @@ import org.scalajs.ir.Version.Unversioned
 import org.scalajs.nscplugin.util.{ScopedVar, VarBox}
 import ScopedVar.withScopedVars
 import org.scalajs.ir.Types.BooleanType
+import org.scalajs.ir.Types.ClassRef
+import org.scalajs.ir.Types.PrimRef
+import org.scalajs.ir.Types.ArrayType
 
 /** Generate JavaScript code and output it to disk
  *
@@ -155,9 +158,9 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
 
   override def toIRType(t: Type): jstpe.Type = {
-    if (t.typeSymbol.isSubClass(ComponentResourceClass))
+    if (t.typeSymbol.isNonBottomSubClass(ComponentResourceClass)) {
       jstpe.WasmComponentResourceType(encodeClassName(t.typeSymbol))
-    else super.toIRType(t)
+    } else super.toIRType(t)
   }
 
   class JSCodePhase(prev: Phase) extends StdPhase(prev) with JSExportsPhase {
@@ -482,11 +485,14 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 } else {
                   genJSClassData(cd) // AbstractJSClass or Native JS Class/Module Class (trait?)
                 }
-              } else if (sym.tpe.typeSymbol.isSubClass(ComponentResourceClass)) {
+              } else if (
+                sym.tpe.typeSymbol.isNonBottomSubClass(ComponentResourceClass) &&
+                sym.tpe.typeSymbol != ComponentResourceClass
+              ) {
                 if (sym.hasAnnotation(ComponentNativeAnnotation)) {
                   genWasmComponentResourceClassData(cd)
                 } else {
-                  ???
+                  throw new AssertionError(s"non native resource type isn't yet supported: $sym")
                 }
               } else if (sym.isTraitOrInterface) {
                 genInterface(cd)
@@ -2269,7 +2275,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             )
             js.ComponentNativeMemberDef(flags, encodeMethodSym(sym), module, name, ft)
           }
-        case None => ???
+        case None => throw new AssertionError("@ComponentImport annotation not found.")
       }
     }
 
@@ -2287,31 +2293,46 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       jstpe.ClassType(ClassName("java.lang.String"), true) -> wit.StringType
     )
 
-    lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
-      ComponentUnsigned_UByte -> wit.U8Type,
-      ComponentUnsigned_UShort -> wit.U16Type,
-      ComponentUnsigned_UInt -> wit.U32Type,
-      ComponentUnsigned_ULong -> wit.U64Type
-    )
+    // lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
+    //   ComponentUnsigned_UByte -> wit.U8Type,
+    //   ComponentUnsigned_UShort -> wit.U16Type,
+    //   ComponentUnsigned_UInt -> wit.U32Type,
+    //   ComponentUnsigned_ULong -> wit.U64Type
+    // )
+
+    def toWITArrayType(tpe: jstpe.ArrayType): wit.ValType = {
+      val baseWIT = tpe.arrayTypeRef.base match {
+        case ClassRef(className) => {
+          println(className)
+
+          className match {
+            case nme if nme == ClassName("scala.scalajs.component.unsigned.UByte") => wit.U8Type
+            case _ => throw new AssertionError(s"invalid className: $className")
+          }
+        }
+        case PrimRef(tpe) => primitiveIRWIT.get(tpe).get
+      }
+      (1 to tpe.arrayTypeRef.dimensions).foldLeft(baseWIT)((acc, _) => wit.ListType(acc, None))
+    }
 
     def toWIT(tpe: Type): wit.ValType = {
-      // .typeSymbol normalizes `type UInt` to ``
-      unsigned2WIT.get(tpe.typeSymbolDirect).orElse {
-        primitiveIRWIT.get(toIRType(tpe))
+      val irType = toIRType(tpe)
+      (irType match {
+        case arr: ArrayType => Some(toWITArrayType(arr))
+        case _ => None
+      }).orElse {
+        primitiveIRWIT.get(irType)
       }.getOrElse {
         tpe.typeSymbol match {
+          case ComponentUnsignedUByte => wit.U8Type
+
           case tsym if tsym.isSubClass(ComponentResourceClass) =>
             wit.ResourceType(encodeClassName(tsym))
 
           case tsym if tsym.isSubClass(ComponentResultClass) && tsym.isSealed =>
             val List(ok, err) = tpe.typeArgs
-            wit.VariantType(
-              encodeClassName(ComponentResultClass),
-              List(
-                wit.CaseType(encodeClassName(ComponentResultOkClass), toWIT(ok)),
-                wit.CaseType(encodeClassName(ComponentResultErrClass), toWIT(err))
-              )
-            )
+            wit.ResultType(toWIT(ok), toWIT(err))
+
           case tsym if tsym.isSubClass(ComponentVariantClass) && tsym.isSealed =>
             // Sort by declaration order, we need to know which index
             // corresponds to which type.
@@ -2320,10 +2341,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             val cases = tsym.sealedChildren.toList.sortBy(_.pos.line) map { child =>
               assert(child.isFinal)
               assert(child.isClass)
-              val typeMember = child.info.members.iterator.find(_.isType)
+              val valueType = jsInterop.componentVariantValueTypeOf(child)
               wit.CaseType(
                 encodeClassName(child),
-                toWIT(typeMember.get.info)
+                toWIT(valueType)
               )
             }
             wit.VariantType(
@@ -3688,7 +3709,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           genApplyJSClassMethod(genExpr(receiver), sym, genActualArgs(sym, args))
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
-      } else if (receiver.tpe.typeSymbol.isSubClass(ComponentResourceClass) &&
+      } else if (receiver.tpe.typeSymbol.isNonBottomSubClass(ComponentResourceClass) &&
           receiver.tpe.typeSymbol.hasAnnotation(ComponentNativeAnnotation)) {
         genComponentNativeMemberCall(sym, tree, Some(receiver), isStat)
       } else if (sym.hasAnnotation(ComponentImportAnnotation)) {
@@ -5637,14 +5658,19 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     private def genComponentNativeMemberCall(method: Symbol, tree: Apply,
         receiver: Option[Tree], isStat: Boolean): js.Tree = {
       val sym = tree.symbol
-      val Apply(_, args) = tree
+      val Apply(fun, args) = tree
+      // val funcType = jsInterop.wasmComponentExportOf(fun.symbol)
 
       implicit val pos = tree.pos
 
       val methodIdent = encodeMethodSym(method)
       val className = encodeClassName(method.owner)
-      js.ComponentFunctionApply(receiver.map(genExpr(_)), className, methodIdent, genActualArgs(sym, args))(
-          toWIT(tree.tpe).toIRType())
+      js.ComponentFunctionApply(
+        receiver.map(genExpr(_)),
+        className,
+        methodIdent,
+        genActualArgs(sym, args)
+      )(toIRType(tree.tpe))
     }
 
     /** Gen JS code for a call to a native JS def or val. */

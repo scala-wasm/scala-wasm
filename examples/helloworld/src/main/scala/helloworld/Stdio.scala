@@ -29,8 +29,8 @@ trait OutputStream extends component.Resource {
   // blocking-write-and-flush: func(
   //     contents: list<u8>
   // ) -> result<_, stream-error>;
-  // @ComponentImport("wasi:io/streams@0.2.0", "[method]output-stream.blocking-write-and-flush")
-  // def blockingWriteAndFlush(contents: Array[UByte]): component.Result[Unit, Unit]
+  @ComponentImport("wasi:io/streams@0.2.0", "[method]output-stream.blocking-write-and-flush")
+  def blockingWriteAndFlush(contents: Array[UByte]): component.Result[Unit, StreamError]
 }
 
 /*
@@ -48,7 +48,6 @@ variant stream-error {
     closed
 }
 */
-/*
 sealed trait StreamError extends component.Variant
 final case class LastOperationFailed(value: Error) extends StreamError {
     type T = Error
@@ -70,8 +69,8 @@ final case class Closed(value: Unit) extends StreamError {
 //     @since(version = 0.2.0)
 //     to-debug-string: func() -> string;
 // }
+@component.native
 trait Error extends component.Resource {
   @ComponentImport("wasi:io/error@0.2.0", "[method]error.to-debug-string")
   def toDebugString(): String = component.native
 }
-  */

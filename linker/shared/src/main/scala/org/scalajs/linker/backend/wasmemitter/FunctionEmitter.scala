@@ -800,6 +800,7 @@ private class FunctionEmitter private (
         genWriteToStorage(lookupRecordSelect(lhs))
 
       case _ =>
+        println(tree)
         ???
     }
 
@@ -1838,7 +1839,7 @@ private class FunctionEmitter private (
       genTree(lhs, AnyType)
       genTree(rhs, AnyType)
       markPosition(tree)
-      fb += wa.Call(genFunctionID.is)
+      // fb += wa.Call(genFunctionID.is)
       maybeGenInvert()
       BooleanType
     }

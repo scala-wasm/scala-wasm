@@ -11,7 +11,12 @@ world plug {
 
 interface test {
     add: func(a: s32, b: s32) -> s32;
+    print-number: func(x: s32);
+
     say: func(content: string);
+
+    parse: func(i: s32) -> tree;
+
     new-counter: func() -> counter;
 
     resource counter {
@@ -20,4 +25,12 @@ interface test {
       down: func();
       value-of: func() -> s32;
     }
+
+    variant tree {
+      num-value(s32),
+      float-value(f32),
+      str-value(string),
+    }
+
+    // above max result (load from memory)
 }

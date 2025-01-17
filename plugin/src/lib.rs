@@ -1,9 +1,10 @@
 #[allow(warnings)]
 mod bindings;
 
-use crate::bindings::exports::tanishiking::test::test::{Guest, GuestCounter, Counter};
+use crate::bindings::exports::tanishiking::test::test::{Guest, GuestCounter, Counter, Tree};
 
 use std::cell::RefCell;
+use ferris_says::say;
 
 struct HostCounter {
     value: i32,
@@ -60,12 +61,24 @@ struct Component;
 
 impl Guest for Component {
     fn add(a: i32, b: i32) -> i32 {
-        println!("{}", a + b);
         return a + b;
     }
 
     fn say(content: String) {
-        println!("{}", content);
+        let width = 80;
+        let mut writer = std::io::stdout();
+
+        if let Err(e) = say(content.as_str(), width, &mut writer) {
+            println!("{e}");
+        }
+    }
+
+    fn print_number(x: i32) {
+        println!("{}", x);
+    }
+
+    fn parse(i: i32) -> Tree {
+      return Tree::NumValue(i);
     }
 
     fn new_counter() -> Counter {

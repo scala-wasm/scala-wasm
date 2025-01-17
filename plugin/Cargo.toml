@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+ferris-says = "0.3.2"
 wit-bindgen-rt = { version = "0.36.0", features = ["bitflags"] }
 
 [lib]

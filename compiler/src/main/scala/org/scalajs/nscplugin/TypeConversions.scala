@@ -56,27 +56,6 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
     )
   }
 
-  def toWITType(t: Type): wit.WasmInterfaceType = {
-    val (base, arrayDepth) = convert(t)
-    base match {
-      case BooleanClass => wit.BoolType
-      case ByteClass    => wit.S8Type
-      case ShortClass   => wit.S16Type
-      case IntClass     => wit.S32Type
-      case LongClass    => wit.S64Type
-      case FloatClass   => wit.F32Type
-      case DoubleClass  => wit.F64Type
-      case CharClass    => wit.CharType
-      case StringClass  => wit.StringType
-      // list
-      // record
-      // tuple
-      // variant
-      // case sym if sym.isSubClass(jsDefinitions.ComponentVariantClass) && sym.isSealed =>
-
-    }
-  }
-
   def toIRType(t: Type): Types.Type = {
     val (base, arrayDepth) = convert(t)
     if (arrayDepth == 0)

@@ -187,15 +187,20 @@ object Instructions {
   final case class GlobalSet(i: GlobalID) extends GlobalInstr("global.set", 0x24, i)
 
   // load
-  case class I32Load8S(arg: MemoryArg) extends LoadStoreInstr("i32.load8_s", 0x2C, arg)
-  case class I32Load8U(arg: MemoryArg) extends LoadStoreInstr("i32.load8_u", 0x2D, arg)
-  case class I32Load(arg: MemoryArg) extends LoadStoreInstr("i32.load", 0x28, arg)
-  object I32Load {
-    def apply(): I32Load = I32Load(MemoryArg())
-  }
-  case class I64Load(arg: MemoryArg) extends LoadStoreInstr("i64.load", 0x29, arg)
-  case class F32Load(arg: MemoryArg) extends LoadStoreInstr("f32.load", 0x2A, arg)
-  case class F64Load(arg: MemoryArg) extends LoadStoreInstr("f64.load", 0x2B, arg)
+  case class I32Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load", 0x28, arg)
+  case class I64Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load", 0x29, arg)
+  case class F32Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f32.load", 0x2A, arg)
+  case class F64Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f64.load", 0x2B, arg)
+  case class I32Load8S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load8_s", 0x2C, arg)
+  case class I32Load8U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load8_u", 0x2D, arg)
+  case class I32Load16S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load16_s", 0x2E, arg)
+  case class I32Load16U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load16_u", 0x2F, arg)
+  case class I64Load8S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load8_s", 0x30, arg)
+  case class I64Load8U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load8_u", 0x31, arg)
+  case class I64Load16S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load16_s", 0x32, arg)
+  case class I64Load16U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load16_u", 0x33, arg)
+  case class I64Load32S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load32_s", 0x34, arg)
+  case class I64Load32U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load32_u", 0x35, arg)
 
   // store
   case class I32Store(arg: MemoryArg) extends LoadStoreInstr("i32.store", 0x36, arg)

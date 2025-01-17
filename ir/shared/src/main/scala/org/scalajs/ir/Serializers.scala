@@ -908,9 +908,11 @@ object Serializers {
       case wit.F64Type => buffer.writeByte(TagWITF64Type)
       case wit.CharType => buffer.writeByte(TagWITCharType)
       case wit.StringType => buffer.writeByte(TagWITStringType)
-      case wit.ListType(_, _) =>
+      case wit.ListType(elemType, length) =>
         buffer.writeByte(TagWITListType)
-        ???
+        writeWITType(elemType)
+        buffer.writeBoolean(length.isDefined)
+        length.foreach(buffer.writeInt)
       case wit.RecordType(_) =>
         buffer.writeByte(TagWITRecordType)
         ???
@@ -931,7 +933,10 @@ object Serializers {
       case wit.OptionType(_) =>
         buffer.writeByte(TagWITOptionType)
         ???
-      // case wit.ResultType(_, _) => buffer.writeByte(TagWITResultType)
+      case wit.ResultType(ok, err) =>
+        buffer.writeByte(TagWITResultType)
+        writeWITType(ok)
+        writeWITType(err)
       case wit.FlagsType(_) => buffer.writeByte(TagWITFlagsType)
       case wit.ResourceType(className) =>
         buffer.writeByte(TagWITResourceType)
@@ -2339,7 +2344,11 @@ object Serializers {
         case TagWITF64Type => wit.F64Type
         case TagWITCharType => wit.CharType
         case TagWITStringType => wit.StringType
-        case TagWITListType => ???
+        case TagWITListType =>
+          wit.ListType(
+            readWITType(),
+            if (readBoolean()) Some(readInt()) else None
+          )
         case TagWITRecordType => ???
         case TagWITVariantType =>
           wit.VariantType(
@@ -2348,7 +2357,8 @@ object Serializers {
           )
         case TagWITEnumType => ???
         case TagWITOptionType => ???
-        // case TagWITResultType => ???
+        case TagWITResultType =>
+          wit.ResultType(readWITType(), readWITType())
         case TagWITFlagsType => ???
         case TagWITResourceType => wit.ResourceType(readClassName())
       }

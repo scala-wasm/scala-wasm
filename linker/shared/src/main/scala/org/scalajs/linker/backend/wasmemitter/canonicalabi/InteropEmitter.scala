@@ -15,7 +15,9 @@ import org.scalajs.linker.backend.webassembly.FunctionBuilder
 import org.scalajs.linker.backend.webassembly.{Instructions => wa}
 import org.scalajs.linker.backend.webassembly.{Modules => wamod}
 import org.scalajs.linker.backend.webassembly.{Identitities => wanme}
+import org.scalajs.linker.backend.webassembly.{Types => watpe}
 import org.scalajs.linker.backend.webassembly.component.Flatten
+import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueIterator
 
 object InteropEmitter {
   // import
@@ -76,25 +78,31 @@ object InteropEmitter {
         ScalaJSToCABI.genAdaptCABI(fb, tpe)
       }
     }
+
     if (returnsViaMemory) {
-      // TODO : allocate memoery and pass the ofset
+      val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
+      val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+      fb += wa.Call(genFunctionID.malloc)
+      fb += wa.LocalTee(returnPtr)
+      fb += wa.LocalTee(ptr)
+
+      fb += wa.Call(importFunctionID)
+
+      // Response back to Scala.js representation
+
+      CABIToScalaJS.genLoadMemory(fb, member.signature.resultType, ptr)
+      fb += wa.LocalGet(returnPtr)
+      fb += wa.Call(genFunctionID.free)
+    } else {
+      fb += wa.Call(importFunctionID)
+
+      // Response back to Scala.js representation
+      val resultTypes = Flatten.flattenType(member.signature.resultType)
+      val vi = new ValueIterator(fb, resultTypes)
+      CABIToScalaJS.genLoadStack(fb, member.signature.resultType, vi)
     }
 
     // Call the component function
-    fb += wa.Call(importFunctionID)
-
-    // Response back to Scala.js representation
-    if (returnsViaMemory) {
-      // TODO
-    } else {
-      val resultTypes = Flatten.flattenType(member.signature.resultType)
-      val vi = resultTypes.map { t =>
-        val id = fb.addLocal(NoOriginalName, t)
-        fb += wa.LocalSet(id)
-        id
-      }.toIterator
-      CABIToScalaJS.genAdaptScalaJS(fb, member.signature.resultType, vi)
-    }
     fb.buildAndAddToModule()
     functionID
   }
@@ -140,10 +148,11 @@ object InteropEmitter {
     } else {
       fb.setResultTypes(flatResultTypes)
       val vi = flatParamTypes.map { t =>
-        fb.addParam(NoOriginalName, t)
+        val id = fb.addParam(NoOriginalName, t)
+        (id, t)
       }.toIterator
       exportDef.signature.paramTypes.foreach { paramTy =>
-        CABIToScalaJS.genAdaptScalaJS(fb, paramTy, vi)
+        CABIToScalaJS.genLoadStack(fb, paramTy, new ValueIterator(fb, vi))
       }
     }
     if (returnsViaMemory) {

@@ -106,6 +106,9 @@ trait JSGlobalAddons extends JSDefinitions
     private val componentFunctionTypes =
       mutable.Map.empty[Symbol, ComponentFunctionType]
 
+    private val componentVariantValueTypes =
+      mutable.Map.empty[Symbol, Type]
+
     private val exportPrefix = "$js$exported$"
     private val methodExportPrefix = exportPrefix + "meth$"
     private val propExportPrefix = exportPrefix + "prop$"
@@ -414,6 +417,12 @@ trait JSGlobalAddons extends JSDefinitions
      */
     def jsNativeLoadSpecOfOption(sym: Symbol): Option[JSNativeLoadSpec] =
       jsNativeLoadSpecs.get(sym)
+
+    def storeComponentVariantValueType(sym: Symbol, valueType: Type): Unit =
+      componentVariantValueTypes(sym) = valueType
+
+    def componentVariantValueTypeOf(sym: Symbol): Type =
+      componentVariantValueTypes(sym)
 
     def storeComponentFunctionType(sym: Symbol, funcType: ComponentFunctionType): Unit =
       componentFunctionTypes(sym) = funcType

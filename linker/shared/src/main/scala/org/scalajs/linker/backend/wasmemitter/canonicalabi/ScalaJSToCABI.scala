@@ -18,13 +18,14 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 
 
 object ScalaJSToCABI {
-  def genAdaptCABI(fb: FunctionBuilder, tpe: wit.WasmInterfaceType)(implicit ctx: WasmContext): Unit = {
-    tpe match {
+  def genAdaptCABI(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
+    wit.despecialize(tpe) match {
       case wit.VoidType =>
         fb += wa.Drop
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type | wit.S64Type |
-          wit.U8Type | wit.U16Type | wit.U32Type | wit.U64Type |
+          wit.U8Type | wit.U16Type | wit.U32Type | // i32
+          wit.U64Type |
           wit.F32Type | wit.F64Type =>
 
       case wit.ResourceType(_) =>

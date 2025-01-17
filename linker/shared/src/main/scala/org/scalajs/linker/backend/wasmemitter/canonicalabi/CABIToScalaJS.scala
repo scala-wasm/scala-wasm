@@ -18,98 +18,115 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 
 import org.scalajs.linker.backend.webassembly.component.Flatten
 
+import ValueIterators._
 
 object CABIToScalaJS {
-  def genAdaptScalaJS(fb: FunctionBuilder, tpe: wit.ValType, vi: Iterator[wanme.LocalID]): Unit = {
+
+  def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType, ptr: wanme.LocalID): Unit = {
+    fb += wa.LocalGet(ptr)
+    tpe match {
+      case pt: wit.PrimValType => pt match {
+        case wit.VoidType =>
+        case wit.BoolType => fb += wa.I32Load8U()
+        case wit.S8Type   => fb += wa.I32Load8S()
+        case wit.S16Type  => fb += wa.I32Load16S()
+        case wit.S32Type  => fb += wa.I32Load()
+        case wit.S64Type  => fb += wa.I64Load()
+        case wit.U8Type   => fb += wa.I32Load8U()
+        case wit.U16Type  => fb += wa.I32Load16U()
+        case wit.U32Type  => fb += wa.I32Load()
+        case wit.U64Type  => fb += wa.I64Load()
+        case wit.F32Type => fb += wa.F32Load()
+        case wit.F64Type => fb += wa.F64Load()
+        case wit.CharType => fb += wa.I32Load()
+        case wit.StringType =>
+          // TODO
+      }
+
+      case wit.ResourceType(_) =>
+        fb += wa.I32Load()
+
+      case variant @ wit.VariantType(_, cases) =>
+        genLoadVariant(
+          fb,
+          variant,
+          () => {
+            genLoadMemory(fb, wit.discriminantType(cases), ptr) // load i32 (case index) from memory
+            genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
+          },
+          (tpe) => {
+            genLoadMemory(fb, tpe, ptr)
+          }
+        )
+
+      case _ => ???
+    }
+
+    fb += wa.LocalGet(ptr)
+    fb += wa.I32Const(wit.elemSize(tpe))
+    fb += wa.I32Add
+    fb += wa.LocalSet(ptr)
+  }
+
+  def genLoadStack(fb: FunctionBuilder, tpe: wit.ValType, vi: ValueIterator): Unit = {
     tpe match {
       // Scala.js has a same representation
-      case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type | wit.S64Type |
-          wit.U8Type | wit.U16Type | wit.U32Type | wit.U64Type |
-          wit.F32Type | wit.F64Type =>
-        fb += wa.LocalGet(vi.next())
+      case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type |
+          wit.U8Type | wit.U16Type | wit.U32Type =>
+        vi.next(watpe.Int32)
+
+      case wit.S64Type | wit.U64Type =>
+        vi.next(watpe.Int64)
+
+      case wit.F32Type => vi.next(watpe.Float32)
+      case wit.F64Type => vi.next(watpe.Float64)
 
       case wit.VoidType =>
 
       case wit.ResourceType(_) =>
-        fb += wa.LocalGet(vi.next())
+        vi.next(watpe.Int32)
 
-      case wit.VariantType(_, cases) =>
+      case variant @ wit.VariantType(_, cases) =>
         val flattened = Flatten.flattenVariants(cases.map(_.tpe))
-        fb.switch(
-          Sig(Nil, List(watpe.Int32)),
-          Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-        ) { () =>
-          fb += wa.LocalGet(vi.next()) // case index
-        }(
-          cases.zipWithIndex.map { case (c, i) =>
-            val ctor = c.tpe.toIRType() match {
-              case pt: PrimTypeWithRef => MethodName.constructor(List(pt.primRef))
-              case ClassType(className, _) => MethodName.constructor(List(ClassRef(className)))
-              case StringType => SpecialNames.StringArgConstructorName
-              case AnyType => SpecialNames.AnyArgConstructorName
-              case AnyNotNullType => SpecialNames.AnyArgConstructorName
-              case ArrayType(_, _) => ???
-              case RecordType(_) => ???
-              case UndefType => ???
-              case _: WasmComponentResourceType => ???
-            }
-            (List(i), () => {
-              genNewScalaClass(fb, c.className, ctor) {
-                val expect = Flatten.flattenType(c.tpe)
-                val newLocals = expect.map(t => fb.addLocal(NoOriginalName, t))
-                genCoerceValues(fb, vi, flattened, expect)
-                newLocals.reverse.foreach { l =>
-                  fb += wa.LocalSet(l)
-                }
-                genAdaptScalaJS(fb, c.tpe, newLocals.toIterator)
-              }
-            })
-          }: _*
-        ) { () =>
-          fb += wa.Unreachable
-        }
-
-
-      // case tpe @ WasmComponentResultType(ok, err) =>
-      //   val okType = transformWIT(ok)
-      //   val errType = transformWIT(err)
-      //   val flattened = Flatten.flattenVariants(okType.toList ++ errType.toList)
-
-      //   fb.switch(
-      //     Sig(Nil, List(watpe.Int32)),
-      //     Sig(Nil, List(watpe.RefType(false, genTypeID.WasmComponentResultStruct)))
-      //   ) { () => // scrutinee (already on stack)
-      //     fb += wa.LocalGet(vi.next()) // case index
-      //   }(
-      //     // Ok
-      //     List(0) -> { () =>
-      //       genNewScalaClass(fb, SpecialNames.WasmComponentOkClass, SpecialNames.AnyArgConstructorName) {
-      //         val expect = Flatten.flattenType(okType)
-      //         val newLocals = expect.map(t => fb.addLocal(NoOriginalName, t))
-      //         genCoerceValues(fb, vi, flattened, expect)
-      //         newLocals.reverse.foreach { l =>
-      //           fb += wa.LocalSet(l)
-      //         }
-      //         genAdaptScalaJS(fb, ok, newLocals.toIterator)
-      //       }
-      //     },
-      //     // Err
-      //     List(1) -> { () =>
-      //       genNewScalaClass(fb, SpecialNames.WasmComponentErrClass, SpecialNames.AnyArgConstructorName) {
-      //         val expect = Flatten.flattenType(errType)
-      //         val newLocals = expect.map(t => fb.addLocal(NoOriginalName, t))
-      //         genCoerceValues(fb, vi, flattened, expect)
-      //         newLocals.reverse.foreach { l =>
-      //           fb += wa.LocalSet(l)
-      //         }
-      //         genAdaptScalaJS(fb, err, newLocals.toIterator)
-      //       }
-      //     },
-      //   ) { () =>
-
-      //   }
+        genLoadVariant(
+          fb,
+          variant,
+          () => vi.next(watpe.Int32),
+          (tpe) => {
+            val expect = Flatten.flattenType(tpe)
+            genCoerceValues(fb, vi, flattened, expect)
+            genLoadStack(fb, tpe, new ValueIterator(fb, expect))
+          }
+        )
 
       case _ => ???
+    }
+  }
+
+  private def genLoadVariant(
+      fb: FunctionBuilder,
+      variant: wit.VariantType,
+      genGetIndex: () => Unit,
+      genLoadValue: (wit.ValType) => Unit
+  ): Unit = {
+    val cases = variant.cases
+    val flattened = Flatten.flattenVariants(cases.map(_.tpe))
+    fb.switch(
+      Sig(Nil, List(watpe.Int32)),
+      Sig(List(watpe.Int32), List(watpe.RefType(false, genTypeID.ObjectStruct)))
+    )(
+      genGetIndex
+    )(
+      cases.zipWithIndex.map { case (c, i) =>
+        val ctor = wit.makeCtorName(c.tpe)
+        (List(i), () => {
+          genNewScalaClass(fb, c.className, ctor) {
+            genLoadValue(c.tpe)
+          }
+        })
+      }: _*
+    ) { () =>
+      fb += wa.Unreachable
     }
   }
 
@@ -119,12 +136,12 @@ object CABIToScalaJS {
     */
   private def genCoerceValues(
     fb: FunctionBuilder,
-    vi: Iterator[wanme.LocalID],
+    vi: ValueIterator,
     types: List[watpe.Type],
     expect: List[watpe.Type]
   ): Unit = {
     types.zip(expect).map { case (have, want) =>
-      fb += wa.LocalGet(vi.next())
+      vi.next(have)
       (have, want) match {
         case (watpe.Int32, watpe.Float32) =>
           fb += wa.F32ReinterpretI32
@@ -142,8 +159,7 @@ object CABIToScalaJS {
       }
     }
     // drop padding
-    for (_ <- types.drop(expect.length))
-      vi.next() // discard
+    for (_ <- types.drop(expect.length)) {} // do nothing
   }
 
   private def genNewScalaClass(fb: FunctionBuilder, cls: ClassName, ctor: MethodName)(
@@ -156,4 +172,23 @@ object CABIToScalaJS {
     fb += wa.Call(genFunctionID.forMethod(MemberNamespace.Constructor, cls, ctor))
     fb += wa.LocalGet(instanceLocal)
   }
+
+  private def genAlignTo(fb: FunctionBuilder, align: Int, ptr: wanme.LocalID): Unit = {
+    // ;; Calculate: (ptr + alignment - 1) / alignment * alignment
+    // ptr + alignment - 1
+    fb += wa.LocalGet(ptr)
+    fb += wa.I32Const(align)
+    fb += wa.I32Add
+    fb += wa.I32Const(1)
+    fb += wa.I32Sub
+
+    // (ptr + alignment - 1) / alignment
+    fb += wa.I32Const(align)
+    fb += wa.I32DivU
+    fb += wa.I32Const(align)
+    fb += wa.I32Mul
+
+    fb += wa.LocalSet(ptr)
+  }
+
 }

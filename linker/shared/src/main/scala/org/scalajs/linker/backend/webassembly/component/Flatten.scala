@@ -36,7 +36,7 @@ object Flatten {
   }
 
   def flattenType(tpe: wit.ValType): List[watpe.Type] =
-    despecialize(tpe) match {
+    wit.despecialize(tpe) match {
       case wit.VoidType => Nil
       case wit.BoolType => List(watpe.Int32)
       case wit.U8Type | wit.U16Type | wit.U32Type => List(watpe.Int32)
@@ -83,32 +83,4 @@ object Flatten {
     }
 
 
-  /**
-    *
-    * @see
-    *   [[https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#despecialization]]
-    */
-  private def despecialize(t: wit.ValType): wit.FundamentalType = t match {
-    case st: wit.SpecializedType => st match {
-
-      case wit.TupleType(ts) =>
-        wit.RecordType(ts.zipWithIndex.map { case (t, i) => wit.FieldType(i.toString, t) })
-
-      case wit.EnumType(labels) =>
-        wit.VariantType(???, labels.map(l => wit.CaseType(???, wit.VoidType)))
-
-      case wit.OptionType(t) =>
-        wit.VariantType(???, List(
-          wit.CaseType(???, wit.VoidType),
-          wit.CaseType(???, t)
-        ))
-
-      // case wit.ResultType(ok, err) =>
-      //   wit.VariantType(???, List(
-      //     wit.CaseType(???, ok),
-      //     wit.CaseType(???, err)
-      //   ))
-    }
-    case ft: wit.FundamentalType => ft
-  }
 }

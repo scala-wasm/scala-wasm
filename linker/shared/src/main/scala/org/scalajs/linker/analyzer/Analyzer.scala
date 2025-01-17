@@ -1047,6 +1047,13 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       for (tle <- data.topLevelExports) {
         val key = (tle.moduleID, tle.exportName)
         val info = new TopLevelExportInfo(className, tle)
+        // println(s"===${tle.exportName}===")
+        // tle.reachability.byClass.foreach { c =>
+        //   println(s"=${c.className}")
+        //   c.memberInfos.foreach( { m =>
+        //     println(m)
+        //   })
+        // }
         info.reach()
 
         _topLevelExportInfos.put(key, info).foreach { other =>

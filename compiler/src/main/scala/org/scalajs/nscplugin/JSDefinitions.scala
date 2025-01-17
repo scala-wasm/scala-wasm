@@ -85,11 +85,7 @@ trait JSDefinitions {
     lazy val ComponentVariantClass     = getRequiredClass("scala.scalajs.component.Variant")
     lazy val ComponentResourceClass    = getRequiredClass("scala.scalajs.component.Resource")
 
-    lazy val ComponentUnsignedPackageModule = getPackageObject("scala.scalajs.component.unsigned")
-      lazy val ComponentUnsigned_UByte = getTypeMember(ComponentUnsignedPackageModule, newTermName("UByte"))
-      lazy val ComponentUnsigned_UShort = getTypeMember(ComponentUnsignedPackageModule, newTermName("UShort"))
-      lazy val ComponentUnsigned_UInt = getTypeMember(ComponentUnsignedPackageModule, newTermName("UInt"))
-      lazy val ComponentUnsigned_ULong = getTypeMember(ComponentUnsignedPackageModule, newTermName("ULong"))
+    lazy val ComponentUnsignedUByte = getRequiredClass("scala.scalajs.component.unsigned.UByte")
 
     lazy val JSImportNamespaceObject = getRequiredModule("scala.scalajs.js.annotation.JSImport.Namespace")
 
