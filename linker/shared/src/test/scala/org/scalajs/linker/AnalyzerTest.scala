@@ -181,7 +181,7 @@ class AnalyzerTest {
         case JSClass | JSModuleClass | NativeJSClass | NativeJSModuleClass |
             AbstractJSType =>
           Seq(Class, Interface, AbstractJSType, JSModuleClass)
-        case NativeWasmComponentResourceClass =>
+        case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
           Seq.empty // TODO
         case HijackedClass =>
           throw new AssertionError("Cannot test HijackedClass because it fails earlier")
@@ -236,7 +236,7 @@ class AnalyzerTest {
             AbstractJSType =>
           Seq(Class, ModuleClass, Interface, JSClass,
               JSModuleClass, NativeJSClass, NativeJSModuleClass)
-        case NativeWasmComponentResourceClass =>
+        case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
           Seq.empty // TODO
         case HijackedClass =>
           throw new AssertionError("Cannot test HijackedClass because it fails earlier")
@@ -854,7 +854,7 @@ object AnalyzerTest {
         Some(ObjectClass)
       case JSClass | JSModuleClass =>
         Some(ClassName("scala.scalajs.js.Object"))
-      case NativeWasmComponentResourceClass =>
+      case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
         None // TODO
       case Interface | AbstractJSType =>
         None

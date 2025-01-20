@@ -158,7 +158,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
 
   override def toIRType(t: Type): jstpe.Type = {
-    if (t.typeSymbol.isNonBottomSubClass(ComponentResourceClass)) {
+    if (isWasmComponentResourceType(t)) {
       jstpe.WasmComponentResourceType(encodeClassName(t.typeSymbol))
     } else super.toIRType(t)
   }
@@ -485,15 +485,18 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 } else {
                   genJSClassData(cd) // AbstractJSClass or Native JS Class/Module Class (trait?)
                 }
-              } else if (
-                sym.tpe.typeSymbol.isNonBottomSubClass(ComponentResourceClass) &&
-                sym.tpe.typeSymbol != ComponentResourceClass
-              ) {
-                if (sym.hasAnnotation(ComponentNativeAnnotation)) {
+              } else if (isWasmComponentInterfaceClass(sym)) {
+                if (sym.hasAnnotation(ComponentImportAnnotation))
+                  genImportWasmComponentInterfaceClassData(cd)
+                else if (sym.hasAnnotation(ComponentExportAnnotation)) {
+                  genExportWasmComponentInterfaceClassData(cd)
+                } else
+                  throw new AssertionError(s"component.interface must annotated either of @ComponentImport or @ComponentExport")
+              } else if (isWasmComponentResourceType(sym)) {
+                if (sym.hasAnnotation(ComponentNativeAnnotation))
                   genWasmComponentResourceClassData(cd)
-                } else {
+                else
                   throw new AssertionError(s"non native resource type isn't yet supported: $sym")
-                }
               } else if (sym.isTraitOrInterface) {
                 genInterface(cd)
               } else {
@@ -671,16 +674,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       val methodsBuilder = List.newBuilder[js.MethodDef]
       val jsNativeMembersBuilder = List.newBuilder[js.JSNativeMemberDef]
-      val componentNativeMembersBuilder = List.newBuilder[js.ComponentNativeMemberDef]
-      val wasmComponentExportDefsBuilder = List.newBuilder[js.WasmComponentExportDef]
 
       for (dd <- collectDefDefs(impl)) {
         if (dd.symbol.hasAnnotation(JSNativeAnnotation))
           jsNativeMembersBuilder += genJSNativeMemberDef(dd)
-        else if (dd.symbol.hasAnnotation(ComponentImportAnnotation))
-          componentNativeMembersBuilder += genComponentNativeMemberDef(dd)
-        else if (dd.symbol.hasAnnotation(ComponentExportAnnotation))
-          wasmComponentExportDefsBuilder += genWasmComponentExport(dd)
         else
           methodsBuilder ++= genMethod(dd)
       }
@@ -688,12 +685,11 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val fields = if (!isHijacked) genClassFields(cd) else Nil
 
       val jsNativeMembers = jsNativeMembersBuilder.result()
-      val componentNativeMembers = componentNativeMembersBuilder.result()
       val generatedMethods = methodsBuilder.result()
 
       val memberExports = genMemberExports(sym)
 
-      val topLevelExportDefs = genTopLevelExports(sym) ++ wasmComponentExportDefsBuilder.result()
+      val topLevelExportDefs = genTopLevelExports(sym)
 
       // Static initializer
       val optStaticInitializer = {
@@ -795,7 +791,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsConstructor = None,
           memberExports,
           jsNativeMembers,
-          componentNativeMembers,
+          Nil,
           topLevelExportDefs)(
           optimizerHints)
     }
@@ -1133,6 +1129,61 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       js.JSFunctionApply(closure, Nil)
     }
 
+    private def genImportWasmComponentInterfaceClassData(cd: ClassDef): js.ClassDef = {
+      val sym = cd.symbol
+      implicit val pos = sym.pos
+
+      val annotOpt = sym.annotations.find(_.symbol == ComponentImportAnnotation)
+      assert(annotOpt.isDefined)
+      val annot = annotOpt.get
+
+      val module = annot.stringArg(0).get
+
+      val classIdent = encodeClassNameIdent(sym)
+      val kind = {
+        assert(sym.isModuleClass)
+        ClassKind.NativeWasmComponentInterfaceClass
+      }
+
+      val componentNativeMembersBuilder = List.newBuilder[js.ComponentNativeMemberDef]
+      for (dd <- collectDefDefs(cd.impl)) {
+        if (!dd.symbol.isConstructor) {
+          componentNativeMembersBuilder += genComponentNativeMemberDef(dd, module)
+        }
+      }
+      js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass= None,
+          genClassInterfaces(sym, false), None, None,
+          Nil, Nil, None, Nil, Nil, componentNativeMembersBuilder.result(), Nil)(
+          OptimizerHints.empty)
+    }
+
+    private def genExportWasmComponentInterfaceClassData(cd: ClassDef): js.ClassDef = {
+      val sym = cd.symbol
+      implicit val pos = sym.pos
+
+      val annotOpt = sym.annotations.find(_.symbol == ComponentExportAnnotation)
+      assert(annotOpt.isDefined)
+      val annot = annotOpt.get
+
+      val module = annot.stringArg(0).get
+
+      val classIdent = encodeClassNameIdent(sym)
+      val kind = {
+        assert(sym.isModuleClass)
+        ClassKind.NativeWasmComponentInterfaceClass
+      }
+
+      val wasmComponentExportDefsBuilder = List.newBuilder[js.WasmComponentExportDef]
+      for (dd <- collectDefDefs(cd.impl)) {
+        if (!dd.symbol.isConstructor && !dd.symbol.isAbstract)
+          wasmComponentExportDefsBuilder += genWasmComponentExport(dd)
+      }
+      js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass= None,
+          genClassInterfaces(sym, false), None, None,
+          Nil, Nil, None, Nil, Nil, Nil, wasmComponentExportDefsBuilder.result())(
+          OptimizerHints.empty)
+    }
+
     def genWasmComponentResourceClassData(cd: ClassDef): js.ClassDef = {
       val sym = cd.symbol
       implicit val pos = sym.pos
@@ -1143,10 +1194,16 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         ClassKind.NativeWasmComponentResourceClass
       }
 
+      val annotOpt = sym.annotations.find(_.symbol == ComponentImportAnnotation)
+      assert(annotOpt.isDefined)
+      val annot = annotOpt.get
+      val module = annot.stringArg(0).get
+
       val componentNativeMembersBuilder = List.newBuilder[js.ComponentNativeMemberDef]
       for (dd <- collectDefDefs(cd.impl)) {
-        if (dd.symbol.hasAnnotation(ComponentImportAnnotation))
-          componentNativeMembersBuilder += genComponentNativeMemberDef(dd)
+        if (!dd.symbol.isConstructor) {
+          componentNativeMembersBuilder += genComponentNativeMemberDef(dd, module)
+        }
       }
 
       js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass= None,
@@ -2252,30 +2309,29 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       js.JSNativeMemberDef(flags, methodName, jsNativeLoadSpec)
     }
 
-    private def genComponentNativeMemberDef(tree: DefDef): js.ComponentNativeMemberDef = {
+    private def genComponentNativeMemberDef(tree: DefDef, module: String): js.ComponentNativeMemberDef = {
       implicit val pos = tree.pos
       val sym = tree.symbol
       val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic)
-      val annot = sym.annotations.find { annot => annot.symbol == ComponentImportAnnotation }
-      annot match {
-        case Some(annot) =>
-          withNewLocalNameScope {
-            val module = annot.stringArg(0).get
-            val name = annot.stringArg(1).get
-            val funcType = jsInterop.componentFunctionTypeOf(sym)
-
-            val receiverOpt =
-              if (sym.owner.tpe.typeSymbol.isSubClass(ComponentResourceClass))
-                Some(wit.ResourceType(encodeClassName(sym.owner)))
-              else None
-
-            val ft = wit.FuncType(
-              receiverOpt.toList ++ funcType.params.map { p => toWIT(p) },
-              toWIT(funcType.resultType)
-            )
-            js.ComponentNativeMemberDef(flags, encodeMethodSym(sym), module, name, ft)
+      val methodName = sym.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+      withNewLocalNameScope {
+        val funcType = jsInterop.componentFunctionTypeOf(sym)
+        val baseParams = funcType.params.map { p => toWIT(p) }
+        val (params, name) =
+          if (isWasmComponentResourceType(sym.owner)) {
+            val params = wit.ResourceType(encodeClassName(sym.owner)) +: baseParams
+            val resourceName = sym.owner.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+            val name = s"[method]$resourceName.$methodName"
+            (params, name)
+          } else {
+            (baseParams, methodName)
           }
-        case None => throw new AssertionError("@ComponentImport annotation not found.")
+
+        val ft = wit.FuncType(
+          params,
+          toWIT(funcType.resultType)
+        )
+        js.ComponentNativeMemberDef(flags, encodeMethodSym(sym), module, name, ft)
       }
     }
 
@@ -2303,7 +2359,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     def toWITArrayType(tpe: jstpe.ArrayType): wit.ValType = {
       val baseWIT = tpe.arrayTypeRef.base match {
         case ClassRef(className) => {
-          println(className)
 
           className match {
             case nme if nme == ClassName("scala.scalajs.component.unsigned.UByte") => wit.U8Type
@@ -3709,10 +3764,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           genApplyJSClassMethod(genExpr(receiver), sym, genActualArgs(sym, args))
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
-      } else if (receiver.tpe.typeSymbol.isNonBottomSubClass(ComponentResourceClass) &&
+      } else if (isWasmComponentResourceType(receiver.tpe) &&
           receiver.tpe.typeSymbol.hasAnnotation(ComponentNativeAnnotation)) {
         genComponentNativeMemberCall(sym, tree, Some(receiver), isStat)
-      } else if (sym.hasAnnotation(ComponentImportAnnotation)) {
+      } else if (sym.owner.hasAnnotation(ComponentImportAnnotation)) {
         genComponentNativeMemberCall(sym, tree, None, isStat)
       } else if (compileAsStaticMethod(sym)) {
         if (sym.isMixinConstructor) {
@@ -7089,10 +7144,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     !scala.util.Properties.versionNumberString.startsWith("2.12.")
 
   def isWasmComponentResourceType(tpe: Type): Boolean =
-    isJSType(tpe.typeSymbol)
+    isWasmComponentResourceType(tpe.typeSymbol)
 
   def isWasmComponentResourceType(sym: Symbol): Boolean =
-    sym.isSubClass(ComponentResourceClass)
+    sym.isNonBottomSubClass(ComponentResourceClass) && sym != ComponentResourceClass
 
   /** Tests whether the given type represents a JavaScript type,
    *  i.e., whether it extends scala.scalajs.js.Any.
@@ -7147,6 +7202,11 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     sym.superClass == JSFunctionClass &&
     sym.info.decl(nme.apply).filter(JSCallingConvention.isCall(_)).exists
   }
+
+  private def isWasmComponentInterfaceClass(sym: Symbol): Boolean =
+    sym.tpe.typeSymbol.isNonBottomSubClass(ComponentInterfaceClass) &&
+    sym.tpe.typeSymbol != ComponentInterfaceClass &&
+    sym.isModuleClass
 
   private def hasDefaultCtorArgsAndJSModule(classSym: Symbol): Boolean = {
     /* Get the companion module class.

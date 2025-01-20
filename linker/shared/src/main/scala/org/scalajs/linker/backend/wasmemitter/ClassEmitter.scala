@@ -90,7 +90,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
       case ClassKind.JSClass | ClassKind.JSModuleClass =>
         genJSClass(clazz)
       case ClassKind.HijackedClass | ClassKind.AbstractJSType | ClassKind.NativeJSClass |
-          ClassKind.NativeJSModuleClass | ClassKind.NativeWasmComponentResourceClass =>
+          ClassKind.NativeJSModuleClass | ClassKind.NativeWasmComponentResourceClass |
+          ClassKind.NativeWasmComponentInterfaceClass =>
         () // nothing to do
     }
   }
@@ -249,7 +250,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
             KindClass
           case Interface =>
             KindInterface
-          case NativeWasmComponentResourceClass =>
+          case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
             KindClass // TODO
           case JSClass | JSModuleClass | AbstractJSType | NativeJSClass | NativeJSModuleClass =>
             if (clazz.superClass.isDefined)

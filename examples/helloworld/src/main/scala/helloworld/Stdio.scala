@@ -12,24 +12,23 @@ import component.annotation._
 //   @since(version = 0.2.0)
 //   get-stdout: func() -> output-stream;
 // }
+@ComponentImport("wasi:cli/stdio@0.2.0")
 object Stdio {
-  @ComponentImport("wasi:cli/stdout@0.2.3", "get-stdout")
   def getStdout(): OutputStream = component.native
 }
 
 @component.native
+@ComponentImport("wasi:io/error@0.2.0")
 trait OutputStream extends component.Resource {
   // @ComponentImport("wasi:io/error@0.2.0", "[method]error.to-debug-string")
   // def toDebugString(): Int = component.native
 
-  @ComponentImport("wasi:io/error@0.2.0", "[method]error.test")
   def test(a: Int): Int = component.native
 
   // @since(version = 0.2.0)
   // blocking-write-and-flush: func(
   //     contents: list<u8>
   // ) -> result<_, stream-error>;
-  @ComponentImport("wasi:io/streams@0.2.0", "[method]output-stream.blocking-write-and-flush")
   def blockingWriteAndFlush(contents: Array[UByte]): component.Result[Unit, StreamError]
 }
 
@@ -70,7 +69,7 @@ final case class Closed(value: Unit) extends StreamError {
 //     to-debug-string: func() -> string;
 // }
 @component.native
+@ComponentImport("wasi:io/error@0.2.0")
 trait Error extends component.Resource {
-  @ComponentImport("wasi:io/error@0.2.0", "[method]error.to-debug-string")
   def toDebugString(): String = component.native
 }

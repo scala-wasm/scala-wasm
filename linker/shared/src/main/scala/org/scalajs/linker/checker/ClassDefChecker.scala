@@ -170,7 +170,7 @@ private final class ClassDefChecker(classDef: ClassDef,
         if (classDef.superClass.isDefined)
           reportError("java.lang.Object cannot have a superClass")
 
-      case ClassKind.NativeWasmComponentResourceClass =>
+      case ClassKind.NativeWasmComponentResourceClass | ClassKind.NativeWasmComponentInterfaceClass =>
         if (classDef.superClass.isDefined)
           reportError("Wasm component resource cannot have a superClass")
 
@@ -285,7 +285,7 @@ private final class ClassDefChecker(classDef: ClassDef,
       case ClassKind.Class | ClassKind.HijackedClass =>
         // all namespaces are allowed (except for class initializers as checked above)
 
-      case ClassKind.NativeWasmComponentResourceClass =>
+      case ClassKind.NativeWasmComponentResourceClass | ClassKind.NativeWasmComponentInterfaceClass =>
         // TODO
 
       case ClassKind.Interface =>

@@ -125,15 +125,16 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       jsInterop.registerStaticExports(sym, static)
 
     val wasmComponent = exports.collect {
-      case info @ ExportInfo(name, ExportDestination.WasmComponent) =>
+      case info @ ExportInfo(name, ExportDestination.WasmComponent) if sym.isMethod =>
         val signature = jsInterop.ComponentFunctionType(
           (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
           sym.tpe.resultType
         )
-        jsInterop.WasmComponentExportInfo(name, signature)(info.pos)
+        val methodName = sym.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+        jsInterop.WasmComponentExportInfo(s"$name#$methodName", signature)(info.pos)
     }
 
-    if (wasmComponent.nonEmpty)
+    if (sym.isMethod && wasmComponent.nonEmpty)
       jsInterop.registerWasmComponentExport(sym, wasmComponent.head)
   }
 
@@ -174,7 +175,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       }
 
       if (useExportAll)
-        symOwner.annotations.filter(_.symbol == JSExportAllAnnotation)
+        symOwner.annotations.filter(a =>
+          a.symbol == JSExportAllAnnotation || a.symbol == ComponentExportAnnotation)
       else
         Nil
     }
@@ -586,8 +588,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
   private lazy val isDirectMemberAnnot = Set[Symbol](
       JSExportAnnotation,
       JSExportTopLevelAnnotation,
-      JSExportStaticAnnotation,
-      ComponentExportAnnotation
+      JSExportStaticAnnotation
   )
 
 }

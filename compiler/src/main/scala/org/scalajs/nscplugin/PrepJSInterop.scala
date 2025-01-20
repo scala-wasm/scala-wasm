@@ -202,7 +202,6 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
            * messages for that are handled by genExportMember).
            */
           if (shouldPrepareExports && (sym.isMethod || sym.isLocalToBlock)) {
-            checkWasmComponentImport(sym)
             val exports = genExport(sym)
             if (exports.nonEmpty) {
               val target =
@@ -211,6 +210,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
               exporters.getOrElseUpdate(target, mutable.ListBuffer.empty) ++= exports
             }
+            if (sym.isMethod && sym.owner.hasAnnotation(ComponentImportAnnotation))
+              checkWasmComponentImport(sym)
           }
 
           if (sym.isLocalToBlock) {
@@ -777,14 +778,12 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
     }
 
     private def checkWasmComponentImport(sym: Symbol): Unit = {
-      if (sym.isMethod) {
-        lazy val funcType = jsInterop.ComponentFunctionType(
+      if (sym.isMethod && !sym.isConstructor) {
+        val funcType = jsInterop.ComponentFunctionType(
           (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
           sym.tpe.resultType
         )
-        if (sym.annotations.exists(_.symbol == ComponentImportAnnotation)) {
-          jsInterop.storeComponentFunctionType(sym, funcType)
-        }
+        jsInterop.storeComponentFunctionType(sym, funcType)
       }
     }
 

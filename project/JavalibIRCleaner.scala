@@ -71,7 +71,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case NativeWasmComponentResourceClass => ??? // TODO
+        case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
+          ??? // TODO
 
         case JSClass | JSModuleClass  =>
           errorManager.reportError(

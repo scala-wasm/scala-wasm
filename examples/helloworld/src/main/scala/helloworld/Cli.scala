@@ -46,8 +46,8 @@ object Foo {
 }
   */
 
-object Cli {
-  @ComponentExport("wasi:cli/run@0.2.0#run")
+@ComponentExport("wasi:cli/run@0.2.0")
+object Run extends component.Interface {
   def run(): component.Result[Unit, Unit] = {
     val res = Test.add(1, 2)
     Test.printNumber(res)
@@ -92,15 +92,15 @@ object Cli {
     component.Ok(())
   }
 
-  sealed trait Hoge
-  case class Foo(x: Int) extends Hoge
-  case class Bar(x: String) extends Hoge
-  case class Baz(x: Float) extends Hoge
+}
 
-  object Hoge {
-    def hoge(): Hoge = {
-      Foo(1)
-    }
+sealed trait Hoge
+case class Foo(x: Int) extends Hoge
+case class Bar(x: String) extends Hoge
+case class Baz(x: Float) extends Hoge
+
+object Hoge {
+  def hoge(): Hoge = {
+    Foo(1)
   }
-
 }

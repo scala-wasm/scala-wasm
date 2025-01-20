@@ -917,6 +917,7 @@ object Printers {
         case ClassKind.NativeJSClass       => print("native js class ")
         case ClassKind.NativeJSModuleClass => print("native js module class ")
         case ClassKind.NativeWasmComponentResourceClass => print("native wasm resource class ")
+        case ClassKind.NativeWasmComponentInterfaceClass => print("native wasm interface class ")
       }
       print(name)
       print(originalName)

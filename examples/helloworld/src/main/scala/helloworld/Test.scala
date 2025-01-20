@@ -4,32 +4,16 @@ import scala.scalajs.component
 import component.annotation._
 import component.unsigned._
 
-object Test {
-  @ComponentImport("tanishiking:test/test@0.0.1", "add")
+@ComponentImport("tanishiking:test/test@0.0.1")
+object Test extends component.Interface {
   def add(a: Int, b: Int): Int = component.native
 
-  @ComponentImport("tanishiking:test/test@0.0.1", "say")
   def say(content: String): Unit = component.native
 
-  @ComponentImport("tanishiking:test/test@0.0.1", "print-number")
   def printNumber(x: Int): Unit = component.native
 
-  @ComponentImport("tanishiking:test/test@0.0.1", "new-counter")
   def newCounter(): Counter = component.native
 
-  @component.native
-  trait Counter extends component.Resource {
-    @ComponentImport("tanishiking:test/test@0.0.1", "[method]counter.up")
-    def up(): Unit = component.native
-
-    @ComponentImport("tanishiking:test/test@0.0.1", "[method]counter.down")
-    def down(): Unit = component.native
-
-    @ComponentImport("tanishiking:test/test@0.0.1", "[method]counter.value-of")
-    def valueOf(): Int = component.native
-  }
-
-  @ComponentImport("tanishiking:test/test@0.0.1", "parse")
   def parse(i: Int): Tree = component.native
 
   sealed trait Tree extends component.Variant
@@ -47,4 +31,15 @@ object Test {
   }
 
   // [static]counter.new
+}
+
+@component.native
+@ComponentImport("tanishiking:test/test@0.0.1")
+trait Counter extends component.Resource {
+  def up(): Unit = component.native
+
+  def down(): Unit = component.native
+
+  // @ComponentImport("tanishiking:test/test@0.0.1", "[method]counter.value-of")
+  def valueOf(): Int = component.native
 }
