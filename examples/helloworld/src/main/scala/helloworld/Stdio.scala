@@ -13,7 +13,7 @@ import component.annotation._
 //   get-stdout: func() -> output-stream;
 // }
 @ComponentImport("wasi:cli/stdio@0.2.0")
-object Stdio {
+object Stdio extends component.Interface {
   def getStdout(): OutputStream = component.native
 }
 
@@ -23,7 +23,7 @@ trait OutputStream extends component.Resource {
   // @ComponentImport("wasi:io/error@0.2.0", "[method]error.to-debug-string")
   // def toDebugString(): Int = component.native
 
-  def test(a: Int): Int = component.native
+  // def test(a: Int): Int = component.native
 
   // @since(version = 0.2.0)
   // blocking-write-and-flush: func(
@@ -48,11 +48,11 @@ variant stream-error {
 }
 */
 sealed trait StreamError extends component.Variant
-final case class LastOperationFailed(value: Error) extends StreamError {
+final case class LastOperationFailed(val value: Error) extends StreamError {
     type T = Error
     val _index = 0
 }
-final case class Closed(value: Unit) extends StreamError {
+final case class Closed(val value: Unit) extends StreamError {
     type T = Unit
     val _index = 1
 }

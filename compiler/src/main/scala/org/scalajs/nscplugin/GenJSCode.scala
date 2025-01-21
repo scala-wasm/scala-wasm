@@ -771,6 +771,14 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         }
       }
 
+      if ({
+        val str = cd.symbol.nameString
+        str.contains("Ok") || str.contains("Err")
+      }) {
+        println(s"===${cd.symbol.nameString}")
+        allMethods.filter(_.name.name.nameString.contains("init")).foreach(println)
+      }
+
       // The complete class definition
       val kind =
         if (isStaticModule(sym)) ClassKind.ModuleClass

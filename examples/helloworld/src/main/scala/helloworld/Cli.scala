@@ -49,18 +49,17 @@ object Foo {
 @ComponentExport("wasi:cli/run@0.2.0")
 object Run extends component.Interface {
   def run(): component.Result[Unit, Unit] = {
-    // val res = Test.add(1, 2)
-    // Test.printNumber(res)
+    val res = Test.add(1, 2)
+    Test.printNumber(res)
 
-    // Test.say("Hello from Scala!")
-    // // val err = component.Err(())
+    Test.say("Hello from Scala!")
 
-    // val counter = Test.newCounter()
-    // counter.up()
-    // counter.up()
-    // counter.down()
-    // val value = counter.valueOf()
-    // Test.printNumber(value) // 1
+    val counter = Test.newCounter()
+    counter.up()
+    counter.up()
+    counter.down()
+    val value = counter.valueOf()
+    Test.printNumber(value) // 1
 
     Test.parse(0) match {
       case Test.FloatValue(value) =>
@@ -81,14 +80,6 @@ object Run extends component.Interface {
     // out.test(0)
     // out.blockingWriteAndFlush(hello)
 
-
-    /*
-    Hoge.hoge() match {
-      case Foo(x) => println(x)
-      case Bar(x) => println(x)
-      case Baz(x) => println(x)
-    }
-    */
     component.Ok(())
   }
 

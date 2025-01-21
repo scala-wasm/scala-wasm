@@ -137,18 +137,32 @@ object WasmInterfaceTypes {
   // utilities
 
   def makeCtorName(tpe: ValType): MethodName = {
-    tpe.toIRType() match {
-      case pt: jstpe.PrimTypeWithRef => MethodName.constructor(List(pt.primRef))
-      case jstpe.ClassType(className, _) => MethodName.constructor(List(jstpe.ClassRef(className)))
-      case jstpe.StringType => MethodName.constructor(List(jstpe.ClassRef(BoxedStringClass)))
-      case jstpe.AnyType => MethodName.constructor(List(jstpe.ClassRef(ObjectClass)))
-      case jstpe.AnyNotNullType => MethodName.constructor(List(jstpe.ClassRef(ObjectClass)))
-      case jstpe.ArrayType(_, _) => ???
-      case jstpe.RecordType(_) => ???
-      case jstpe.UndefType => ???
-      case jstpe.WasmComponentResourceType(className) =>
-        MethodName.constructor(List(jstpe.ClassRef(className)))
+    val ref = tpe match {
+      case VoidType => jstpe.ClassRef(BoxedUnitClass)
+      case BoolType => jstpe.BooleanRef
+      case U8Type => ???
+      case U16Type => ???
+      case U32Type => ???
+      case U64Type => ???
+      case S8Type => jstpe.ByteRef
+      case S16Type => jstpe.IntRef
+      case S32Type => jstpe.IntRef
+      case S64Type => jstpe.LongRef
+      case F32Type => jstpe.FloatRef
+      case F64Type => jstpe.DoubleRef
+      case CharType => jstpe.CharRef
+      case StringType => jstpe.ClassRef(BoxedStringClass)
+      case ListType(elemType, length) => ???
+      case RecordType(fields) => ???
+      case TupleType(ts) => ???
+      case VariantType(className, cases) => jstpe.ClassRef(className)
+      case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
+      case EnumType(labels) => ???
+      case OptionType(tpe) => ???
+      case FlagsType(labels) => ???
+      case ResourceType(className) => jstpe.ClassRef(className)
     }
+    MethodName.constructor(List(ref))
   }
 
   /**

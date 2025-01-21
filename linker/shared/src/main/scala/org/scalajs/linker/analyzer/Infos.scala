@@ -674,7 +674,7 @@ object Infos {
             wit.CaseType(ComponentResultErrClass, err),
           )
           for (c <- cases) {
-            builder.addInstantiatedClass(c.className)
+            builder.addInstantiatedClass(c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
             builder.maybeAddReferencedClass(ClassRef(c.className))
             builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
             builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
