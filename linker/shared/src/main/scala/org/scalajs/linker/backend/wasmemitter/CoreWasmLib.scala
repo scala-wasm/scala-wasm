@@ -135,6 +135,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     genHelperDefinitions()
 
     genMemoryAndAllocator()
+    genCABIHelpers()
   }
 
   /** Generates definitions that must come *after* the code generated for regular classes.
@@ -688,6 +689,69 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     )
 
     genMallocAndFree()
+    genRealloc()
+    ctx.moduleBuilder.addExport(
+      Export(
+        "cabi_realloc",
+        ExportDesc.Func(genFunctionID.realloc)
+      )
+    )
+  }
+
+  // TODO: generate only if they are needed? maybe we don't need to care
+  //   because wasm-opt should dce them.
+  private def genCABIHelpers()(implicit ctx: WasmContext): Unit = {
+    {
+      val fb = newFunctionBuilder(genFunctionID.cabiLoadString)
+      val offset = fb.addParam("offset", Int32)
+      val units = fb.addParam("units", Int32)
+      fb.setResultType(RefType(genTypeID.i16Array))
+
+      val array = fb.addLocal("array", RefType(genTypeID.i16Array))
+      val i = fb.addLocal("i", Int32)
+
+      fb += LocalGet(units)
+      fb += ArrayNewDefault(genTypeID.i16Array)
+      fb += LocalSet(array)
+
+      fb += I32Const(0)
+      fb += LocalSet(i)
+
+      fb.block() { exit =>
+        fb.loop() { loop =>
+          // if i >= units, break
+          fb += LocalGet(i)
+          fb += LocalGet(units)
+          fb += I32GeU
+          fb += BrIf(exit)
+
+          // for array.set
+          fb += LocalGet(array)
+          fb += LocalGet(i)
+
+          // load i16 value
+          fb += LocalGet(offset)
+          fb += LocalGet(i)
+          fb += I32Const(2)
+          fb += I32Mul
+          fb += I32Add
+          fb += I32Load16U()
+
+          fb += ArraySet(genTypeID.i16Array)
+
+          fb += LocalGet(i)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(i)
+
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(array)
+
+      fb.buildAndAddToModule()
+    }
   }
 
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(
@@ -4023,6 +4087,78 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += GlobalSet(genGlobalID.freep)
       fb.buildAndAddToModule()
     }
+  }
+
+  // (func (param $originalPtr i32)
+  //       (param $originalSize i32)
+  //       (param $alignment i32)
+  //       (param $newSize i32)
+  //       (result i32))
+  private def genRealloc()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.realloc)
+    val originalPtr = fb.addParam("originalPtr", Int32)
+    val originalSize = fb.addParam("originalSize", Int32)
+    val _alignment = fb.addParam("alignment", Int32)
+    val newSize = fb.addParam("newSize", Int32)
+    fb.setResultType(Int32)
+
+    val newPtr = fb.addLocal("newPtr", Int32)
+
+    // $originalPtr == 0 && originalSzie == 0
+    fb += LocalGet(originalPtr)
+    fb += I32Const(0)
+    fb += I32Eq
+    fb += LocalGet(originalSize)
+    fb += I32Const(0)
+    fb += I32Eq
+    fb += I32And
+    fb.ifThen() {
+      fb += LocalGet(newSize)
+      fb += Call(genFunctionID.malloc)
+      fb += Return
+    }
+
+    // newSize <= 0
+    fb += LocalGet(newSize)
+    fb += I32Const(0)
+    fb += I32LeS
+    fb.ifThen() {
+      fb += LocalGet(originalPtr)
+      fb += Call(genFunctionID.free)
+      fb += I32Const(0)
+      fb += Return
+    }
+
+    // TODO: if newSize < originalSize, we don't need to copy, just shrink
+
+    fb += LocalGet(newSize)
+    fb += Call(genFunctionID.malloc)
+    fb += LocalTee(newPtr)
+    fb += LocalGet(originalPtr)
+
+    // copy size
+    // if originalSize < newSize { originalSize } else { newSize }
+    fb += LocalGet(originalSize)
+    fb += LocalGet(newSize)
+    fb += I32LeS
+    fb.ifThenElse(Int32) {
+      fb += LocalGet(originalSize)
+    } {
+      fb += LocalGet(newSize)
+    }
+
+    // destination address
+    // source address
+    // copy size
+    fb += MemoryCopy(genMemoryID.memory, genMemoryID.memory)
+
+    fb += LocalGet(originalPtr)
+    fb += Call(genFunctionID.free)
+
+    fb += LocalGet(newPtr)
+
+    fb.buildAndAddToModule()
   }
 
   private def maybeWrapInUBE(fb: FunctionBuilder, behavior: CheckedBehavior)(

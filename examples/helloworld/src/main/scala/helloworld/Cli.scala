@@ -49,24 +49,24 @@ object Foo {
 @ComponentExport("wasi:cli/run@0.2.0")
 object Run extends component.Interface {
   def run(): component.Result[Unit, Unit] = {
-    val res = Test.add(1, 2)
-    Test.printNumber(res)
+    // val res = Test.add(1, 2)
+    // Test.printNumber(res)
 
-    Test.say("Hello from Scala!")
-    // val err = component.Err(())
+    // Test.say("Hello from Scala!")
+    // // val err = component.Err(())
 
-    val counter = Test.newCounter()
-    counter.up()
-    counter.up()
-    counter.down()
-    val value = counter.valueOf()
-    Test.printNumber(value) // 1
+    // val counter = Test.newCounter()
+    // counter.up()
+    // counter.up()
+    // counter.down()
+    // val value = counter.valueOf()
+    // Test.printNumber(value) // 1
 
-    // Test.parse(100) match {
-    //   case Test.FloatValue(value) =>
-    //   case Test.NumValue(value) => Test.add(value, value) // 200
-    //   case Test.StrValue(value) =>
-    // }
+    Test.parse(0) match {
+      case Test.FloatValue(value) =>
+      case Test.NumValue(value) => Test.printNumber(value) // 100
+      case Test.StrValue(value) => Test.say(value)
+    }
 
     // val out = Stdio.getStdout()
     // // hello

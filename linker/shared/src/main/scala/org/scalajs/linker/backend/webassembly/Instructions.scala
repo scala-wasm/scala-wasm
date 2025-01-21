@@ -415,6 +415,8 @@ object Instructions {
   case object I32TruncSatF64S extends SimpleInstr("i32.trunc_sat_f64_s", 0xFC02)
   case object I64TruncSatF64S extends SimpleInstr("i64.trunc_sat_f64_s", 0xFC06)
 
+  case class MemoryCopy(src: MemoryID, dst: MemoryID) extends Instr("memory.copy", 0xFC0A)
+
   // --- End of the instruction list ------------------------------------------
 
   // Catch clauses for TryTable

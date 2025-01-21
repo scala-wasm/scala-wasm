@@ -72,7 +72,7 @@ object WasmInterfaceTypes {
     def toIRType(): jstpe.Type = jstpe.CharType
   }
   case object StringType extends PrimValType {
-    def toIRType(): jstpe.Type = jstpe.StringType
+    def toIRType(): jstpe.Type = jstpe.ClassType(BoxedStringClass, true)
   }
 
   final case class ListType(elemType: ValType, length: Option[Int]) extends FundamentalType {

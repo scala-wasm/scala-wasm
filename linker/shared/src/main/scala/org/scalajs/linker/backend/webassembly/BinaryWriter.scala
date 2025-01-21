@@ -498,6 +498,10 @@ private sealed class BinaryWriter(module: Module, emitDebugInfo: Boolean) {
       case BrOnCastFail(labelIdx, from, to) =>
         writeBrOnCast(labelIdx, from, to)
 
+      case MemoryCopy(src, dst) =>
+        writeMemoryIdx(src)
+        writeMemoryIdx(dst)
+
       case PositionMark(pos) =>
         throw new AssertionError(s"Unexpected $instr")
     }

@@ -646,10 +646,20 @@ object Infos {
           generateForWIT(wasmComponentExport.signature)
           builder.maybeAddReferencedClass(methodName.resultTypeRef)
           methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
-          wasmComponentExport.methodDef.body.foreach(traverse)
+          traverse(wasmComponentExport.methodDef.body.get)
       }
 
-      builder.result()
+      val res = builder.result()
+      // res.byClass.toList.foreach { clazz =>
+      //   println(s"===${clazz.className}===")
+      //   if (clazz.memberInfos != null) {
+      //     clazz.memberInfos.toList.foreach { m =>
+      //       println(m)
+      //     }
+      //   }
+      // }
+      // println(s"=====end: ${topLevelExportDef.topLevelExportName}=====")
+      res
     }
 
     private def generateForWIT(tpe: wit.WasmInterfaceType): Unit = {
@@ -724,6 +734,8 @@ object Infos {
               builder.addJSNativeMemberUsed(className, member.name)
 
             case Apply(flags, receiver, method, _) =>
+              // if (receiver.tpe.show.contains("NumValue"))
+              //   println(s"called $receiver.$method")
               builder.addMethodCalled(receiver.tpe, method.name)
             case ApplyStatically(flags, _, className, method, _) =>
               val namespace = MemberNamespace.forNonStaticCall(flags)

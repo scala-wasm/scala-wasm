@@ -40,13 +40,19 @@ object CABIToScalaJS {
         case wit.F64Type => fb += wa.F64Load()
         case wit.CharType => fb += wa.I32Load()
         case wit.StringType =>
-          // TODO
+          fb += wa.I32Load() // offset
+          fb += wa.LocalGet(ptr)
+          fb += wa.I32Const(4)
+          fb += wa.I32Add
+          fb += wa.I32Load() // code units (UTF-16)
+          fb += wa.Call(genFunctionID.cabiLoadString)
       }
 
       case wit.ResourceType(_) =>
         fb += wa.I32Load()
 
       case variant @ wit.VariantType(_, cases) =>
+        fb += wa.Drop
         genLoadVariant(
           fb,
           variant,
@@ -112,8 +118,10 @@ object CABIToScalaJS {
     val cases = variant.cases
     val flattened = Flatten.flattenVariants(cases.map(_.tpe))
     fb.switch(
-      Sig(Nil, List(watpe.Int32)),
-      Sig(List(watpe.Int32), List(watpe.RefType(false, genTypeID.ObjectStruct)))
+      // Sig(Nil, List(watpe.Int32)),
+      // Sig(List(watpe.Int32), List(watpe.RefType(false, genTypeID.ObjectStruct)))
+      Sig(Nil, Nil),
+      Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
     )(
       genGetIndex
     )(

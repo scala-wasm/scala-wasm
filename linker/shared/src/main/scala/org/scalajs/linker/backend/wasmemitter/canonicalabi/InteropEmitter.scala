@@ -3,6 +3,7 @@ package org.scalajs.linker.backend.wasmemitter.canonicalabi
 import org.scalajs.ir.OriginalName
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Trees.{ComponentNativeMemberDef, MemberNamespace, WasmComponentExportDef}
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.standard.LinkedClass
 
@@ -82,6 +83,8 @@ object InteropEmitter {
     if (returnsViaMemory) {
       val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
       val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+      val returnSize = wit.elemSize(member.signature.resultType)
+      fb += wa.I32Const(returnSize)
       fb += wa.Call(genFunctionID.malloc)
       fb += wa.LocalTee(returnPtr)
       fb += wa.LocalTee(ptr)

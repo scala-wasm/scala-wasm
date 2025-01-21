@@ -78,7 +78,11 @@ impl Guest for Component {
     }
 
     fn parse(i: i32) -> Tree {
-      return Tree::NumValue(i);
+      if i == 0 {
+        return Tree::StrValue(String::from("hello!"));
+      } else {
+        return Tree::NumValue(i);
+      }
     }
 
     fn new_counter() -> Counter {

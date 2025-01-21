@@ -117,6 +117,9 @@ object VarGen {
     final case object f64Fmod extends FunctionID
     final case object malloc extends FunctionID
     final case object free extends FunctionID
+    final case object realloc extends FunctionID
+    // CanonicalABI
+    final case object cabiLoadString extends FunctionID
 
     // JS helpers
 

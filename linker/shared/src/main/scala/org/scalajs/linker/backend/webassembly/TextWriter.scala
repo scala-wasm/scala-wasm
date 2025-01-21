@@ -535,6 +535,10 @@ private class TextWriter(module: Module) {
         writeType(from)
         writeType(to)
 
+      case MemoryCopy(src, dst) =>
+        appendName(src)
+        appendName(dst)
+
       case PositionMark(_) =>
         throw new AssertionError(s"Unexpected $instr")
     }

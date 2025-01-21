@@ -777,6 +777,13 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         else if (isHijacked) ClassKind.HijackedClass
         else ClassKind.Class
 
+      // if (cd.symbol.isSubClass(ComponentVariantClass)) {
+      //   println(s"${cd.symbol}")
+      //   if (cd.symbol.nameString.contains("Test$NumValue")) {
+      //     allMethods.foreach(println)
+      //   }
+      // }
+
       js.ClassDef(
           classIdent,
           originalName,
