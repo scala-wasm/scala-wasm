@@ -847,7 +847,7 @@ private class FunctionEmitter private (
             ObjectClass
 
           // WasmComponentResourceType should be compiled to WasmComponentFunctionApply in frontend
-          case _:RecordType | _: WasmComponentResourceType =>
+          case _:RecordType =>
             throw new AssertionError(s"Invalid receiver type ${receiver.tpe}")
         }
         val receiverClassInfo = ctx.getClassInfo(receiverClassName)
@@ -2110,7 +2110,7 @@ private class FunctionEmitter private (
       case ArrayType(_, _) =>
         genWithDispatch(isAncestorOfHijackedClass = false)
 
-      case _:RecordType | _: WasmComponentResourceType =>
+      case _:RecordType =>
         throw new AssertionError(
             s"Invalid type ${tree.tpe} for String_+ at ${tree.pos}: $tree")
     }
@@ -2345,9 +2345,6 @@ private class FunctionEmitter private (
 
       case AnyType | ClassType(_, true) | ArrayType(_, true) | _:RecordType =>
         throw new AssertionError(s"Illegal type in IsInstanceOf: $testType")
-
-      case WasmComponentResourceType(className) =>
-        ??? // TODO
     }
 
     BooleanType
@@ -3534,8 +3531,7 @@ private class FunctionEmitter private (
     )
 
     optReceiver.foreach { receiver =>
-      assert(receiver.tpe == WasmComponentResourceType(className), s"invalid receiver type: ${receiver.tpe}")
-      genTreeAuto(receiver)
+      genTree(receiver, IntType)
     }
     genArgs(args, method.name)
     fb += wa.Call(functionID)

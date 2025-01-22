@@ -279,6 +279,9 @@ object WasmContext {
 
     def isInterface: Boolean =
       kind == ClassKind.Interface
+
+    def isWasmComponentResource: Boolean =
+      kind == ClassKind.NativeWasmComponentResourceClass
   }
 
   final class ConcreteMethodInfo(val ownerClass: ClassName, val methodName: MethodName) {

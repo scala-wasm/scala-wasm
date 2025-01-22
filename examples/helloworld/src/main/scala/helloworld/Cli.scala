@@ -10,6 +10,8 @@ import scala.scalajs.component
 import component.annotation._
 import component.unsigned._
 import java.nio.charset.StandardCharsets
+import scala.scalajs.component.Err
+import scala.scalajs.component.Ok
 // import helloworld.Test._
 
 /*
@@ -49,7 +51,7 @@ object Foo {
 @ComponentExport("wasi:cli/run@0.2.0")
 object Run extends component.Interface {
   def run(): component.Result[Unit, Unit] = {
-    val res = Test.add(1, 2)
+    val res = Test.add(-3, 2)
     Test.printNumber(res)
 
     Test.say("Hello from Scala!")
@@ -61,26 +63,30 @@ object Run extends component.Interface {
     val value = counter.valueOf()
     Test.printNumber(value) // 1
 
-    Test.parse(0) match {
+    Test.parse(100) match {
       case Test.FloatValue(value) =>
       case Test.NumValue(value) => Test.printNumber(value) // 100
-      case Test.StrValue(value) => Test.say(value)
+      case Test.StrValue(value) => // Test.say(value)
     }
 
-    // val out = Stdio.getStdout()
-    // // hello
-    // val hello: Array[UByte] = new Array[UByte](5)
-    // hello.update(0, new UByte(104))
-    // hello.update(0, new UByte(101))
-    // hello.update(0, new UByte(108))
-    // hello.update(0, new UByte(108))
-    // hello.update(0, new UByte(111))
-    //  Array[Byte](104, 101, 108, 108, 111)
+    val out = Stdio.getStdout()
+    // hello
+    val hello: Array[UByte] = new Array[UByte](5)
+    hello.update(0, 104)
+    hello.update(1, 101)
+    hello.update(2, 108)
+    hello.update(3, 108)
+    hello.update(4, 111)
 
-    // out.test(0)
-    // out.blockingWriteAndFlush(hello)
+    val result = out.blockingWriteAndFlush(hello)
+    result match {
+      case _: Err[_] =>
+        Test.say("err")
+      case _: Ok[_] =>
+        Test.say("ok")
+    }
 
-    component.Ok(())
+    new component.Ok(())
   }
 
 }

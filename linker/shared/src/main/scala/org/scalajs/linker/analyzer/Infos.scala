@@ -261,9 +261,6 @@ object Infos {
         case NullType | NothingType =>
           // Nothing to do
 
-        case WasmComponentResourceType(className) =>
-          addMethodCalled(className, method)
-
         case VoidType | RecordType(_)  =>
           throw new IllegalArgumentException(
               s"Illegal receiver type: $receiverTpe")
@@ -584,6 +581,16 @@ object Infos {
       builder.maybeAddReferencedClass(methodName.resultTypeRef)
       generateForWIT(member.signature)
       val reachabilityInfo = builder.result()
+      // println(s"===${member.name}===")
+      // println(member.signature)
+      // if (reachabilityInfo.byClass != null) {
+      //   reachabilityInfo.byClass.foreach { c =>
+      //     println(s"*${c.className}")
+      //     if (c.memberInfos != null) {
+      //       c.memberInfos.foreach(m => println(m))
+      //     }
+      //   }
+      // }
       MethodInfo(true, reachabilityInfo)
     }
 
@@ -674,6 +681,7 @@ object Infos {
             wit.CaseType(ComponentResultErrClass, err),
           )
           for (c <- cases) {
+            val ctor = wit.makeCtorName(c.tpe)
             builder.addInstantiatedClass(c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
             builder.maybeAddReferencedClass(ClassRef(c.className))
             builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))

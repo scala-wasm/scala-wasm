@@ -159,7 +159,7 @@ pub mod exports {
                 #[allow(non_snake_case)]
                 pub unsafe fn _export_add_cabi<T: Guest>(arg0: i32, arg1: i32) -> i32 {
                     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let result0 = T::add(arg0, arg1);
+                    let result0 = T::add(arg0 as u32, arg1 as u32);
                     _rt::as_i32(result0)
                 }
                 #[doc(hidden)]
@@ -253,7 +253,7 @@ pub mod exports {
                 }
                 pub trait Guest {
                     type Counter: GuestCounter;
-                    fn add(a: i32, b: i32) -> i32;
+                    fn add(a: u32, b: u32) -> u32;
                     fn print_number(x: i32);
                     fn say(content: _rt::String);
                     fn parse(i: i32) -> Tree;
@@ -576,7 +576,7 @@ A\x02\x01B\x14\x04\0\x07counter\x03\x01\x01q\x03\x09num-value\x01z\0\x0bfloat-va
 lue\x01v\0\x09str-value\x01s\0\x04\0\x04tree\x03\0\x01\x01h\0\x01@\x01\x04self\x03\
 \x01\0\x04\0\x12[method]counter.up\x01\x04\x04\0\x14[method]counter.down\x01\x04\
 \x01@\x01\x04self\x03\0z\x04\0\x18[method]counter.value-of\x01\x05\x01@\x02\x01a\
-z\x01bz\0z\x04\0\x03add\x01\x06\x01@\x01\x01xz\x01\0\x04\0\x0cprint-number\x01\x07\
+y\x01by\0y\x04\0\x03add\x01\x06\x01@\x01\x01xz\x01\0\x04\0\x0cprint-number\x01\x07\
 \x01@\x01\x07contents\x01\0\x04\0\x03say\x01\x08\x01@\x01\x01iz\0\x02\x04\0\x05p\
 arse\x01\x09\x01i\0\x01@\0\0\x0a\x04\0\x0bnew-counter\x01\x0b\x04\x01\x1btanishi\
 king:test/test@0.0.1\x05\0\x04\x01\x1btanishiking:test/plug@0.0.1\x04\0\x0b\x0a\x01\

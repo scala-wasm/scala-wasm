@@ -77,17 +77,8 @@ object WasmInterfaceTypes {
 
   final case class ListType(elemType: ValType, length: Option[Int]) extends FundamentalType {
     def toIRType(): jstpe.Type = {
-        elemType.toIRType() match {
-          case pt: jstpe.PrimTypeWithRef => pt.primRef
-          case jstpe.ClassType(className, _) => jstpe.ClassRef(className)
-          case jstpe.StringType => jstpe.ClassRef(BoxedStringClass)
-          case jstpe.ArrayType(_, _) =>
-            throw new AssertionError(s"TODO support nested list type")
-          case jstpe.AnyType | jstpe.AnyNotNullType | jstpe.UndefType | jstpe.WasmComponentResourceType(_) | jstpe.RecordType(_) =>
-            throw new AssertionError(s"Invalid type ${elemType}")
-
-        }
-        Types.ArrayType(Types.ArrayTypeRef.of(???), false)
+      val ref = toTypeRef(elemType)
+      Types.ArrayType(Types.ArrayTypeRef.of(ref), true)
     }
   }
 
@@ -128,7 +119,7 @@ object WasmInterfaceTypes {
   }
 
   final case class ResourceType(className: ClassName) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.WasmComponentResourceType(className)
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
   }
 
   // ExternTypes
@@ -136,32 +127,30 @@ object WasmInterfaceTypes {
 
   // utilities
 
+  def toTypeRef(tpe: ValType): jstpe.TypeRef = tpe match {
+    case VoidType => jstpe.ClassRef(BoxedUnitClass)
+    case BoolType => jstpe.BooleanRef
+    case U8Type | S8Type => jstpe.ByteRef
+    case U16Type | S16Type => jstpe.IntRef
+    case U32Type | S32Type => jstpe.IntRef
+    case U64Type | S64Type => jstpe.LongRef
+    case F32Type => jstpe.FloatRef
+    case F64Type => jstpe.DoubleRef
+    case CharType => jstpe.CharRef
+    case StringType => jstpe.ClassRef(BoxedStringClass)
+    case ListType(elemType, length) => ???
+    case RecordType(fields) => ???
+    case TupleType(ts) => ???
+    case VariantType(className, cases) => jstpe.ClassRef(className)
+    case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
+    case EnumType(labels) => ???
+    case OptionType(tpe) => ???
+    case FlagsType(labels) => ???
+    case ResourceType(className) => jstpe.ClassRef(className)
+  }
+
   def makeCtorName(tpe: ValType): MethodName = {
-    val ref = tpe match {
-      case VoidType => jstpe.ClassRef(BoxedUnitClass)
-      case BoolType => jstpe.BooleanRef
-      case U8Type => ???
-      case U16Type => ???
-      case U32Type => ???
-      case U64Type => ???
-      case S8Type => jstpe.ByteRef
-      case S16Type => jstpe.IntRef
-      case S32Type => jstpe.IntRef
-      case S64Type => jstpe.LongRef
-      case F32Type => jstpe.FloatRef
-      case F64Type => jstpe.DoubleRef
-      case CharType => jstpe.CharRef
-      case StringType => jstpe.ClassRef(BoxedStringClass)
-      case ListType(elemType, length) => ???
-      case RecordType(fields) => ???
-      case TupleType(ts) => ???
-      case VariantType(className, cases) => jstpe.ClassRef(className)
-      case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
-      case EnumType(labels) => ???
-      case OptionType(tpe) => ???
-      case FlagsType(labels) => ???
-      case ResourceType(className) => jstpe.ClassRef(className)
-    }
+    val ref = toTypeRef(tpe)
     MethodName.constructor(List(ref))
   }
 
@@ -199,7 +188,7 @@ object WasmInterfaceTypes {
 
   def elemSize(tpe: ValType): Int =
     despecialize(tpe) match {
-      case VoidType => 1
+      case VoidType => 0
       case BoolType | U8Type | S8Type => 1
       case U16Type | S16Type => 2
       case U32Type | S32Type | F32Type => 4

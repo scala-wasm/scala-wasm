@@ -1261,6 +1261,14 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
           case None =>
             _errors ::= MissingWasmComponentNativeMember(this, name, from)
           case Some(reachabilityInfo) =>
+            // reachabilityInfo.byClass.foreach { c =>
+            //   println(s"===${c.className}===")
+            //   if (c.memberInfos != null) {
+            //     c.memberInfos.foreach { m =>
+            //         println(m)
+            //     }
+            //   }
+            // }
             followReachabilityInfo(reachabilityInfo, this)
         }
       }

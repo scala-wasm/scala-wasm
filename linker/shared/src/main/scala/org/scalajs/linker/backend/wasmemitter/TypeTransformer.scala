@@ -89,13 +89,15 @@ object TypeTransformer {
     tpe match {
       case AnyType                        => watpe.RefType.anyref
       case AnyNotNullType                 => watpe.RefType.any
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        watpe.Int32
+
       case ClassType(className, nullable) => transformClassType(className, nullable)
       case tpe: PrimType                  => transformPrimType(tpe)
 
       case ArrayType(arrayTypeRef, nullable) =>
         watpe.RefType(nullable, genTypeID.forArrayClass(arrayTypeRef))
-
-      case _: WasmComponentResourceType => watpe.Int32
 
       case RecordType(fields) =>
         throw new AssertionError(s"Unexpected record type $tpe")
@@ -117,6 +119,8 @@ object TypeTransformer {
           watpe.HeapType.None
         else if (info.isInterface)
           watpe.HeapType(genTypeID.ObjectStruct)
+        else if (info.isWasmComponentResource)
+          ???
         else
           watpe.HeapType(genTypeID.forClass(className))
 

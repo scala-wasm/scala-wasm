@@ -16,6 +16,7 @@ import scala.tools.nsc._
 
 import org.scalajs.ir.Types
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
+import org.scalajs.ir.Names.ClassName
 
 /** Conversions from scalac `Type`s to the IR `Type`s and `TypeRef`s. */
 trait TypeConversions[G <: Global with Singleton] extends SubComponent {
@@ -71,6 +72,39 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
     else
       makeArrayTypeRef(base, arrayDepth)
   }
+
+  def toWIT(tpe: Type): Option[wit.ValType] = {
+    unsigned2WIT.get(tpe.typeSymbolDirect).orElse {
+      primitiveIRWIT.get(toIRType(tpe))
+    }
+  }
+
+  private lazy val primitiveIRWIT: Map[Types.Type, wit.ValType] = Map(
+    Types.VoidType -> wit.VoidType,
+    Types.BooleanType -> wit.BoolType,
+    Types.ByteType -> wit.S8Type,
+    Types.ShortType -> wit.S16Type,
+    Types.IntType -> wit.S32Type,
+    Types.LongType -> wit.S64Type,
+    Types.FloatType -> wit.F32Type,
+    Types.DoubleType -> wit.F64Type,
+    Types.CharType -> wit.CharType,
+    Types.StringType -> wit.StringType,
+    Types.ClassType(ClassName("java.lang.String"), true) -> wit.StringType
+  )
+
+  private lazy val ScalaJSComponentUnsignedPackageModule = rootMirror.getPackageObject("scala.scalajs.component.unsigned")
+    private lazy val ComponentUnsigned_UByte = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UByte"))
+    private lazy val ComponentUnsigned_UShort = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UShort"))
+    private lazy val ComponentUnsigned_UInt = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UInt"))
+    private lazy val ComponentUnsigned_ULong = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("ULong"))
+
+  private lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
+    ComponentUnsigned_UByte -> wit.U8Type,
+    ComponentUnsigned_UShort -> wit.U16Type,
+    ComponentUnsigned_UInt -> wit.U32Type,
+    ComponentUnsigned_ULong -> wit.U64Type
+  )
 
   private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef =
     primitiveRefMap.getOrElse(sym, Types.ClassRef(encodeClassName(sym)))

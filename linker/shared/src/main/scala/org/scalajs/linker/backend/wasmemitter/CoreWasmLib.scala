@@ -752,6 +752,63 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
       fb.buildAndAddToModule()
     }
+
+    {
+      val fb = newFunctionBuilder(genFunctionID.cabiStoreString)
+      val str = fb.addParam("str", RefType(true, genTypeID.i16Array))
+      fb.setResultTypes(List(Int32, Int32)) // baseAddr, units
+
+      val baseAddr = fb.addLocal("baseAddr", Int32)
+      val iLocal = fb.addLocal("i", Int32)
+
+      // required bytes
+      fb += LocalGet(str)
+      fb += ArrayLen
+      fb += I32Const(2)
+      fb += I32Mul
+      fb += Call(genFunctionID.malloc) // TODO: free after call
+      fb += LocalSet(baseAddr)
+
+      // i := 0
+      fb += I32Const(0)
+      fb += LocalSet(iLocal)
+
+      fb.block() { exit =>
+        fb.loop() { loop =>
+          fb += LocalGet(iLocal)
+          fb += LocalGet(str)
+          fb += ArrayLen
+          fb += I32Eq
+          fb += BrIf(exit)
+
+          // store
+          // position (baseAddr + i * 2)
+          fb += LocalGet(baseAddr)
+          fb += LocalGet(iLocal)
+          fb += I32Const(2)
+          fb += I32Mul
+          fb += I32Add
+
+          // value
+          fb += LocalGet(str)
+          fb += LocalGet(iLocal)
+          fb += ArrayGetU(genTypeID.i16Array) // i32 here
+          fb += I32Store16() // store 2 bytes
+
+          // i := i + 1
+          fb += LocalGet(iLocal)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(iLocal)
+          fb += Br(loop)
+        }
+      }
+      fb += LocalGet(baseAddr) // offset
+      fb += LocalGet(str)
+      fb += ArrayLen // unit length
+
+      fb.buildAndAddToModule()
+    }
   }
 
   private def newFunctionBuilder(functionID: FunctionID, originalName: OriginalName)(

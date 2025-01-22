@@ -120,6 +120,7 @@ object VarGen {
     final case object realloc extends FunctionID
     // CanonicalABI
     final case object cabiLoadString extends FunctionID
+    final case object cabiStoreString extends FunctionID
 
     // JS helpers
 

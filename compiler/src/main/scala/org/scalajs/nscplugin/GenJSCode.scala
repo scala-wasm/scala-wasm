@@ -156,13 +156,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val paramSyms: List[Symbol])
       extends EnclosingLabelDefInfo
 
-
-  override def toIRType(t: Type): jstpe.Type = {
-    if (isWasmComponentResourceType(t)) {
-      jstpe.WasmComponentResourceType(encodeClassName(t.typeSymbol))
-    } else super.toIRType(t)
-  }
-
   class JSCodePhase(prev: Phase) extends StdPhase(prev) with JSExportsPhase {
 
     override def name: String = phaseName
@@ -771,13 +764,13 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         }
       }
 
-      if ({
-        val str = cd.symbol.nameString
-        str.contains("Ok") || str.contains("Err")
-      }) {
-        println(s"===${cd.symbol.nameString}")
-        allMethods.filter(_.name.name.nameString.contains("init")).foreach(println)
-      }
+      // if ({
+      //   val str = cd.symbol.nameString
+      //   str.contains("Ok") || str.contains("Err")
+      // }) {
+      //   println(s"===${cd.symbol.nameString}")
+      //   allMethods.filter(_.name.name.nameString.contains("init")).foreach(println)
+      // }
 
       // The complete class definition
       val kind =
@@ -2364,38 +2357,20 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       jstpe.ClassType(ClassName("java.lang.String"), true) -> wit.StringType
     )
 
-    // lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
-    //   ComponentUnsigned_UByte -> wit.U8Type,
-    //   ComponentUnsigned_UShort -> wit.U16Type,
-    //   ComponentUnsigned_UInt -> wit.U32Type,
-    //   ComponentUnsigned_ULong -> wit.U64Type
-    // )
-
-    def toWITArrayType(tpe: jstpe.ArrayType): wit.ValType = {
-      val baseWIT = tpe.arrayTypeRef.base match {
-        case ClassRef(className) => {
-
-          className match {
-            case nme if nme == ClassName("scala.scalajs.component.unsigned.UByte") => wit.U8Type
-            case _ => throw new AssertionError(s"invalid className: $className")
-          }
-        }
-        case PrimRef(tpe) => primitiveIRWIT.get(tpe).get
-      }
-      (1 to tpe.arrayTypeRef.dimensions).foldLeft(baseWIT)((acc, _) => wit.ListType(acc, None))
-    }
+    lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
+      ComponentUnsigned_UByte -> wit.U8Type,
+      ComponentUnsigned_UShort -> wit.U16Type,
+      ComponentUnsigned_UInt -> wit.U32Type,
+      ComponentUnsigned_ULong -> wit.U64Type
+    )
 
     def toWIT(tpe: Type): wit.ValType = {
-      val irType = toIRType(tpe)
-      (irType match {
-        case arr: ArrayType => Some(toWITArrayType(arr))
-        case _ => None
-      }).orElse {
-        primitiveIRWIT.get(irType)
+      toWITMaybeArray(tpe).orElse {
+        unsigned2WIT.get(tpe.typeSymbolDirect)
+      }.orElse {
+        primitiveIRWIT.get(toIRType(tpe))
       }.getOrElse {
         tpe.typeSymbol match {
-          case ComponentUnsignedUByte => wit.U8Type
-
           case tsym if tsym.isSubClass(ComponentResourceClass) =>
             wit.ResourceType(encodeClassName(tsym))
 
@@ -2425,6 +2400,19 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         }
       }
     }
+
+    private def toWITMaybeArray(tpe: Type): Option[wit.ValType] = {
+      tpe match {
+        case TypeRef(_, sym, targs) =>
+          sym match {
+            case ArrayClass =>
+              Some(wit.ListType(toWIT(targs.head), None))
+            case _ => None
+          }
+        case _ => None
+      }
+    }
+
 
     def genWasmComponentExport(method: DefDef): js.WasmComponentExportDef = {
       val sym = method.symbol

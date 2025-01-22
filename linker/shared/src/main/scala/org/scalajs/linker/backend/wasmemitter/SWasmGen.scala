@@ -38,6 +38,9 @@ object SWasmGen {
           GlobalGet(genGlobalID.emptyString)
       case UndefType  => GlobalGet(genGlobalID.undef)
 
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        I32Const(0)
       case ClassType(BoxedStringClass, true) =>
         if (true /*isWASI*/) // scalastyle:ignore
           RefNull(Types.HeapType(genTypeID.i16Array))
@@ -48,7 +51,7 @@ object SWasmGen {
         RefNull(Types.HeapType.None)
 
       case NothingType | VoidType | ClassType(_, false) | ArrayType(_, false) |
-          AnyNotNullType | _:RecordType | _: WasmComponentResourceType =>
+          AnyNotNullType | _:RecordType =>
         throw new AssertionError(s"Unexpected type for field: ${tpe.show()}")
     }
   }

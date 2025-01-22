@@ -2,6 +2,7 @@ package tanishiking:test@0.0.1;
 
 world socket {
     import test;
+    import wasi:cli/stdout@0.2.0;
     export wasi:cli/run@0.2.0;
 }
 
@@ -10,7 +11,7 @@ world plug {
 }
 
 interface test {
-    add: func(a: s32, b: s32) -> s32;
+    add: func(a: u32, b: u32) -> u32;
     print-number: func(x: s32);
 
     say: func(content: string);

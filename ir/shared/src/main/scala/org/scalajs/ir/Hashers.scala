@@ -623,10 +623,6 @@ object Hashers {
           mixType(tpe)
           mixBoolean(mutable)
         }
-
-      case WasmComponentResourceType(className) =>
-        mixTag(TagWasmComponentResourceType)
-        mixName(className)
     }
 
     def mixLocalIdent(ident: LocalIdent): Unit = {

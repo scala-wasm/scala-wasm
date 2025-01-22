@@ -60,7 +60,8 @@ impl GuestCounter for GuestCounterImpl {
 struct Component;
 
 impl Guest for Component {
-    fn add(a: i32, b: i32) -> i32 {
+    fn add(a: u32, b: u32) -> u32 {
+        println!("{} + {}", a, b);
         return a + b;
     }
 

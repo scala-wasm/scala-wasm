@@ -886,10 +886,6 @@ object Serializers {
             writeType(tpe)
             buffer.writeBoolean(mutable)
           }
-
-        case WasmComponentResourceType(className) =>
-          buffer.write(TagWasmComponentResourceType)
-          writeName(className)
       }
     }
 
@@ -2402,9 +2398,6 @@ object Serializers {
             val mutable = readBoolean()
             RecordType.Field(name, readOriginalName(), tpe, mutable)
           })
-
-        case TagWasmComponentResourceType =>
-          WasmComponentResourceType(readClassName())
       }
     }
 

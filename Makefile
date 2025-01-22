@@ -9,5 +9,8 @@ new: embed
 compose: new
 	wac plug --plug plugin/target/wasm32-wasip1/release/plugin.wasm main.wasm -o out.wasm
 
+run-new: new
+	$(WASMTIME) -W function-references,gc main.wasm
+
 run: compose
 	$(WASMTIME) -W function-references,gc out.wasm

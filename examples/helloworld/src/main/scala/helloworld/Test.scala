@@ -6,7 +6,7 @@ import component.unsigned._
 
 @ComponentImport("tanishiking:test/test@0.0.1")
 object Test extends component.Interface {
-  def add(a: Int, b: Int): Int = component.native
+  def add(a: UInt, b: UInt): UInt = component.native
 
   def say(content: String): Unit = component.native
 

@@ -187,9 +187,6 @@ private[ir] object Tags {
   final val TagNonNullClassType = TagAnyNotNullType + 1
   final val TagNonNullArrayType = TagNonNullClassType + 1
 
-  // Component
-  final val TagWasmComponentResourceType = TagNonNullArrayType + 1
-
   // Tags for TypeRefs
 
   final val TagVoidRef = 1

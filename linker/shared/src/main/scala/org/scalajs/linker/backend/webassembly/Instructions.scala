@@ -203,21 +203,15 @@ object Instructions {
   case class I64Load32U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load32_u", 0x35, arg)
 
   // store
-  case class I32Store(arg: MemoryArg) extends LoadStoreInstr("i32.store", 0x36, arg)
-  object I32Store {
-    def apply(): I32Store = I32Store(MemoryArg())
-  }
-  case class I64Store(arg: MemoryArg) extends LoadStoreInstr("i64.store", 0x37, arg)
-  case class F32Store(arg: MemoryArg) extends LoadStoreInstr("f32.store", 0x38, arg)
-  case class F64Store(arg: MemoryArg) extends LoadStoreInstr("f64.store", 0x39, arg)
-  case class I32Store8(arg: MemoryArg) extends LoadStoreInstr("i32.store8", 0x3A, arg)
-  case class I32Store16(arg: MemoryArg) extends LoadStoreInstr("i32.store16", 0x3B, arg)
-  object I32Store16 {
-    def apply(): I32Store16 = I32Store16(MemoryArg())
-  }
-  case class I64tore8(arg: MemoryArg) extends LoadStoreInstr("i64.store8", 0x3C, arg)
-  case class I64tore16(arg: MemoryArg) extends LoadStoreInstr("i64.store16", 0x3D, arg)
-  case class I64tore32(arg: MemoryArg) extends LoadStoreInstr("i64.store32", 0x3E, arg)
+  case class I32Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.store", 0x36, arg)
+  case class I64Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store", 0x37, arg)
+  case class F32Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f32.store", 0x38, arg)
+  case class F64Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f64.store", 0x39, arg)
+  case class I32Store8(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.store8", 0x3A, arg)
+  case class I32Store16(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.store16", 0x3B, arg)
+  case class I64tore8(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store8", 0x3C, arg)
+  case class I64tore16(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store16", 0x3D, arg)
+  case class I64tore32(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store32", 0x3E, arg)
 
   // Literals of primitive numeric types
 

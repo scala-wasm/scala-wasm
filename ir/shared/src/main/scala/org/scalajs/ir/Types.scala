@@ -215,10 +215,6 @@ object Types {
   @deprecated("Use VoidType instead", since = "1.18.0")
   lazy val NoType: VoidType.type = VoidType
 
-  final case class WasmComponentResourceType(className: ClassName) extends Type {
-    override def toNonNullable: Type = this
-  }
-
   /** Type reference (allowed for classOf[], is/asInstanceOf[]).
    *
    *  A `TypeRef` has exactly the same level of precision as a JVM type.
@@ -380,7 +376,7 @@ object Types {
       RecordValue(tpe, tpe.fields.map(f => zeroOf(f.tpe)))
 
     case NothingType | VoidType | ClassType(_, false) | ArrayType(_, false) |
-        AnyNotNullType | _:WasmComponentResourceType =>
+        AnyNotNullType =>
       throw new IllegalArgumentException(s"cannot generate a zero for $tpe")
   }
 

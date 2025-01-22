@@ -1149,10 +1149,6 @@ object Printers {
           print(tpe)
         }
         print(')')
-
-      case WasmComponentResourceType(className) =>
-        print("wasm component resource ")
-        print(className)
     }
 
     def print(ident: LocalIdent): Unit =
