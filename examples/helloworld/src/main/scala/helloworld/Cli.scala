@@ -7,50 +7,39 @@ package helloworld
 
 import scala.scalajs.js
 import scala.scalajs.component
+import scala.scalajs.component._
 import component.annotation._
 import component.unsigned._
-import java.nio.charset.StandardCharsets
-import scala.scalajs.component.Err
-import scala.scalajs.component.Ok
-// import helloworld.Test._
-
-/*
-object helloworld {
-  def main(args: Array[String]): Unit = {
-    println("hello")
-  }
-}
-
-object Foo {
-  @js.annotation.JSExportTopLevel("foo")
-  def foo(): Unit = {
-    Hoge.hoge() match {
-      case Foo(x) => println(x)
-      case Bar(x) => println(x)
-      case Baz(x) => println(x)
-    }
-    Test.parse(100) match {
-      case Test.FloatValue(value) =>
-      case Test.NumValue(value) => Test.add(value, value) // 200
-      case Test.StrValue(value) =>
-    }
-  }
-  sealed trait Hoge
-  case class Foo(x: Int) extends Hoge
-  case class Bar(x: String) extends Hoge
-  case class Baz(x: Float) extends Hoge
-
-  object Hoge {
-    def hoge(): Hoge = {
-      Foo(1)
-    }
-  }
-}
-  */
 
 @ComponentExport("wasi:cli/run@0.2.0")
 object Run extends component.Interface {
   def run(): component.Result[Unit, Unit] = {
+    val out = Stdio.getStdout()
+    // @ComponentImport("tanishiking:test/test@0.0.1")
+    // object Test extends component.Interface {
+    //   def ferrisSay(content: String, width: UInt): String = component.native
+    // }
+    val ferris = Test.ferrisSay("Hello Scala!", 80)
+    out.blockingWriteAndFlush(ferris.getBytes()) match {
+      case _: Err[_] =>
+      case _: Ok[_] =>
+        new component.Ok(())
+    }
+
+    val counter = Test.newCounter()
+    counter.up()
+    counter.up()
+    counter.down()
+    val value = counter.valueOf()
+
+    out.blockingWriteAndFlush(Array((value+ 48).toByte))
+
+    new component.Ok(())
+  }
+}
+
+
+    /*
     val res = Test.add(-3, 2)
     Test.printNumber(res)
 
@@ -71,14 +60,10 @@ object Run extends component.Interface {
 
     val out = Stdio.getStdout()
     // hello
-    val hello: Array[UByte] = new Array[UByte](5)
-    hello.update(0, 104)
-    hello.update(1, 101)
-    hello.update(2, 108)
-    hello.update(3, 108)
-    hello.update(4, 111)
 
-    val result = out.blockingWriteAndFlush(hello)
+    val ferris = Test.ferrisSay("Hello Scala!\n", 80)
+
+    val result = out.blockingWriteAndFlush(ferris.getBytes())
     result match {
       case _: Err[_] =>
         Test.say("err")
@@ -87,17 +72,4 @@ object Run extends component.Interface {
     }
 
     new component.Ok(())
-  }
-
-}
-
-sealed trait Hoge
-case class Foo(x: Int) extends Hoge
-case class Bar(x: String) extends Hoge
-case class Baz(x: Float) extends Hoge
-
-object Hoge {
-  def hoge(): Hoge = {
-    Foo(1)
-  }
-}
+    */

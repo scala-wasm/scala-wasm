@@ -1,4 +1,4 @@
-WASMTIME := /Users/tanishiking/.cargo/bin/wasmtime
+WASMTIME := wasmtime
 
 embed:
 	wasm-tools component embed wit examples/helloworld/.2.12/target/scala-2.12/hello-world-scalajs-example-fastopt/main.wasm -o main.wasm -w socket --encoding utf16

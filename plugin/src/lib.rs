@@ -1,10 +1,9 @@
 #[allow(warnings)]
 mod bindings;
-
-use crate::bindings::exports::tanishiking::test::test::{Guest, GuestCounter, Counter, Tree};
-
-use std::cell::RefCell;
+use crate::bindings::exports::tanishiking::test::test::{Guest, Counter, GuestCounter};
 use ferris_says::say;
+use std::cell::RefCell;
+struct Component;
 
 struct HostCounter {
     value: i32,
@@ -57,33 +56,11 @@ impl GuestCounter for GuestCounterImpl {
     }
 }
 
-struct Component;
-
 impl Guest for Component {
-    fn add(a: u32, b: u32) -> u32 {
-        println!("{} + {}", a, b);
-        return a + b;
-    }
-
-    fn say(content: String) {
-        let width = 80;
-        let mut writer = std::io::stdout();
-
-        if let Err(e) = say(content.as_str(), width, &mut writer) {
-            println!("{e}");
-        }
-    }
-
-    fn print_number(x: i32) {
-        println!("{}", x);
-    }
-
-    fn parse(i: i32) -> Tree {
-      if i == 0 {
-        return Tree::StrValue(String::from("hello!"));
-      } else {
-        return Tree::NumValue(i);
-      }
+    fn ferris_say(content: String, width: u32) -> String {
+        let mut buf = Vec::new();
+        say(content.as_str(), width.try_into().unwrap(), &mut buf).unwrap();
+        return String::from_utf8(buf).unwrap();
     }
 
     fn new_counter() -> Counter {
@@ -93,5 +70,32 @@ impl Guest for Component {
 
     type Counter = GuestCounterImpl;
 }
-
 bindings::export!(Component with_types_in bindings);
+
+    // fn add(a: u32, b: u32) -> u32 {
+    //     println!("{} + {}", a, b);
+    //     return a + b;
+    // }
+
+    // fn say(content: String) {
+    //     let width = 80;
+    //     let mut writer = std::io::stdout();
+
+    //     if let Err(e) = say(content.as_str(), width, &mut writer) {
+    //         println!("{e}");
+    //     }
+    // }
+
+    // fn print_number(x: i32) {
+    //     println!("{}", x);
+    // }
+
+    // fn parse(i: i32) -> Tree {
+    //   if i == 0 {
+    //     return Tree::StrValue(String::from("hello!"));
+    //   } else {
+    //     return Tree::NumValue(i);
+    //   }
+    // }
+
+

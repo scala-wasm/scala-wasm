@@ -393,27 +393,56 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       addHelperImport(genFunctionID.is, List(anyref, anyref), List(Int32))
 
       addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
+    } else {
+      {
+        val fb = newFunctionBuilder(genFunctionID.is)
+        val a = fb.addParam("a", anyref)
+        val b = fb.addParam("b", anyref)
+        fb.setResultType(Int32)
+        fb.block(RefType.anyref) { nonEqRef =>
+          fb += LocalGet(a)
+          fb += BrOnCastFail(nonEqRef, RefType.anyref, RefType.eqref)
+
+          fb += LocalGet(b)
+          fb += BrOnCastFail(nonEqRef, RefType.anyref, RefType.eqref)
+
+          fb += RefEq
+          fb += Return
+        }
+        fb += Drop
+        fb += I32Const(0)
+        fb.buildAndAddToModule()
+      }
     }
 
-    val prims = if (true /*isWASI*/) // scalastyle:ignore
-      Nil
-    else
-      List(BooleanType, FloatType, DoubleType)
+    val prims = List(BooleanType, FloatType, DoubleType)
 
     for (primType <- prims) {
       val primRef = primType.primRef
       val wasmType = transformPrimType(primType)
-      if (primType != BooleanType)
-        addHelperImport(genFunctionID.box(primRef), List(wasmType), List(RefType.any))
-      addHelperImport(genFunctionID.unbox(primRef), List(anyref), List(wasmType))
-      addHelperImport(genFunctionID.typeTest(primRef), List(anyref), List(Int32))
+
+      if (true /* isWASI */) { // scalastyle:ignore
+        if (primType == BooleanType) {
+          // box boolean should be generated elsewhere
+          genUnboxBoolean()
+          genTestBoolean()
+        } else {
+          genBox(genFunctionID.box(primRef), primType)
+          genUnbox(genFunctionID.unbox(primRef), primType)
+          genTypeTest(genFunctionID.typeTest(primRef), primType)
+        }
+      } else {
+        if (primType != BooleanType)
+          addHelperImport(genFunctionID.box(primRef), List(wasmType), List(RefType.any))
+        addHelperImport(genFunctionID.unbox(primRef), List(anyref), List(wasmType))
+        addHelperImport(genFunctionID.typeTest(primRef), List(anyref), List(Int32))
+      }
     }
 
+    // integer
     if (true /*isWASI*/) { // scalastyle:ignore
-      genBoxIntFallback()
+      genBox(genFunctionID.bIFallback, IntType)
       genUnbox(genFunctionID.uIFallback, IntType)
-      genUnbox(genFunctionID.unbox(FloatRef), FloatType)
-      genUnbox(genFunctionID.unbox(DoubleRef), DoubleType)
       genTestInteger()
     } else {
       addHelperImport(genFunctionID.bIFallback, List(Int32), List(RefType.any))
@@ -821,6 +850,17 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     newFunctionBuilder(functionID, OriginalName(functionID.toString()))
   }
 
+  private def genUnboxBoolean()(implicit ctx: WasmContext): Unit = {
+    assert(true /* isWASI */) // scalastyle:ignore
+    val fb = newFunctionBuilder(genFunctionID.unbox(BooleanRef))
+    val xParam = fb.addParam("x", RefType.i31)
+    fb.setResultType(Int32)
+
+    fb += LocalGet(xParam)
+    fb += I31GetS
+    fb.buildAndAddToModule()
+  }
+
   private def genBoxBoolean()(implicit ctx: WasmContext): Unit = {
     val fb = newFunctionBuilder(genFunctionID.box(BooleanRef))
     val xParam = fb.addParam("x", Int32)
@@ -871,20 +911,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule()
   }
 
-  private def genBoxIntFallback()(implicit ctx: WasmContext): Unit = {
-    assert(true/*isWASI*/) // scalastyle:ignore
-    val fb = newFunctionBuilder(genFunctionID.bIFallback)
-    val xParam = fb.addParam("x", Int32)
-    fb.setResultType(RefType.any)
-
-    fb += GlobalGet(genGlobalID.forVTable(SpecialNames.IntegerBoxClass))
-    fb += GlobalGet(genGlobalID.forITable(SpecialNames.IntegerBoxClass))
-    fb += LocalGet(xParam)
-    fb += StructNew(genTypeID.forClass(SpecialNames.IntegerBoxClass))
-
-    fb.buildAndAddToModule()
-  }
-
   private def genUnboxInt()(implicit ctx: WasmContext): Unit = {
     val fb = newFunctionBuilder(genFunctionID.unbox(IntRef))
     val xParam = fb.addParam("x", RefType.anyref)
@@ -901,6 +927,43 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // Otherwise, use the fallback helper
     fb += Call(genFunctionID.uIFallback)
 
+    fb.buildAndAddToModule()
+  }
+
+  private def genTypeTest(functionID: FunctionID, targetTpe: PrimType)(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    assert(targetTpe == FloatType || targetTpe == DoubleType)
+
+    val fb = newFunctionBuilder(functionID)
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+
+    val boxClass =
+      if (targetTpe == FloatType) SpecialNames.FloatBoxClass
+      else SpecialNames.DoubleBoxClass
+    fb += LocalGet(xParam)
+    fb += RefTest(RefType(genTypeID.forClass(boxClass)))
+    fb.buildAndAddToModule()
+  }
+
+  private def genBox(functionID: FunctionID, targetTpe: PrimType)(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/) // scalastyle:ignore
+    assert(targetTpe == IntType || targetTpe == FloatType || targetTpe == DoubleType)
+
+    val wasmType = transformPrimType(targetTpe)
+    val fb = newFunctionBuilder(functionID)
+    val xParam = fb.addParam("x", wasmType)
+    fb.setResultType(RefType.any)
+
+    val boxClass =
+      if (targetTpe == IntType) SpecialNames.IntegerBoxClass
+      else if (targetTpe == FloatType) SpecialNames.FloatBoxClass
+      else SpecialNames.DoubleBoxClass
+
+    fb += GlobalGet(genGlobalID.forVTable(boxClass))
+    fb += GlobalGet(genGlobalID.forITable(boxClass))
+    fb += LocalGet(xParam)
+    fb += StructNew(genTypeID.forClass(boxClass))
     fb.buildAndAddToModule()
   }
 
@@ -935,6 +998,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     fb.buildAndAddToModule()
   }
+
 
   private def genUnboxByteOrShort(typeRef: PrimRef)(implicit ctx: WasmContext): Unit = {
     /* The unboxing functions for Byte and Short actually do exactly the same thing.
@@ -987,6 +1051,49 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // Note that all JS `number`s in the correct range are guaranteed to be i31ref's
     fb += Drop
     fb += I32Const(0)
+
+    fb.buildAndAddToModule()
+  }
+
+  private def genTestBoolean()(implicit ctx: WasmContext): Unit = {
+    assert(true /*isWASI*/)
+    val fb = newFunctionBuilder(genFunctionID.typeTest(BooleanRef))
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+
+    val boolValueLocal = fb.addLocal("value", Int32)
+    val structTypeID = genTypeID.forClass(SpecialNames.BooleanBoxClass)
+
+    fb.block(RefType.anyref) { nonI31 =>
+      fb += LocalGet(xParam)
+      fb += BrOnCastFail(nonI31, RefType.anyref, RefType.i31)
+      fb += I31GetU
+      fb += LocalTee(boolValueLocal)
+      fb += I32Eqz
+      fb += LocalGet(boolValueLocal)
+      fb += I32Const(1)
+      fb += I32Eq
+      fb += I32And
+      fb += Return
+    }
+    fb += Drop
+    fb += I32Const(0)
+
+    // fb += LocalGet(xParam)
+    // fb += RefTest(RefType.i31)
+
+    // fb += LocalGet(xParam)
+    // fb += I31GetU
+    // fb += I32Eqz
+
+    // fb += I32And
+
+    // fb += LocalGet(xParam)
+    // fb += I31GetU
+    // fb += I32Const(1)
+    // fb += I32Eq
+
+    // fb += I32And
 
     fb.buildAndAddToModule()
   }

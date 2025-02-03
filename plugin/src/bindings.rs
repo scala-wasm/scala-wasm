@@ -131,91 +131,32 @@ pub mod exports {
                         }
                     }
                 }
-                #[derive(Clone)]
-                pub enum Tree {
-                    NumValue(i32),
-                    FloatValue(f32),
-                    StrValue(_rt::String),
-                }
-                impl ::core::fmt::Debug for Tree {
-                    fn fmt(
-                        &self,
-                        f: &mut ::core::fmt::Formatter<'_>,
-                    ) -> ::core::fmt::Result {
-                        match self {
-                            Tree::NumValue(e) => {
-                                f.debug_tuple("Tree::NumValue").field(e).finish()
-                            }
-                            Tree::FloatValue(e) => {
-                                f.debug_tuple("Tree::FloatValue").field(e).finish()
-                            }
-                            Tree::StrValue(e) => {
-                                f.debug_tuple("Tree::StrValue").field(e).finish()
-                            }
-                        }
-                    }
-                }
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
-                pub unsafe fn _export_add_cabi<T: Guest>(arg0: i32, arg1: i32) -> i32 {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let result0 = T::add(arg0 as u32, arg1 as u32);
-                    _rt::as_i32(result0)
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_print_number_cabi<T: Guest>(arg0: i32) {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    T::print_number(arg0);
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn _export_say_cabi<T: Guest>(arg0: *mut u8, arg1: usize) {
+                pub unsafe fn _export_ferris_say_cabi<T: Guest>(
+                    arg0: *mut u8,
+                    arg1: usize,
+                    arg2: i32,
+                ) -> *mut u8 {
                     #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
                     let len0 = arg1;
                     let bytes0 = _rt::Vec::from_raw_parts(arg0.cast(), len0, len0);
-                    T::say(_rt::string_lift(bytes0));
+                    let result1 = T::ferris_say(_rt::string_lift(bytes0), arg2 as u32);
+                    let ptr2 = _RET_AREA.0.as_mut_ptr().cast::<u8>();
+                    let vec3 = (result1.into_bytes()).into_boxed_slice();
+                    let ptr3 = vec3.as_ptr().cast::<u8>();
+                    let len3 = vec3.len();
+                    ::core::mem::forget(vec3);
+                    *ptr2.add(4).cast::<usize>() = len3;
+                    *ptr2.add(0).cast::<*mut u8>() = ptr3.cast_mut();
+                    ptr2
                 }
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
-                pub unsafe fn _export_parse_cabi<T: Guest>(arg0: i32) -> *mut u8 {
-                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
-                    let result0 = T::parse(arg0);
-                    let ptr1 = _RET_AREA.0.as_mut_ptr().cast::<u8>();
-                    match result0 {
-                        Tree::NumValue(e) => {
-                            *ptr1.add(0).cast::<u8>() = (0i32) as u8;
-                            *ptr1.add(4).cast::<i32>() = _rt::as_i32(e);
-                        }
-                        Tree::FloatValue(e) => {
-                            *ptr1.add(0).cast::<u8>() = (1i32) as u8;
-                            *ptr1.add(4).cast::<f32>() = _rt::as_f32(e);
-                        }
-                        Tree::StrValue(e) => {
-                            *ptr1.add(0).cast::<u8>() = (2i32) as u8;
-                            let vec2 = (e.into_bytes()).into_boxed_slice();
-                            let ptr2 = vec2.as_ptr().cast::<u8>();
-                            let len2 = vec2.len();
-                            ::core::mem::forget(vec2);
-                            *ptr1.add(8).cast::<usize>() = len2;
-                            *ptr1.add(4).cast::<*mut u8>() = ptr2.cast_mut();
-                        }
-                    }
-                    ptr1
-                }
-                #[doc(hidden)]
-                #[allow(non_snake_case)]
-                pub unsafe fn __post_return_parse<T: Guest>(arg0: *mut u8) {
-                    let l0 = i32::from(*arg0.add(0).cast::<u8>());
-                    match l0 {
-                        0 => {}
-                        1 => {}
-                        _ => {
-                            let l1 = *arg0.add(4).cast::<*mut u8>();
-                            let l2 = *arg0.add(8).cast::<usize>();
-                            _rt::cabi_dealloc(l1, l2, 1);
-                        }
-                    }
+                pub unsafe fn __post_return_ferris_say<T: Guest>(arg0: *mut u8) {
+                    let l0 = *arg0.add(0).cast::<*mut u8>();
+                    let l1 = *arg0.add(4).cast::<usize>();
+                    _rt::cabi_dealloc(l0, l1, 1);
                 }
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
@@ -253,10 +194,7 @@ pub mod exports {
                 }
                 pub trait Guest {
                     type Counter: GuestCounter;
-                    fn add(a: u32, b: u32) -> u32;
-                    fn print_number(x: i32);
-                    fn say(content: _rt::String);
-                    fn parse(i: i32) -> Tree;
+                    fn ferris_say(content: _rt::String, width: u32) -> _rt::String;
                     fn new_counter() -> Counter;
                 }
                 pub trait GuestCounter: 'static {
@@ -313,23 +251,15 @@ pub mod exports {
                 macro_rules! __export_tanishiking_test_test_0_0_1_cabi {
                     ($ty:ident with_types_in $($path_to_types:tt)*) => {
                         const _ : () = { #[export_name =
-                        "tanishiking:test/test@0.0.1#add"] unsafe extern "C" fn
-                        export_add(arg0 : i32, arg1 : i32,) -> i32 { $($path_to_types)*::
-                        _export_add_cabi::<$ty > (arg0, arg1) } #[export_name =
-                        "tanishiking:test/test@0.0.1#print-number"] unsafe extern "C" fn
-                        export_print_number(arg0 : i32,) { $($path_to_types)*::
-                        _export_print_number_cabi::<$ty > (arg0) } #[export_name =
-                        "tanishiking:test/test@0.0.1#say"] unsafe extern "C" fn
-                        export_say(arg0 : * mut u8, arg1 : usize,) { $($path_to_types)*::
-                        _export_say_cabi::<$ty > (arg0, arg1) } #[export_name =
-                        "tanishiking:test/test@0.0.1#parse"] unsafe extern "C" fn
-                        export_parse(arg0 : i32,) -> * mut u8 { $($path_to_types)*::
-                        _export_parse_cabi::<$ty > (arg0) } #[export_name =
-                        "cabi_post_tanishiking:test/test@0.0.1#parse"] unsafe extern "C"
-                        fn _post_return_parse(arg0 : * mut u8,) { $($path_to_types)*::
-                        __post_return_parse::<$ty > (arg0) } #[export_name =
-                        "tanishiking:test/test@0.0.1#new-counter"] unsafe extern "C" fn
-                        export_new_counter() -> i32 { $($path_to_types)*::
+                        "tanishiking:test/test@0.0.1#ferris-say"] unsafe extern "C" fn
+                        export_ferris_say(arg0 : * mut u8, arg1 : usize, arg2 : i32,) ->
+                        * mut u8 { $($path_to_types)*:: _export_ferris_say_cabi::<$ty >
+                        (arg0, arg1, arg2) } #[export_name =
+                        "cabi_post_tanishiking:test/test@0.0.1#ferris-say"] unsafe extern
+                        "C" fn _post_return_ferris_say(arg0 : * mut u8,) {
+                        $($path_to_types)*:: __post_return_ferris_say::<$ty > (arg0) }
+                        #[export_name = "tanishiking:test/test@0.0.1#new-counter"] unsafe
+                        extern "C" fn export_new_counter() -> i32 { $($path_to_types)*::
                         _export_new_counter_cabi::<$ty > () } #[export_name =
                         "tanishiking:test/test@0.0.1#[method]counter.up"] unsafe extern
                         "C" fn export_method_counter_up(arg0 : * mut u8,) {
@@ -354,9 +284,9 @@ pub mod exports {
                 #[doc(hidden)]
                 pub(crate) use __export_tanishiking_test_test_0_0_1_cabi;
                 #[repr(align(4))]
-                struct _RetArea([::core::mem::MaybeUninit<u8>; 12]);
+                struct _RetArea([::core::mem::MaybeUninit<u8>; 8]);
                 static mut _RET_AREA: _RetArea = _RetArea(
-                    [::core::mem::MaybeUninit::uninit(); 12],
+                    [::core::mem::MaybeUninit::uninit(); 8],
                 );
             }
         }
@@ -438,11 +368,26 @@ mod _rt {
         }
     }
     pub use alloc_crate::boxed::Box;
-    pub use alloc_crate::string::String;
     #[cfg(target_arch = "wasm32")]
     pub fn run_ctors_once() {
         wit_bindgen_rt::run_ctors_once();
     }
+    pub use alloc_crate::vec::Vec;
+    pub unsafe fn string_lift(bytes: Vec<u8>) -> String {
+        if cfg!(debug_assertions) {
+            String::from_utf8(bytes).unwrap()
+        } else {
+            String::from_utf8_unchecked(bytes)
+        }
+    }
+    pub unsafe fn cabi_dealloc(ptr: *mut u8, size: usize, align: usize) {
+        if size == 0 {
+            return;
+        }
+        let layout = alloc::Layout::from_size_align_unchecked(size, align);
+        alloc::dealloc(ptr, layout);
+    }
+    pub use alloc_crate::string::String;
     pub fn as_i32<T: AsI32>(t: T) -> i32 {
         t.as_i32()
     }
@@ -502,38 +447,6 @@ mod _rt {
             self as i32
         }
     }
-    pub use alloc_crate::vec::Vec;
-    pub unsafe fn string_lift(bytes: Vec<u8>) -> String {
-        if cfg!(debug_assertions) {
-            String::from_utf8(bytes).unwrap()
-        } else {
-            String::from_utf8_unchecked(bytes)
-        }
-    }
-    pub fn as_f32<T: AsF32>(t: T) -> f32 {
-        t.as_f32()
-    }
-    pub trait AsF32 {
-        fn as_f32(self) -> f32;
-    }
-    impl<'a, T: Copy + AsF32> AsF32 for &'a T {
-        fn as_f32(self) -> f32 {
-            (*self).as_f32()
-        }
-    }
-    impl AsF32 for f32 {
-        #[inline]
-        fn as_f32(self) -> f32 {
-            self as f32
-        }
-    }
-    pub unsafe fn cabi_dealloc(ptr: *mut u8, size: usize, align: usize) {
-        if size == 0 {
-            return;
-        }
-        let layout = alloc::Layout::from_size_align_unchecked(size, align);
-        alloc::dealloc(ptr, layout);
-    }
     extern crate alloc as alloc_crate;
     pub use alloc_crate::alloc;
 }
@@ -570,18 +483,15 @@ pub(crate) use __export_plug_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[link_section = "component-type:wit-bindgen:0.31.0:tanishiking:test@0.0.1:plug:encoded world"]
 #[doc(hidden)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 472] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xdd\x02\x01A\x02\x01\
-A\x02\x01B\x14\x04\0\x07counter\x03\x01\x01q\x03\x09num-value\x01z\0\x0bfloat-va\
-lue\x01v\0\x09str-value\x01s\0\x04\0\x04tree\x03\0\x01\x01h\0\x01@\x01\x04self\x03\
-\x01\0\x04\0\x12[method]counter.up\x01\x04\x04\0\x14[method]counter.down\x01\x04\
-\x01@\x01\x04self\x03\0z\x04\0\x18[method]counter.value-of\x01\x05\x01@\x02\x01a\
-y\x01by\0y\x04\0\x03add\x01\x06\x01@\x01\x01xz\x01\0\x04\0\x0cprint-number\x01\x07\
-\x01@\x01\x07contents\x01\0\x04\0\x03say\x01\x08\x01@\x01\x01iz\0\x02\x04\0\x05p\
-arse\x01\x09\x01i\0\x01@\0\0\x0a\x04\0\x0bnew-counter\x01\x0b\x04\x01\x1btanishi\
-king:test/test@0.0.1\x05\0\x04\x01\x1btanishiking:test/plug@0.0.1\x04\0\x0b\x0a\x01\
-\0\x04plug\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\x0dwit-component\x070\
-.216.0\x10wit-bindgen-rust\x060.31.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 370] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf7\x01\x01A\x02\x01\
+A\x02\x01B\x0c\x04\0\x07counter\x03\x01\x01h\0\x01@\x01\x04self\x01\x01\0\x04\0\x12\
+[method]counter.up\x01\x02\x04\0\x14[method]counter.down\x01\x02\x01@\x01\x04sel\
+f\x01\0z\x04\0\x18[method]counter.value-of\x01\x03\x01@\x02\x07contents\x05width\
+y\0s\x04\0\x0aferris-say\x01\x04\x01i\0\x01@\0\0\x05\x04\0\x0bnew-counter\x01\x06\
+\x04\x01\x1btanishiking:test/test@0.0.1\x05\0\x04\x01\x1btanishiking:test/plug@0\
+.0.1\x04\0\x0b\x0a\x01\0\x04plug\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\
+\x0dwit-component\x070.216.0\x10wit-bindgen-rust\x060.31.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

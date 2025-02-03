@@ -108,12 +108,6 @@ object WasmInterfaceTypes {
   final case class OptionType(tpe: ValType) extends SpecializedType {
     def toIRType(): jstpe.Type = ???
   }
-  // final case class ResultType(
-  //     ok: ValType,
-  //     error: ValType) extends SpecializedType {
-  //   def toIRType(): jstpe.Type = ???
-  // }
-
   final case class FlagsType(labels: List[String]) extends FundamentalType {
     def toIRType(): jstpe.Type = ???
   }

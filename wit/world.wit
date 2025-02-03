@@ -11,27 +11,33 @@ world plug {
 }
 
 interface test {
-    add: func(a: u32, b: u32) -> u32;
-    print-number: func(x: s32);
-
-    say: func(content: string);
-
-    parse: func(i: s32) -> tree;
+    ferris-say: func(content: string, width: u32) -> string;
 
     new-counter: func() -> counter;
-
     resource counter {
       // new: static func() -> counter; TODO: support static method
       up: func();
       down: func();
       value-of: func() -> s32;
     }
-
-    variant tree {
-      num-value(s32),
-      float-value(f32),
-      str-value(string),
-    }
-
-    // above max result (load from memory)
 }
+
+    // add: func(a: u32, b: u32) -> u32;
+    // print-number: func(x: s32);
+    // say: func(content: string);
+    // parse: func(i: s32) -> tree;
+    // new-counter: func() -> counter;
+    // resource counter {
+    //   // new: static func() -> counter; TODO: support static method
+    //   up: func();
+    //   down: func();
+    //   value-of: func() -> s32;
+    // }
+    //
+    // variant tree {
+    //   num-value(s32),
+    //   float-value(f32),
+    //   str-value(string),
+    // }
+    //
+    // above max result (load from memory)
