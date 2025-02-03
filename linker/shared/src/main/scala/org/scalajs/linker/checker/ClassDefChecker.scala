@@ -170,6 +170,10 @@ private final class ClassDefChecker(classDef: ClassDef,
         if (classDef.superClass.isDefined)
           reportError("java.lang.Object cannot have a superClass")
 
+      case ClassKind.NativeWasmComponentResourceClass | ClassKind.NativeWasmComponentInterfaceClass =>
+        if (classDef.superClass.isDefined)
+          reportError("Wasm component resource cannot have a superClass")
+
       case ClassKind.Class | ClassKind.ModuleClass | ClassKind.HijackedClass |
           ClassKind.JSClass | ClassKind.JSModuleClass |
           ClassKind.NativeJSClass | ClassKind.NativeJSModuleClass =>
@@ -280,6 +284,9 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case ClassKind.Class | ClassKind.HijackedClass =>
         // all namespaces are allowed (except for class initializers as checked above)
+
+      case ClassKind.NativeWasmComponentResourceClass | ClassKind.NativeWasmComponentInterfaceClass =>
+        // TODO
 
       case ClassKind.Interface =>
         if (isConstructor)
@@ -452,6 +459,10 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case topLevelExportDef: TopLevelFieldExportDef =>
         checkTopLevelFieldExportDef(topLevelExportDef)
+
+      case wasmComponentExportDef: WasmComponentExportDef =>
+        // TODO
+        // checkWasmComponentExportDef(wasmComponentExportDef)
     }
   }
 
@@ -930,6 +941,10 @@ private final class ClassDefChecker(classDef: ClassDef,
 
       case JSTypeOfGlobalRef(_) =>
 
+      case ComponentFunctionApply(receiver, _, _, args) =>
+        receiver.foreach { r => checkTree(r, env) }
+        checkTrees(args, env)
+
       // Literals
 
       case ClassOf(typeRef) =>
@@ -1061,6 +1076,7 @@ object ClassDefChecker {
       jsConstructorDef,
       exportedMembers,
       jsNativeMembers,
+      componentNativeMembers,
       topLevelExportDefs = Nil
     )(optimizerHints)
 

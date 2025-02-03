@@ -71,7 +71,10 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case JSClass | JSModuleClass =>
+        case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
+          ??? // TODO
+
+        case JSClass | JSModuleClass  =>
           errorManager.reportError(
               s"found non-native JS class ${tree.className.nameString}")(tree.pos)
       }
@@ -152,7 +155,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
       val preprocessedTree = ClassDef(name, originalName, kind, jsClassCaptures,
           superClass, newInterfaces, jsSuperClass, jsNativeLoadSpec, fields,
           newMethods, jsConstructor, jsMethodProps, jsNativeMembers,
-          topLevelExportDefs)(
+          componentNativeMembers, topLevelExportDefs)(
           optimizerHints)(pos)
 
       // Only validate the hierarchy; do not transform
@@ -290,6 +293,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         classDef.jsConstructor,
         classDef.jsMethodProps,
         classDef.jsNativeMembers,
+        classDef.componentNativeMembers,
         classDef.topLevelExportDefs
       )(classDef.optimizerHints)(classDef.pos)
     }

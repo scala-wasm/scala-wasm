@@ -23,3 +23,5 @@ bin/
 # User specific
 /.jvmopts
 /.sbtopts
+
+*.wasm

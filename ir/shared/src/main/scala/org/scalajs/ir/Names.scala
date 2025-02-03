@@ -668,6 +668,20 @@ object Names {
   /** ModuleID of the default module */
   final val DefaultModuleID: String = "main"
 
+  // Component Models
+  final val ComponentResultClass: ClassName =
+    ClassName("scala.scalajs.component.Result")
+  final val ComponentResultOkClass: ClassName =
+    ClassName("scala.scalajs.component.Ok")
+  final val ComponentResultErrClass: ClassName =
+    ClassName("scala.scalajs.component.Err")
+  final val ComponentVariantValueFieldName: SimpleFieldName =
+    SimpleFieldName("value")
+  final val ComponentVariantIndexFieldName: SimpleFieldName =
+    SimpleFieldName("_index")
+
+
+
   // ---------------------------------------------------
   // ----- Private helpers for validation of names -----
   // ---------------------------------------------------

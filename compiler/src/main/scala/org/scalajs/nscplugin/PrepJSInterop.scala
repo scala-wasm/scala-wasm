@@ -149,10 +149,17 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       }
     }
 
+    lazy val ComponentVariantClass = getRequiredClass("scala.scalajs.component.Variant")
+
     private def transformMemberDef(tree: MemberDef): Tree = {
       val sym = moduleToModuleClass(tree.symbol)
 
       checkInternalAnnotations(sym)
+
+      val isComponentVariantCase = sym.isSubClass(ComponentVariantClass) && sym.isConcreteClass
+      val isComponentNative = sym.hasAnnotation(ComponentNativeAnnotation) // TODO
+      if (isComponentVariantCase)
+        checkComponentVariant(sym)
 
       /* Checks related to @js.native:
        * - if @js.native, verify that it is allowed in this context, and if
@@ -203,6 +210,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
               exporters.getOrElseUpdate(target, mutable.ListBuffer.empty) ++= exports
             }
+            if (sym.isMethod && sym.owner.hasAnnotation(ComponentImportAnnotation))
+              checkWasmComponentImport(sym)
           }
 
           if (sym.isLocalToBlock) {
@@ -766,6 +775,23 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       enterOwner(kind) {
         super.transform(implDef)
       }
+    }
+
+    private def checkWasmComponentImport(sym: Symbol): Unit = {
+      if (sym.isMethod && !sym.isConstructor) {
+        val funcType = jsInterop.ComponentFunctionType(
+          (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
+          sym.tpe.resultType
+        )
+        jsInterop.storeComponentFunctionType(sym, funcType)
+      }
+    }
+
+    private def checkComponentVariant(sym: Symbol): Unit = {
+      assert(sym.isSubClass(ComponentVariantClass) && sym.isConcreteClass)
+      val valueTypeMember = sym.info.memberBasedOnName(newTypeName("T"), 0)
+      if (valueTypeMember.exists)
+        jsInterop.storeComponentVariantValueType(sym, valueTypeMember.info)
     }
 
     private def checkJSNativeDefinition(pos: Position, sym: Symbol): Unit = {
