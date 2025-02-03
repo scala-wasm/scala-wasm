@@ -2020,7 +2020,7 @@ object Build {
       // moduleName := "helloworld",
       // scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
-        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false))
+        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false)).withModuleKind(ModuleKind.ESModule)
       },
       // scalacOptions ++= Seq(
       //   "-Ydebug",

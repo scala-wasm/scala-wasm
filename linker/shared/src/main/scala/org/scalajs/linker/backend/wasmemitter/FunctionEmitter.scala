@@ -1603,8 +1603,13 @@ private class FunctionEmitter private (
         }
 
       case Throw =>
-        fb += wa.ExternConvertAny
-        fb += wa.Throw(genTagID.exception)
+        if (coreSpec.wasmFeatures.exceptionHandling) {
+          fb += wa.ExternConvertAny
+          fb += wa.Throw(genTagID.exception)
+        } else {
+          fb += wa.Drop
+          fb += wa.Unreachable
+        }
     }
 
     tree.tpe
