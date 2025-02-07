@@ -26,13 +26,15 @@ object Run extends component.Interface {
         new component.Ok(())
     }
 
-    val counter = Test.newCounter()
-    counter.up()
-    counter.up()
-    counter.down()
-    val value = counter.valueOf()
+    val origin = Test.getOrigin()
 
-    out.blockingWriteAndFlush(Array((value+ 48).toByte))
+    // val counter = Test.newCounter()
+    // counter.up()
+    // counter.up()
+    // counter.down()
+    // val value = counter.valueOf()
+
+    out.blockingWriteAndFlush(Array((origin.x+ 48).toByte))
 
     new component.Ok(())
   }

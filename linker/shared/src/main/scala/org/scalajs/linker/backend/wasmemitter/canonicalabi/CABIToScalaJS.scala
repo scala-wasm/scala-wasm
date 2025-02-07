@@ -24,39 +24,59 @@ import ValueIterators._
 
 object CABIToScalaJS {
 
+  /** Load data from linear memory and move the pointer.
+    *
+    * @param tpe - target Wasm Interface Type to load
+    * @param ptr - memory offset for loading data from
+    */
   def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType, ptr: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
-    fb += wa.LocalGet(ptr)
     wit.despecialize(tpe) match {
-      case pt: wit.PrimValType => pt match {
-        case wit.VoidType =>
-          fb += wa.Drop
-          fb += wa.GlobalGet(genGlobalID.undef)
-        case wit.BoolType => fb += wa.I32Load8U()
-        case wit.S8Type   => fb += wa.I32Load8S()
-        case wit.S16Type  => fb += wa.I32Load16S()
-        case wit.S32Type  => fb += wa.I32Load()
-        case wit.S64Type  => fb += wa.I64Load()
-        case wit.U8Type   => fb += wa.I32Load8U()
-        case wit.U16Type  => fb += wa.I32Load16U()
-        case wit.U32Type  => fb += wa.I32Load()
-        case wit.U64Type  => fb += wa.I64Load()
-        case wit.F32Type => fb += wa.F32Load()
-        case wit.F64Type => fb += wa.F64Load()
-        case wit.CharType => fb += wa.I32Load()
-        case wit.StringType =>
-          fb += wa.I32Load() // offset
-          fb += wa.LocalGet(ptr)
-          fb += wa.I32Const(4)
-          fb += wa.I32Add
-          fb += wa.I32Load() // code units (UTF-16)
-          fb += wa.Call(genFunctionID.cabiLoadString)
-      }
+      case pt: wit.PrimValType =>
+        fb += wa.LocalGet(ptr)
+        pt match {
+          case wit.VoidType =>
+            fb += wa.Drop
+            fb += wa.GlobalGet(genGlobalID.undef)
+          case wit.BoolType => fb += wa.I32Load8U()
+          case wit.S8Type   => fb += wa.I32Load8S()
+          case wit.S16Type  => fb += wa.I32Load16S()
+          case wit.S32Type  => fb += wa.I32Load()
+          case wit.S64Type  => fb += wa.I64Load()
+          case wit.U8Type   => fb += wa.I32Load8U()
+          case wit.U16Type  => fb += wa.I32Load16U()
+          case wit.U32Type  => fb += wa.I32Load()
+          case wit.U64Type  => fb += wa.I64Load()
+          case wit.F32Type => fb += wa.F32Load()
+          case wit.F64Type => fb += wa.F64Load()
+          case wit.CharType => fb += wa.I32Load()
+          case wit.StringType =>
+            fb += wa.I32Load() // offset
+            fb += wa.LocalGet(ptr)
+            fb += wa.I32Const(4)
+            fb += wa.I32Add
+            fb += wa.I32Load() // code units (UTF-16)
+            fb += wa.Call(genFunctionID.cabiLoadString)
+        }
+        genMovePtr(fb, ptr, tpe)
+
+      case wit.RecordType(className, fields) =>
+        val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
+        val ctor = MethodName.constructor(typeRefs)
+        genNewScalaClass(fb, className, ctor) {
+          for (f <- fields) {
+            val align = wit.alignment(f.tpe)
+            genAlignTo(fb, align, ptr)
+            genLoadMemory(fb, f.tpe, ptr) // load and move memory
+          }
+        }
+        genAlignTo(fb, wit.alignment(tpe), ptr)
 
       case wit.ResourceType(_) =>
+        fb += wa.LocalGet(ptr)
         fb += wa.I32Load()
+        genMovePtr(fb, ptr, tpe)
 
       case variant @ wit.VariantType(className, cases) =>
-        fb += wa.Drop
         genLoadVariant(
           fb,
           variant,
@@ -66,19 +86,15 @@ object CABIToScalaJS {
           },
           (tpe) => {
             genLoadMemory(fb, tpe, ptr)
+            val maxElemSize = cases.map(c => wit.elemSize(c.tpe)).max
+            val elemSize = wit.elemSize(tpe)
+            genMovePtr(fb, ptr, maxElemSize - elemSize)
           },
           className
         )
+        genAlignTo(fb, wit.alignment(variant), ptr)
 
       case tpe => throw new AssertionError(s"unsupported tpe: $tpe")
-    }
-
-    val size = wit.elemSize(tpe)
-    if (size > 0) {
-      fb += wa.LocalGet(ptr)
-      fb += wa.I32Const(wit.elemSize(tpe))
-      fb += wa.I32Add
-      fb += wa.LocalSet(ptr)
     }
   }
 
@@ -86,7 +102,7 @@ object CABIToScalaJS {
     tpe match {
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type |
-          wit.U8Type | wit.U16Type | wit.U32Type =>
+          wit.U8Type | wit.U16Type | wit.U32Type | wit.CharType =>
         vi.next(watpe.Int32)
 
       case wit.S64Type | wit.U64Type =>
@@ -98,10 +114,22 @@ object CABIToScalaJS {
       case wit.VoidType =>
 
       case wit.StringType =>
+        vi.next(watpe.Int32)
+        vi.next(watpe.Int32)
         fb += wa.Call(genFunctionID.cabiLoadString)
 
       case wit.ResourceType(_) =>
         vi.next(watpe.Int32)
+
+      case wit.RecordType(className, fields) =>
+        val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
+        val ctor = MethodName.constructor(typeRefs)
+        genNewScalaClass(fb, className, ctor) {
+          for (f <- fields) {
+            val fieldType = Flatten.flattenType(f.tpe)
+            genLoadStack(fb, f.tpe, vi)
+          }
+        }
 
       case variant @ wit.VariantType(className, cases) =>
         val flattened = Flatten.flattenVariants(cases.map(_.tpe))
@@ -296,6 +324,16 @@ object CABIToScalaJS {
     fb += wa.I32Const(align)
     fb += wa.I32Mul
 
+    fb += wa.LocalSet(ptr)
+  }
+
+  private def genMovePtr(fb: FunctionBuilder, ptr: wanme.LocalID, tpe: wit.ValType): Unit =
+    genMovePtr(fb, ptr, wit.elemSize(tpe))
+
+  private def genMovePtr(fb: FunctionBuilder, ptr: wanme.LocalID, size: Int): Unit = {
+    fb += wa.LocalGet(ptr)
+    fb += wa.I32Const(size)
+    fb += wa.I32Add
     fb += wa.LocalSet(ptr)
   }
 

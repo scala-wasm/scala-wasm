@@ -1,6 +1,6 @@
 #[allow(warnings)]
 mod bindings;
-use crate::bindings::exports::tanishiking::test::test::{Guest, Counter, GuestCounter};
+use crate::bindings::exports::tanishiking::test::test::{Guest, Counter, GuestCounter, Point};
 use ferris_says::say;
 use std::cell::RefCell;
 struct Component;
@@ -66,6 +66,10 @@ impl Guest for Component {
     fn new_counter() -> Counter {
         let c = GuestCounterImpl::create();
         Counter::new(c)
+    }
+
+    fn get_origin() -> Point {
+        Point { x: 0, y: 0 }
     }
 
     type Counter = GuestCounterImpl;

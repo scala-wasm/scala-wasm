@@ -58,6 +58,29 @@ object ScalaJSToCABI {
         fb += wa.LocalGet(units)
         fb += wa.I32Store()
 
+      case wit.RecordType(className, fields) =>
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        // TODO: NPE if null
+        val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(record)
+        fb += wa.LocalSet(ptr)
+
+        var offset = 0
+        for (f <- fields) {
+          fb += wa.LocalGet(ptr)
+          if (offset > 0) {
+            fb += wa.I32Const(offset)
+            fb += wa.I32Add
+          }
+          fb += wa.LocalGet(record)
+          fb += wa.StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(f.label)
+          )
+          genStoreMemory(fb, f.tpe)
+          offset += wit.elemSize(f.tpe)
+        }
+
       case wit.ResourceType(_) =>
         fb += wa.I32Store()
 
@@ -68,11 +91,11 @@ object ScalaJSToCABI {
   def genAdaptCABI(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
     wit.despecialize(tpe) match {
       case wit.VoidType =>
-        fb += wa.Drop
+        // fb += wa.Drop
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type | wit.S64Type |
           wit.U8Type | wit.U16Type | wit.U32Type | // i32
-          wit.U64Type |
+          wit.U64Type | wit.CharType |
           wit.F32Type | wit.F64Type =>
 
       case wit.ResourceType(_) =>
@@ -145,7 +168,21 @@ object ScalaJSToCABI {
 
       case wit.StringType =>
         // array i16
+        fb += wa.RefAsNonNull // TODO NPE if null
         fb += wa.Call(genFunctionID.cabiStoreString) // baseAddr, units
+
+      case wit.RecordType(className, fields) =>
+        // TODO: NPE if null
+        val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(record)
+        for (f <- fields) {
+          fb += wa.LocalGet(record)
+          fb += wa.StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(f.label)
+          )
+          genAdaptCABI(fb, f.tpe)
+        }
 
       case wit.VariantType(_, cases) =>
         val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)

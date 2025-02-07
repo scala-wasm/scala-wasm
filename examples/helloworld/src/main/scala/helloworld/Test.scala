@@ -11,6 +11,12 @@ object Test extends component.Interface {
   // (import "tanishiking:test/test@0.0.1", "ferris-say" i32, i32, i32)
 
   def newCounter(): Counter = component.native
+
+  def getOrigin(): Point = component.native
+
+  @ComponentRecord
+  final case class Point(x: Int, y: Int)
+
 }
 //   def add(a: UInt, b: UInt): UInt = component.native
 //   def say(content: String): Unit = component.native

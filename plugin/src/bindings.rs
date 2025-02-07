@@ -131,6 +131,23 @@ pub mod exports {
                         }
                     }
                 }
+                #[repr(C)]
+                #[derive(Clone, Copy)]
+                pub struct Point {
+                    pub x: u32,
+                    pub y: u32,
+                }
+                impl ::core::fmt::Debug for Point {
+                    fn fmt(
+                        &self,
+                        f: &mut ::core::fmt::Formatter<'_>,
+                    ) -> ::core::fmt::Result {
+                        f.debug_struct("Point")
+                            .field("x", &self.x)
+                            .field("y", &self.y)
+                            .finish()
+                    }
+                }
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
                 pub unsafe fn _export_ferris_say_cabi<T: Guest>(
@@ -157,6 +174,17 @@ pub mod exports {
                     let l0 = *arg0.add(0).cast::<*mut u8>();
                     let l1 = *arg0.add(4).cast::<usize>();
                     _rt::cabi_dealloc(l0, l1, 1);
+                }
+                #[doc(hidden)]
+                #[allow(non_snake_case)]
+                pub unsafe fn _export_get_origin_cabi<T: Guest>() -> *mut u8 {
+                    #[cfg(target_arch = "wasm32")] _rt::run_ctors_once();
+                    let result0 = T::get_origin();
+                    let ptr1 = _RET_AREA.0.as_mut_ptr().cast::<u8>();
+                    let Point { x: x2, y: y2 } = result0;
+                    *ptr1.add(0).cast::<i32>() = _rt::as_i32(x2);
+                    *ptr1.add(4).cast::<i32>() = _rt::as_i32(y2);
+                    ptr1
                 }
                 #[doc(hidden)]
                 #[allow(non_snake_case)]
@@ -195,6 +223,7 @@ pub mod exports {
                 pub trait Guest {
                     type Counter: GuestCounter;
                     fn ferris_say(content: _rt::String, width: u32) -> _rt::String;
+                    fn get_origin() -> Point;
                     fn new_counter() -> Counter;
                 }
                 pub trait GuestCounter: 'static {
@@ -258,6 +287,9 @@ pub mod exports {
                         "cabi_post_tanishiking:test/test@0.0.1#ferris-say"] unsafe extern
                         "C" fn _post_return_ferris_say(arg0 : * mut u8,) {
                         $($path_to_types)*:: __post_return_ferris_say::<$ty > (arg0) }
+                        #[export_name = "tanishiking:test/test@0.0.1#get-origin"] unsafe
+                        extern "C" fn export_get_origin() -> * mut u8 {
+                        $($path_to_types)*:: _export_get_origin_cabi::<$ty > () }
                         #[export_name = "tanishiking:test/test@0.0.1#new-counter"] unsafe
                         extern "C" fn export_new_counter() -> i32 { $($path_to_types)*::
                         _export_new_counter_cabi::<$ty > () } #[export_name =
@@ -483,15 +515,16 @@ pub(crate) use __export_plug_impl as export;
 #[cfg(target_arch = "wasm32")]
 #[link_section = "component-type:wit-bindgen:0.31.0:tanishiking:test@0.0.1:plug:encoded world"]
 #[doc(hidden)]
-pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 370] = *b"\
-\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\xf7\x01\x01A\x02\x01\
-A\x02\x01B\x0c\x04\0\x07counter\x03\x01\x01h\0\x01@\x01\x04self\x01\x01\0\x04\0\x12\
-[method]counter.up\x01\x02\x04\0\x14[method]counter.down\x01\x02\x01@\x01\x04sel\
-f\x01\0z\x04\0\x18[method]counter.value-of\x01\x03\x01@\x02\x07contents\x05width\
-y\0s\x04\0\x0aferris-say\x01\x04\x01i\0\x01@\0\0\x05\x04\0\x0bnew-counter\x01\x06\
-\x04\x01\x1btanishiking:test/test@0.0.1\x05\0\x04\x01\x1btanishiking:test/plug@0\
-.0.1\x04\0\x0b\x0a\x01\0\x04plug\x03\0\0\0G\x09producers\x01\x0cprocessed-by\x02\
-\x0dwit-component\x070.216.0\x10wit-bindgen-rust\x060.31.0";
+pub static __WIT_BINDGEN_COMPONENT_TYPE: [u8; 410] = *b"\
+\0asm\x0d\0\x01\0\0\x19\x16wit-component-encoding\x04\0\x07\x9f\x02\x01A\x02\x01\
+A\x02\x01B\x10\x04\0\x07counter\x03\x01\x01r\x02\x01xy\x01yy\x04\0\x05point\x03\0\
+\x01\x01h\0\x01@\x01\x04self\x03\x01\0\x04\0\x12[method]counter.up\x01\x04\x04\0\
+\x14[method]counter.down\x01\x04\x01@\x01\x04self\x03\0z\x04\0\x18[method]counte\
+r.value-of\x01\x05\x01@\x02\x07contents\x05widthy\0s\x04\0\x0aferris-say\x01\x06\
+\x01@\0\0\x02\x04\0\x0aget-origin\x01\x07\x01i\0\x01@\0\0\x08\x04\0\x0bnew-count\
+er\x01\x09\x04\x01\x1btanishiking:test/test@0.0.1\x05\0\x04\x01\x1btanishiking:t\
+est/plug@0.0.1\x04\0\x0b\x0a\x01\0\x04plug\x03\0\0\0G\x09producers\x01\x0cproces\
+sed-by\x02\x0dwit-component\x070.216.0\x10wit-bindgen-rust\x060.31.0";
 #[inline(never)]
 #[doc(hidden)]
 pub fn __link_custom_section_describing_imports() {

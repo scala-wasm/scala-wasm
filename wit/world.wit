@@ -12,6 +12,7 @@ world plug {
 
 interface test {
     ferris-say: func(content: string, width: u32) -> string;
+    get-origin: func() -> point;
 
     new-counter: func() -> counter;
     resource counter {
@@ -19,6 +20,11 @@ interface test {
       up: func();
       down: func();
       value-of: func() -> s32;
+    }
+
+    record point {
+        x: u32,
+        y: u32,
     }
 }
 

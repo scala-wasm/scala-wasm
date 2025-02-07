@@ -27,7 +27,7 @@ object InteropEmitter {
     implicit ctx: WasmContext
   ): Unit = {
     val importFunctionID = genFunctionID.forComponentFunction(member.importModule, member.importName)
-    val coreWasmFunctionType = Flatten.lowerFlattenFuncType(member.signature)
+    val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
     ctx.moduleBuilder.addImport(
       wamod.Import(
         member.importModule,
@@ -35,7 +35,7 @@ object InteropEmitter {
         wamod.ImportDesc.Func(
           importFunctionID,
           OriginalName(s"${member.importModule}#${member.importName}"),
-          ctx.moduleBuilder.functionTypeToTypeID(coreWasmFunctionType)
+          ctx.moduleBuilder.functionTypeToTypeID(loweredFuncType.funcType)
         )
       )
     )
@@ -67,42 +67,43 @@ object InteropEmitter {
     }
     fb.setResultTypes(transformResultType(member.signature.resultType.toIRType()))
 
-    val paramsViaMemory = member.signature.paramTypes.flatMap(Flatten.flattenType).length > Flatten.MaxFlatParams
-    val returnsViaMemory = Flatten.flattenType(member.signature.resultType).length > Flatten.MaxFlatResults
+    val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
 
     // adapt params to CanonicalABI
-    if (paramsViaMemory) {
-      // TODO : put params onto linear memory
-    } else {
-      params.map { case (localID, tpe) =>
-        fb += wa.LocalGet(localID)
-        ScalaJSToCABI.genAdaptCABI(fb, tpe)
-      }
+    loweredFuncType.paramsOffset match {
+      case Some(offset) =>
+        // TODO : put params onto linear memory
+      case None =>
+        params.map { case (localID, tpe) =>
+          fb += wa.LocalGet(localID)
+          ScalaJSToCABI.genAdaptCABI(fb, tpe)
+        }
     }
 
-    if (returnsViaMemory) {
-      val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
-      val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
-      val returnSize = wit.elemSize(member.signature.resultType)
-      fb += wa.I32Const(returnSize)
-      fb += wa.Call(genFunctionID.malloc)
-      fb += wa.LocalTee(returnPtr)
-      fb += wa.LocalTee(ptr)
+    loweredFuncType.returnOffset match {
+      case Some(_) =>
+        val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val returnSize = wit.elemSize(member.signature.resultType)
+        fb += wa.I32Const(returnSize)
+        fb += wa.Call(genFunctionID.malloc)
+        fb += wa.LocalTee(returnPtr)
+        fb += wa.LocalTee(ptr)
 
-      fb += wa.Call(importFunctionID)
+        fb += wa.Call(importFunctionID)
 
-      // Response back to Scala.js representation
+        // Response back to Scala.js representation
 
-      CABIToScalaJS.genLoadMemory(fb, member.signature.resultType, ptr)
-      fb += wa.LocalGet(returnPtr)
-      fb += wa.Call(genFunctionID.free)
-    } else {
-      fb += wa.Call(importFunctionID)
+        CABIToScalaJS.genLoadMemory(fb, member.signature.resultType, ptr)
+        fb += wa.LocalGet(returnPtr)
+        fb += wa.Call(genFunctionID.free)
 
-      // Response back to Scala.js representation
-      val resultTypes = Flatten.flattenType(member.signature.resultType)
-      val vi = new ValueIterator(fb, resultTypes)
-      CABIToScalaJS.genLoadStack(fb, member.signature.resultType, vi)
+      case None =>
+        fb += wa.Call(importFunctionID)
+        // Response back to Scala.js representation
+        val resultTypes = Flatten.flattenType(member.signature.resultType)
+        val vi = new ValueIterator(fb, resultTypes)
+        CABIToScalaJS.genLoadStack(fb, member.signature.resultType, vi)
     }
 
     // Call the component function
@@ -140,37 +141,44 @@ object InteropEmitter {
       pos,
     )
 
-    val flatParamTypes = exportDef.signature.paramTypes.flatMap(Flatten.flattenType)
-    val flatResultTypes = Flatten.flattenType(exportDef.signature.resultType)
-    val paramsViaMemory = flatParamTypes.length > Flatten.MaxFlatParams
-    val returnsViaMemory = flatResultTypes.length > Flatten.MaxFlatResults
+    val flatFuncType = Flatten.liftFlattenFuncType(exportDef.signature)
 
-    if (paramsViaMemory) {
-      // TODO : put params onto linear memory
-      ???
-    } else {
-      fb.setResultTypes(flatResultTypes)
-      val vi = flatParamTypes.map { t =>
-        val id = fb.addParam(NoOriginalName, t)
-        (id, t)
-      }.toIterator
-      exportDef.signature.paramTypes.foreach { paramTy =>
-        CABIToScalaJS.genLoadStack(fb, paramTy, new ValueIterator(fb, vi))
-      }
+    fb.setResultTypes(flatFuncType.funcType.results)
+
+    val returnOffsetOpt = flatFuncType.returnOffset match {
+      case Some(offsetType) =>
+        val returnOffsetID = fb.addLocal(NoOriginalName, watpe.Int32)
+        // for storing the result data onto memory, after inner function call
+        fb += wa.I32Const(wit.elemSize(exportDef.signature.resultType))
+        fb += wa.Call(genFunctionID.malloc)
+        fb += wa.LocalTee(returnOffsetID)
+        Some(returnOffsetID)
+      case None => // do nothing
+        None
     }
-    if (returnsViaMemory) {
-      // TODO : allocate memoery and pass the ofset
+
+    flatFuncType.paramsOffset match {
+      case Some(paramsOffset) => ??? // TODO read params from linear memory
+      case None =>
+        val vi = flatFuncType.stackParams.map { t =>
+           (fb.addParam(NoOriginalName, t), t)
+        }.toIterator
+        val iterator = new ValueIterator(fb, vi)
+        exportDef.signature.paramTypes.foreach { paramTy =>
+          CABIToScalaJS.genLoadStack(fb, paramTy, iterator)
+        }
     }
 
     fb += wa.Call(internalFunctionID)
-    fb += wa.RefAsNonNull // TODO: NPE if null (based on semantcis)
+    // fb += wa.RefAsNonNull // TODO: NPE if null (based on semantcis)
 
-    // export adapter function
-    // Response back to Scala.js representation
-    if (returnsViaMemory) {
-      // TODO: read from return pointer
-    } else {
-      ScalaJSToCABI.genAdaptCABI(fb, exportDef.signature.resultType)
+    returnOffsetOpt match {
+      case Some(offset) =>
+        ScalaJSToCABI.genStoreMemory(fb, exportDef.signature.resultType)
+        fb += wa.LocalGet(offset)
+      case None =>
+        // CABI expects to have a return value on stack
+        ScalaJSToCABI.genAdaptCABI(fb, exportDef.signature.resultType)
     }
 
     fb.buildAndAddToModule()

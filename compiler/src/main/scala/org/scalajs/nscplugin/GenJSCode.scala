@@ -478,6 +478,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 } else {
                   genJSClassData(cd) // AbstractJSClass or Native JS Class/Module Class (trait?)
                 }
+              } else if (isWasmComponentRecordClass(sym)) {
+                genClass(cd)
               } else if (isWasmComponentInterfaceClass(sym)) {
                 if (sym.hasAnnotation(ComponentImportAnnotation))
                   genImportWasmComponentInterfaceClassData(cd)
@@ -2371,6 +2373,17 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         primitiveIRWIT.get(toIRType(tpe))
       }.getOrElse {
         tpe.typeSymbol match {
+          case tsym if isWasmComponentRecordClass(tsym) =>
+            // TODO: it needs to be sorted by the order of record in wit definition
+            val className = encodeClassName(tsym)
+            val fields: List[wit.FieldType] = tsym.info.decls.collect {
+              case f if f.isField =>
+                val label = encodeFieldSym(f)(f.pos).name
+                val valueType = toWIT(f.tpe)
+                wit.FieldType(label, valueType)
+            }.toList
+            wit.RecordType(className, fields)
+
           case tsym if tsym.isSubClass(ComponentResourceClass) =>
             wit.ResourceType(encodeClassName(tsym))
 
@@ -7205,6 +7218,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     sym.superClass == JSFunctionClass &&
     sym.info.decl(nme.apply).filter(JSCallingConvention.isCall(_)).exists
   }
+
+  private def isWasmComponentRecordClass(sym: Symbol): Boolean =
+    sym.hasAnnotation(ComponentRecordAnnotation) && sym.isFinal
+
 
   private def isWasmComponentInterfaceClass(sym: Symbol): Boolean =
     sym.tpe.typeSymbol.isNonBottomSubClass(ComponentInterfaceClass) &&

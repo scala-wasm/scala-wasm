@@ -675,6 +675,16 @@ object Infos {
           for (t <- paramTypes) generateForWIT(t)
           generateForWIT(resultType)
 
+        case wit.RecordType(className, fields) =>
+          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
+          builder.addInstantiatedClass(className, ctor)
+          for (f <- fields) {
+            // builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(f.tpe)
+          }
+
+
+
         case wit.ResultType(ok, err) =>
           val cases = List(
             wit.CaseType(ComponentResultOkClass, ok),

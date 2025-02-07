@@ -824,6 +824,11 @@ object Serializers {
     def writeName(name: Name): Unit =
       buffer.writeInt(encodedNameToIndex(name.encoded))
 
+    def writeFieldName(name: FieldName): Unit = {
+      writeName(name.className)
+      writeName(name.simpleName)
+    }
+
     def writeMethodName(name: MethodName): Unit =
       buffer.writeInt(methodNameToIndex(name))
 
@@ -909,9 +914,14 @@ object Serializers {
         writeWITType(elemType)
         buffer.writeBoolean(length.isDefined)
         length.foreach(buffer.writeInt)
-      case wit.RecordType(_) =>
+      case wit.RecordType(className, fields) =>
         buffer.writeByte(TagWITRecordType)
-        ???
+        writeName(className)
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeFieldName(f.label)
+          writeWITType(f.tpe)
+        }
       case wit.TupleType(_) =>
         buffer.writeByte(TagWITTupleType)
         ???
@@ -2345,7 +2355,11 @@ object Serializers {
             readWITType(),
             if (readBoolean()) Some(readInt()) else None
           )
-        case TagWITRecordType => ???
+        case TagWITRecordType =>
+          wit.RecordType(
+            readClassName(),
+            List.fill(readInt()) { wit.FieldType(readFieldName(), readWITType()) }
+          )
         case TagWITVariantType =>
           wit.VariantType(
             readClassName(),
@@ -2500,6 +2514,12 @@ object Serializers {
 
     def readStrings(): List[String] =
       List.fill(readInt())(readString())
+
+    private def readFieldName(): FieldName = {
+      val className = readClassName()
+      val simpleFieldName = readSimpleFieldName()
+      makeFieldName(className, simpleFieldName)
+    }
 
     private def readLocalName(): LocalName = {
       val i = readInt()

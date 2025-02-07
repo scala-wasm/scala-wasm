@@ -82,9 +82,13 @@ object WasmInterfaceTypes {
     }
   }
 
-  final case class FieldType(label: String, tpe: ValType)
-  final case class RecordType(fields: List[FieldType]) extends FundamentalType {
-    def toIRType(): jstpe.Type = ???
+  /** label won't be used in load/store with memory or stack, used for Analyzer */
+  final case class FieldType(label: FieldName, tpe: ValType)
+  /**
+    * className is required for loading data back to Scala class
+    */
+  final case class RecordType(className: ClassName, fields: List[FieldType]) extends FundamentalType {
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, false)
   }
 
   final case class TupleType(ts: List[ValType]) extends SpecializedType {
@@ -133,7 +137,7 @@ object WasmInterfaceTypes {
     case CharType => jstpe.CharRef
     case StringType => jstpe.ClassRef(BoxedStringClass)
     case ListType(elemType, length) => ???
-    case RecordType(fields) => ???
+    case RecordType(className, fields) => jstpe.ClassRef(className)
     case TupleType(ts) => ???
     case VariantType(className, cases) => jstpe.ClassRef(className)
     case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
@@ -157,7 +161,7 @@ object WasmInterfaceTypes {
     case st: SpecializedType => st match {
 
       case TupleType(ts) =>
-        RecordType(ts.zipWithIndex.map { case (t, i) => FieldType(i.toString, t) })
+        RecordType(???, ts.zipWithIndex.map { case (t, i) => FieldType(???, t) })
 
       case EnumType(labels) =>
         VariantType(???, labels.map(l => CaseType(???, VoidType)))
@@ -194,7 +198,12 @@ object WasmInterfaceTypes {
           case None => 8
           case Some(value) => elemSize(elemType) * value
         }
-      case RecordType(fields) => ???
+      case RecordType(_, fields) =>
+        val size = fields.foldLeft(0) { case (ptr, f) =>
+          alignTo(ptr, alignment(f.tpe)) + elemSize(f.tpe)
+        }
+        alignTo(size, alignment(tpe))
+
       case VariantType(_, cases) =>
         val indexSize = alignTo(elemSize(discriminantType(cases)), maxCaseAlignment(cases))
         val size = indexSize + cases.map(c => elemSize(c.tpe)).max
@@ -217,7 +226,7 @@ object WasmInterfaceTypes {
           case None => 4
           case Some(_) => alignment(elemType)
         }
-      case RecordType(fields) =>
+      case RecordType(_, fields) =>
         fields.map(f => alignment(f.tpe)).max
       case VariantType(_, cases) =>
         val maxCaseAlign = maxCaseAlignment(cases)

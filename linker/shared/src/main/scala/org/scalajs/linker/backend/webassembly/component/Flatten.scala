@@ -4,35 +4,70 @@ import org.scalajs.linker.backend.webassembly.{Types => watpe}
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 object Flatten {
-  val MaxFlatParams = 16
-  val MaxFlatResults = 1
+  private val MaxFlatParams = 16
+  private val MaxFlatResults = 1
 
-  def lowerFlattenFuncType(funcType: wit.FuncType): watpe.FunctionType = {
-    val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
-    val flatResultTypes = flattenType(funcType.resultType)
-
-    val paramsViaMemory = flatParamTypes.length > MaxFlatParams
-    val returnsViaMemory = flatResultTypes.length > MaxFlatResults
-
-    val finalParamTypes = if (paramsViaMemory) List(watpe.Int32) else flatParamTypes
-    val finalResultTypes = if (returnsViaMemory) Nil else flatResultTypes
-
-    watpe.FunctionType(
-      if (returnsViaMemory) finalParamTypes :+ watpe.Int32 else finalParamTypes,
-      finalResultTypes)
+  case class FlatFuncType(
+    stackParams: List[watpe.Type],
+    stackResults: List[watpe.Type],
+    paramsOffset: Option[watpe.Type],
+    returnOffset: Option[watpe.Type],
+    funcType: watpe.FunctionType
+  ) {
+    assert(!(paramsOffset.isDefined && stackParams.nonEmpty),
+        s"if params are delivered via memory, stack params must be empty.")
+    assert(!(returnOffset.isDefined && stackResults.nonEmpty),
+        "if return values are delivered via memory, stack results must be empty.")
+    assert(!(paramsOffset.isDefined && paramsOffset.get != watpe.Int32))
+    assert(!(returnOffset.isDefined && returnOffset.get != watpe.Int32))
   }
 
-  def liftFlattenFuncType(funcType: wit.FuncType): watpe.FunctionType = {
+  def lowerFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
     val flatResultTypes = flattenType(funcType.resultType)
 
     val paramsViaMemory = flatParamTypes.length > MaxFlatParams
     val returnsViaMemory = flatResultTypes.length > MaxFlatResults
 
-    val finalParamTypes = if (paramsViaMemory) List(watpe.Int32) else flatParamTypes
-    val finalResultTypes = if (returnsViaMemory) List(watpe.Int32) else flatResultTypes
+    val stackParams = if (paramsViaMemory) Nil else flatParamTypes
+    val stackResults = if (returnsViaMemory) Nil else flatResultTypes
+    val paramsOffset = if (paramsViaMemory) Some(watpe.Int32) else None
+    val returnOffset = if (returnsViaMemory) Some(watpe.Int32) else None
 
-    watpe.FunctionType(finalParamTypes, finalResultTypes)
+    FlatFuncType(
+      stackParams,
+      stackResults,
+      paramsOffset,
+      returnOffset,
+      watpe.FunctionType(
+        stackParams ++ paramsOffset.toList ++ returnOffset.toList,
+        stackResults
+      )
+    )
+  }
+
+  def liftFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
+    val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
+    val flatResultTypes = flattenType(funcType.resultType)
+
+    val paramsViaMemory = flatParamTypes.length > MaxFlatParams
+    val returnsViaMemory = flatResultTypes.length > MaxFlatResults
+
+    val stackParams = if (paramsViaMemory) Nil else flatParamTypes
+    val stackResults = if (returnsViaMemory) Nil else flatResultTypes
+    val paramsOffset = if (paramsViaMemory) Some(watpe.Int32) else None
+    val returnOffset = if (returnsViaMemory) Some(watpe.Int32) else None
+
+    FlatFuncType(
+      stackParams,
+      stackResults,
+      paramsOffset,
+      returnOffset,
+      watpe.FunctionType(
+        stackParams ++ paramsOffset.toList,
+        stackResults ++ returnOffset.toList
+      )
+    )
   }
 
   def flattenType(tpe: wit.ValType): List[watpe.Type] =
