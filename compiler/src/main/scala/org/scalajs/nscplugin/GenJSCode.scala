@@ -2339,7 +2339,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
         val ft = wit.FuncType(
           params,
-          toWIT(funcType.resultType)
+          toResultWIT(funcType.resultType)
         )
         js.ComponentNativeMemberDef(flags, encodeMethodSym(sym), module, name, ft)
       }
@@ -2365,6 +2365,11 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       ComponentUnsigned_UInt -> wit.U32Type,
       ComponentUnsigned_ULong -> wit.U64Type
     )
+
+    def toResultWIT(tpe: Type): Option[wit.ValType] = {
+      if (toIRType(tpe) == jstpe.VoidType) None
+      else Some(toWIT(tpe))
+    }
 
     def toWIT(tpe: Type): wit.ValType = {
       toWITMaybeArray(tpe).orElse {
@@ -2426,7 +2431,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       }
     }
 
-
     def genWasmComponentExport(method: DefDef): js.WasmComponentExportDef = {
       val sym = method.symbol
       val info = jsInterop.wasmComponentExportOf(sym)
@@ -2434,7 +2438,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         val methodDef = genMethod(method).get
         val signature = wit.FuncType(
           info.signature.params.map(toWIT(_)),
-          toWIT(info.signature.resultType)
+          toResultWIT(info.signature.resultType)
         )
         js.WasmComponentExportDef(
           DefaultModuleID,

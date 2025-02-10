@@ -23,4 +23,7 @@ object Basics extends component.Interface {
 object Tests extends component.Interface {
   def roundtripString(a: String): String = component.native
   def roundtripPoint(a: Point): Point = component.native
+  def testC1(a: C1): Unit = component.native
+  def roundtripC1(a: C1): C1 = component.native
+  def roundtripZ1(a: Z1): Z1 = component.native
 }

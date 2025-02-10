@@ -38,6 +38,13 @@ interface tests {
   record point { x: s32, y: s32 }
   roundtrip-string: func(a: string) -> string;
   roundtrip-point: func(a: point) -> point;
+
+  variant c1 { a(s32), b(f32) }
+  variant z1 { a(s32), b }
+  test-c1: func(a: c1);
+  roundtrip-c1: func(a: c1) -> c1;
+  roundtrip-z1: func(a: z1) -> z1;
+
 }
 
 interface test-imports {

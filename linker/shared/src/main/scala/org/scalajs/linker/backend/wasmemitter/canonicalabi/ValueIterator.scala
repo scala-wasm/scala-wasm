@@ -9,22 +9,53 @@ import org.scalajs.linker.backend.webassembly.FunctionBuilder
 import org.scalajs.linker.backend.webassembly.Identitities.{LocalID, MemoryID}
 
 object ValueIterators {
-  class ValueIterator(fb: FunctionBuilder, underlying: Iterator[(LocalID, watpe.Type)]) {
-    def this(fb: FunctionBuilder, types: List[watpe.Type]) = {
-      this(
+  class ValueIterator private (
+      fb: FunctionBuilder,
+      underlying: List[(LocalID, watpe.Type)],
+      init: Int
+  ) {
+    private var i = init
+
+    def this(fb: FunctionBuilder, underlying: List[(LocalID, watpe.Type)]) = {
+      this(fb, underlying, 0)
+    }
+
+    def hasNext(): Boolean = {
+      i < underlying.length
+    }
+
+    def skip(t: watpe.Type): Unit = {
+      i += 1
+    }
+
+    def next(t: watpe.Type): Unit = {
+      val (id, tpe) = underlying(i)
+      assert(t == tpe)
+      fb += wa.LocalGet(id)
+      i += 1
+    }
+
+    def copy(): ValueIterator = {
+      new ValueIterator(
+        fb,
+        underlying,
+        i
+      )
+    }
+  }
+
+  object ValueIterator {
+
+    def apply(fb: FunctionBuilder, types: List[watpe.Type]): ValueIterator = {
+      new ValueIterator(
         fb,
         types.reverse.map { t =>
           val id = fb.addLocal(NoOriginalName, t)
           fb += wa.LocalSet(id)
           (id, t)
-        }.toIterator
+        },
+        0
       )
-    }
-
-    def next(t: watpe.Type): Unit = {
-      val (id, tpe) = underlying.next()
-      assert(t == tpe)
-      fb += wa.LocalGet(id)
     }
   }
 }

@@ -24,7 +24,7 @@ object Flatten {
 
   def lowerFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
-    val flatResultTypes = flattenType(funcType.resultType)
+    val flatResultTypes = funcType.resultType.toList.flatMap(flattenType)
 
     val paramsViaMemory = flatParamTypes.length > MaxFlatParams
     val returnsViaMemory = flatResultTypes.length > MaxFlatResults
@@ -48,7 +48,7 @@ object Flatten {
 
   def liftFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
-    val flatResultTypes = flattenType(funcType.resultType)
+    val flatResultTypes = funcType.resultType.toList.flatMap(flattenType)
 
     val paramsViaMemory = flatParamTypes.length > MaxFlatParams
     val returnsViaMemory = flatResultTypes.length > MaxFlatResults

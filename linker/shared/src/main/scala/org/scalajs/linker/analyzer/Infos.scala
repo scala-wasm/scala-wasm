@@ -673,7 +673,7 @@ object Infos {
       tpe match {
         case wit.FuncType(paramTypes, resultType) =>
           for (t <- paramTypes) generateForWIT(t)
-          generateForWIT(resultType)
+          resultType.foreach { t => generateForWIT(t) }
 
         case wit.RecordType(className, fields) =>
           val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
@@ -702,10 +702,11 @@ object Infos {
         case wit.VariantType(className, cases) =>
           // reference to all the children types so we can type test in interop
           // and make field read so we can read those fields in interop
+          // builder.maybeAddReferencedClass(ClassRef(className)) // forClass
           for (c <- cases) {
             val ctor = wit.makeCtorName(c.tpe)
             builder.addInstantiatedClass(c.className, ctor)
-            builder.maybeAddReferencedClass(ClassRef(c.className))
+            // builder.maybeAddReferencedClass(ClassRef(c.className)) // forClass
             builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
             builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
             generateForWIT(c.tpe)

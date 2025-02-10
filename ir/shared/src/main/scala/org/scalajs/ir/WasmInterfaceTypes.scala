@@ -88,7 +88,7 @@ object WasmInterfaceTypes {
     * className is required for loading data back to Scala class
     */
   final case class RecordType(className: ClassName, fields: List[FieldType]) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(className, false)
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
   }
 
   final case class TupleType(ts: List[ValType]) extends SpecializedType {
@@ -96,10 +96,10 @@ object WasmInterfaceTypes {
   }
 
   final case class CaseType(className: ClassName, tpe: ValType) {
-    def toIRType(): jstpe.Type = jstpe.ClassType(className, false)
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
   }
   final case class VariantType(className: ClassName, cases: List[CaseType]) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(className, false)
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
   }
 
   final case class ResultType(ok: ValType, err: ValType) extends SpecializedType {
@@ -121,7 +121,7 @@ object WasmInterfaceTypes {
   }
 
   // ExternTypes
-  final case class FuncType(paramTypes: List[ValType], resultType: ValType) extends ExternType
+  final case class FuncType(paramTypes: List[ValType], resultType: Option[ValType]) extends ExternType
 
   // utilities
 
@@ -148,8 +148,10 @@ object WasmInterfaceTypes {
   }
 
   def makeCtorName(tpe: ValType): MethodName = {
-    val ref = toTypeRef(tpe)
-    MethodName.constructor(List(ref))
+    if (tpe == VoidType)
+      MethodName.constructor(Nil)
+    else
+      MethodName.constructor(List(toTypeRef(tpe)))
   }
 
   /**
@@ -184,6 +186,10 @@ object WasmInterfaceTypes {
     case ft: FundamentalType => ft
   }
 
+  def elemSize(tpe: Option[ValType]): Int = tpe match {
+    case None => 0
+    case Some(value) => elemSize(value)
+  }
   def elemSize(tpe: ValType): Int =
     despecialize(tpe) match {
       case VoidType => 0

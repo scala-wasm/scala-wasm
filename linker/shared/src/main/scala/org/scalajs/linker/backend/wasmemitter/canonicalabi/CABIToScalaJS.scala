@@ -31,12 +31,11 @@ object CABIToScalaJS {
     */
   def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType, ptr: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
     wit.despecialize(tpe) match {
+      case wit.VoidType => // do nothing
       case pt: wit.PrimValType =>
         fb += wa.LocalGet(ptr)
         pt match {
-          case wit.VoidType =>
-            fb += wa.Drop
-            fb += wa.GlobalGet(genGlobalID.undef)
+          case wit.VoidType => throw new AssertionError("should be handled outside")
           case wit.BoolType => fb += wa.I32Load8U()
           case wit.S8Type   => fb += wa.I32Load8S()
           case wit.S16Type  => fb += wa.I32Load16S()
@@ -100,6 +99,7 @@ object CABIToScalaJS {
 
   def genLoadStack(fb: FunctionBuilder, tpe: wit.ValType, vi: ValueIterator)(implicit ctx: WasmContext): Unit = {
     tpe match {
+      case wit.VoidType => // do nothing
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type |
           wit.U8Type | wit.U16Type | wit.U32Type | wit.CharType =>
@@ -110,8 +110,6 @@ object CABIToScalaJS {
 
       case wit.F32Type => vi.next(watpe.Float32)
       case wit.F64Type => vi.next(watpe.Float64)
-
-      case wit.VoidType =>
 
       case wit.StringType =>
         vi.next(watpe.Int32)
@@ -139,11 +137,13 @@ object CABIToScalaJS {
           () => vi.next(watpe.Int32),
           (tpe) => {
             val expect = Flatten.flattenType(tpe)
-            genCoerceValues(fb, vi, flattened, expect)
-            genLoadStack(fb, tpe, new ValueIterator(fb, expect))
+            genCoerceValues(fb, vi.copy(), flattened, expect)
+            genLoadStack(fb, tpe, ValueIterator(fb, expect))
           },
           className
         )
+        // drop values (we use the copied iterator for each cases)
+        for (t <- flattened) { vi.skip(t) }
 
       case _ => ???
     }
@@ -158,9 +158,8 @@ object CABIToScalaJS {
   )(implicit ctx: WasmContext): Unit = {
     val cases = variant.cases
     val flattened = Flatten.flattenVariants(cases.map(_.tpe))
+
     fb.switch(
-      // Sig(Nil, List(watpe.Int32)),
-      // Sig(List(watpe.Int32), List(watpe.RefType(false, genTypeID.ObjectStruct)))
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
     )(
@@ -172,18 +171,24 @@ object CABIToScalaJS {
         // need to call specific constructor, and box the value
         val isResult = className == SpecialNames.WasmComponentResultClass
         val ctor =
-          if (isResult)
+          if (c.tpe == wit.VoidType)
+            MethodName.constructor(Nil)
+          else if (isResult)
             MethodName.constructor(List(ClassRef(ObjectClass)))
           else
             wit.makeCtorName(c.tpe)
         (List(i), () => {
-          genNewScalaClass(fb, c.className, ctor) {
-            genLoadValue(c.tpe)
-            c.tpe.toIRType match {
-              case t: PrimType if isResult => genBox(fb, t)
-              case ClassType(className, _) if isResult && ctx.getClassInfo(className).isWasmComponentResource =>
-                genBox(fb, IntType) // there're too much special case for resource class... let's add a new type for it?
-              case _ =>
+          if (c.tpe == wit.VoidType) {
+            fb += wa.Call(genFunctionID.loadModule(c.className))
+          } else {
+            genNewScalaClass(fb, c.className, ctor) {
+              genLoadValue(c.tpe)
+              c.tpe.toIRType match {
+                case t: PrimType if isResult => genBox(fb, t)
+                case ClassType(className, _) if isResult && ctx.getClassInfo(className).isWasmComponentResource =>
+                  genBox(fb, IntType) // there're too much special case for resource class... let's add a new type for it?
+                case _ =>
+              }
             }
           }
         })
@@ -222,7 +227,7 @@ object CABIToScalaJS {
       }
     }
     // drop padding
-    for (_ <- types.drop(expect.length)) {} // do nothing
+    // for (_ <- types.drop(expect.length)) {} // do nothing since there's no values on the stack
   }
 
   private def genNewScalaClass(fb: FunctionBuilder, cls: ClassName, ctor: MethodName)(

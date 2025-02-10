@@ -951,7 +951,13 @@ object Serializers {
         buffer.writeByte(TagWITFuncType)
         buffer.writeInt(params.length)
         for (p <- params) writeWITType(p)
-        writeWITType(result)
+        result match {
+          case Some(result) =>
+            buffer.writeBoolean(true)
+            writeWITType(result)
+          case None =>
+            buffer.writeBoolean(false)
+        }
     }
 
     def writeTypeRef(typeRef: TypeRef): Unit = typeRef match {
@@ -2329,7 +2335,7 @@ object Serializers {
       assert(tag == TagWITFuncType)
       wit.FuncType(
         List.fill(readInt()) { readWITType() },
-        readWITType()
+        if (readBoolean()) Some(readWITType()) else None
       )
     }
 

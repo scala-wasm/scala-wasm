@@ -3,7 +3,7 @@ mod bindings;
 
 use crate::bindings::exports::component::testing::basics::Guest as Basics;
 use crate::bindings::exports::component::testing::tests::Guest as Tests;
-use crate::bindings::exports::component::testing::tests::Point;
+use crate::bindings::exports::component::testing::tests::{Point, C1, Z1};
 
 struct Component;
 
@@ -21,9 +21,13 @@ impl Basics for Component {
   fn roundtrip_char(a: char) -> char { a }
 }
 
+#[allow(unused_variables)]
 impl Tests for Component {
   fn roundtrip_string(a: String) -> String { a }
   fn roundtrip_point(a: Point) -> Point { a }
+  fn test_c1(a: C1) {}
+  fn roundtrip_c1(a: C1) -> C1 { a }
+  fn roundtrip_z1(a: Z1) -> Z1 { a }
 }
 
 bindings::export!(Component with_types_in bindings);

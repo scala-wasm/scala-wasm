@@ -328,7 +328,7 @@ final class FunctionBuilder(
     switch(FunctionType.NilToNil)(scrutinee)(clauses: _*)(default)
   }
 
-  def switchByType(resultType: List[Type])(
+  def switchByType(resultTypes: List[Type])(
       scrutinee: () => Unit)(
       clauses: (ClassName, () => Unit)*)(
       default: () => Unit): Unit = {
@@ -352,7 +352,7 @@ final class FunctionBuilder(
       instrs += Block(
         sigToBlockType(FunctionType(
           Nil,
-          List(RefType(genTypeID.forClass(className)))
+          List(RefType.nullable(genTypeID.forClass(className)))
         )),
         Some(label)
       )
@@ -362,7 +362,7 @@ final class FunctionBuilder(
     scrutinee()
     for ((c, label) <- clauseLabels) {
       val className = c._1
-      instrs += BrOnCast(label, RefType.anyref, RefType(genTypeID.forClass(className)))
+      instrs += BrOnCast(label, RefType.nullable(genTypeID.ObjectStruct), RefType.nullable(genTypeID.forClass(className)))
     }
     instrs += Unreachable
 
