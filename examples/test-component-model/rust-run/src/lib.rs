@@ -31,6 +31,10 @@ impl Run for Component {
       assert_eq!(tests::roundtrip_z1(tests::Z1::A(140)), tests::Z1::A(140));
       assert_eq!(tests::roundtrip_z1(tests::Z1::B), tests::Z1::B);
 
+      assert_eq!(tests::roundtrip_enum(tests::E1::A), tests::E1::A);
+      assert_eq!(tests::roundtrip_enum(tests::E1::B), tests::E1::B);
+      assert_eq!(tests::roundtrip_enum(tests::E1::C), tests::E1::C);
+
       return Ok(());
     }
 }

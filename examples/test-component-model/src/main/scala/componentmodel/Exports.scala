@@ -14,6 +14,8 @@ object TestsExport extends component.Interface {
   def roundtripC1(a: C1): C1 = { a }
   def roundtripZ1(a: Z1): Z1 = a
   def testC1(a: C1): Unit = {}
+
+  def roundtripEnum(a: E1): E1 = { a }
 }
 
 @ComponentExport("component:testing/test-imports")
@@ -46,6 +48,10 @@ object TestImports extends component.Interface {
     assert(roundtripZ1(Z1.A(0)) == Z1.A(0))
     assert(roundtripZ1(Z1.A(100)) == Z1.A(100))
     assert(roundtripZ1(Z1.B) == Z1.B)
+
+    assert(roundtripEnum(E1.A) == E1.A)
+    assert(roundtripEnum(E1.B) == E1.B)
+    assert(roundtripEnum(E1.C) == E1.C)
   }
 }
 
@@ -76,5 +82,18 @@ object Z1 {
     type T = Unit
     val value = ()
     val _index = 1
+  }
+}
+
+sealed trait E1 extends component.Enum
+object E1 {
+  final case object A extends E1 {
+    val _index = 0
+  }
+  final case object B extends E1 {
+    val _index = 1
+  }
+  final case object C extends E1 {
+    val _index = 2
   }
 }

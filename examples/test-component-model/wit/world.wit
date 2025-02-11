@@ -45,6 +45,8 @@ interface tests {
   roundtrip-c1: func(a: c1) -> c1;
   roundtrip-z1: func(a: z1) -> z1;
 
+  enum e1 { a, b, c }
+  roundtrip-enum: func(a: e1) -> e1;
 }
 
 interface test-imports {
