@@ -49,11 +49,13 @@ object ValueIterators {
     def apply(fb: FunctionBuilder, types: List[watpe.Type]): ValueIterator = {
       new ValueIterator(
         fb,
+        // Pop and store the top stack values into local variables.
+        // When iterating over the values, push them back while preserving the original order.
         types.reverse.map { t =>
           val id = fb.addLocal(NoOriginalName, t)
           fb += wa.LocalSet(id)
           (id, t)
-        },
+        }.reverse,
         0
       )
     }

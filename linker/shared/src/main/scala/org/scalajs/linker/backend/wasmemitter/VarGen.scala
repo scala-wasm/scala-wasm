@@ -433,6 +433,7 @@ object VarGen {
     case object typeDataArray extends TypeID
     case object itables extends TypeID
     case object reflectiveProxies extends TypeID
+    case object undefined extends TypeID // WASI
 
     // primitive array types, underlying the Array[T] classes
     case object i8Array extends TypeID

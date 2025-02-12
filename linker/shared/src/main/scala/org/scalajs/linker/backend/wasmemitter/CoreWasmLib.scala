@@ -395,22 +395,79 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       addHelperImport(genFunctionID.isUndef, List(anyref), List(Int32))
     } else {
       {
+        // Handle UnitBoxClass, IntegerBoxClass, FloatBoxClass, and i16array (string), otherwise ref.eq
+        // Double, Long, Char should be handled by BoxedRuntime
+        // Boolean, Byte, Short (and 31bit int) should be i31ref and handled by ref.eq.
         val fb = newFunctionBuilder(genFunctionID.is)
         val a = fb.addParam("a", anyref)
         val b = fb.addParam("b", anyref)
         fb.setResultType(Int32)
-        fb.block(RefType.anyref) { nonEqRef =>
+
+        def genRefTestBoth(ref: RefType): Unit = {
           fb += LocalGet(a)
-          fb += BrOnCastFail(nonEqRef, RefType.anyref, RefType.eqref)
-
+          fb += RefTest(ref)
           fb += LocalGet(b)
-          fb += BrOnCastFail(nonEqRef, RefType.anyref, RefType.eqref)
-
-          fb += RefEq
-          fb += Return
+          fb += RefTest(ref)
+          fb += I32And
         }
-        fb += Drop
-        fb += I32Const(0)
+
+        def genGetValueBoth(className: ClassName): Unit = {
+          fb += LocalGet(a)
+          fb += RefCast(RefType(genTypeID.forClass(className)))
+          fb += StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(FieldName(className, SpecialNames.valueFieldSimpleName))
+          )
+          fb += LocalGet(b)
+          fb += RefCast(RefType(genTypeID.forClass(className)))
+          fb += StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(FieldName(className, SpecialNames.valueFieldSimpleName))
+          )
+        }
+
+        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)))
+        fb.ifThenElse(Int32) {
+          fb += I32Const(1)
+          fb += Return
+        } {
+          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+          fb.ifThenElse(Int32) {
+            genGetValueBoth(SpecialNames.IntegerBoxClass)
+            fb += I32Eq
+            fb += Return
+          } {
+            genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+            fb.ifThenElse(Int32) {
+              genGetValueBoth(SpecialNames.FloatBoxClass)
+              fb += F32Eq
+              fb += Return
+            } {
+              genRefTestBoth(RefType(genTypeID.i16Array))
+              fb.ifThenElse(Int32) {
+                fb += LocalGet(a)
+                fb += RefCast(RefType(genTypeID.i16Array))
+                fb += LocalGet(b)
+                fb += RefCast(RefType(genTypeID.i16Array))
+                fb += Call(genFunctionID.string.stringEquals)
+                fb += Return
+              } {
+                genRefTestBoth(RefType.eqref)
+                fb.ifThenElse(Int32) {
+                  fb += LocalGet(a)
+                  fb += RefCast(RefType.eqref)
+                  fb += LocalGet(b)
+                  fb += RefCast(RefType.eqref)
+                  fb += RefEq
+                  fb += Return
+                } {
+                  fb += I32Const(0)
+                  fb += Return
+                }
+              }
+            }
+          }
+        }
         fb.buildAndAddToModule()
       }
     }
@@ -3920,19 +3977,19 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
   private def genUndefinedAndIsUndef()(implicit ctx: WasmContext): Unit = {
     assert(true /*isWASI*/) // scalastyle:ignore
+
+    ctx.mainRecType.addSubType(
+      genTypeID.undefined,
+      OriginalName(genTypeID.undefined.toString()),
+      StructType(Nil)
+    )
     ctx.addGlobal(
       Global(
         genGlobalID.undef,
         OriginalName(genGlobalID.undef.toString()),
         isMutable = false,
-        RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)),
-        Expr(List(
-          GlobalGet(genGlobalID.forVTable(SpecialNames.UnitBoxClass)),
-          GlobalGet(genGlobalID.emptyITable),
-          I32Const(0),
-          RefI31, // whatever, maybe we should derive a class that doesn't have field for undef
-          StructNew(genTypeID.forClass(SpecialNames.UnitBoxClass))
-        ))
+        RefType(genTypeID.undefined),
+        Expr(List(StructNew(genTypeID.undefined)))
       )
     )
 
@@ -3940,7 +3997,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     val xParam = fb.addParam("x", RefType.anyref)
     fb.setResultType(Int32)
     fb += LocalGet(xParam)
-    fb += RefTest(RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)))
+    fb += RefTest(RefType(genTypeID.undefined))
     fb.buildAndAddToModule()
   }
 

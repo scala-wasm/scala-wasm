@@ -91,22 +91,14 @@ object CABIToScalaJS {
         genMovePtr(fb, ptr, tpe)
 
       case variant @ wit.VariantType(className, cases) =>
-        genLoadVariant(
-          fb,
-          variant,
-          () => {
-            genLoadMemory(fb, wit.discriminantType(cases), ptr) // load i32 (case index) from memory
-            genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
-          },
-          (tpe) => {
-            genLoadMemory(fb, tpe, ptr)
-            val maxElemSize = cases.map(c => wit.elemSize(c.tpe)).max
-            val elemSize = wit.elemSize(tpe)
-            genMovePtr(fb, ptr, maxElemSize - elemSize)
-          },
-          className
+        genLoadVariantMemory(fb, cases, ptr, wit.alignment(variant), false)
+
+      case result @ wit.ResultType(ok, err) =>
+        val cases = List(
+          wit.CaseType(ComponentResultOkClass, ok),
+          wit.CaseType(ComponentResultErrClass, err)
         )
-        genAlignTo(fb, wit.alignment(variant), ptr)
+        genLoadVariantMemory(fb, cases, ptr, wit.alignment(result), true)
 
       case tpe => throw new AssertionError(s"unsupported tpe: $tpe")
     }
@@ -159,64 +151,65 @@ object CABIToScalaJS {
         }
 
       case variant @ wit.VariantType(className, cases) =>
-        val flattened = Flatten.flattenVariants(cases.map(_.tpe))
-        genLoadVariant(
+        genLoadVariantStack(
           fb,
-          variant,
-          () => vi.next(watpe.Int32),
-          (tpe) => {
-            val expect = Flatten.flattenType(tpe)
-            genCoerceValues(fb, vi.copy(), flattened, expect)
-            genLoadStack(fb, tpe, ValueIterator(fb, expect))
-          },
-          className
+          cases,
+          vi,
+          boxValue = false
         )
-        // drop values (we use the copied iterator for each cases)
-        for (t <- flattened) { vi.skip(t) }
+
+      case wit.ResultType(ok, err) =>
+        val cases = List(
+          wit.CaseType(ComponentResultOkClass, ok),
+          wit.CaseType(ComponentResultErrClass, err)
+        )
+        genLoadVariantStack(
+          fb,
+          cases,
+          vi,
+          boxValue = true
+        )
 
       case _ => ???
     }
   }
 
-  private def genLoadVariant(
-      fb: FunctionBuilder,
-      variant: wit.VariantType,
-      genGetIndex: () => Unit,
-      genLoadValue: (wit.ValType) => Unit,
-      className: ClassName
+  private def genLoadVariantMemory(
+    fb: FunctionBuilder,
+    cases: List[wit.CaseType],
+    ptr: wanme.LocalID,
+    alignment: Int,
+    boxValue: Boolean
   )(implicit ctx: WasmContext): Unit = {
-    val cases = variant.cases
     val flattened = Flatten.flattenVariants(cases.map(_.tpe))
-
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-    )(
-      genGetIndex
-    )(
+    )( () => {
+     genLoadMemory(fb, wit.discriminantType(cases), ptr) // load i32 (case index) from memory
+     genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
+    })(
       cases.zipWithIndex.map { case (c, i) =>
-        // TODO: maybe we shoulnd't despecialize? it seems we have some special case for specialized types
-        // the constructor of result class will be j.l.Object
-        // need to call specific constructor, and box the value
-        val isResult = className == SpecialNames.WasmComponentResultClass
-        val ctor =
-          if (c.tpe == wit.VoidType)
-            MethodName.constructor(Nil)
-          else if (isResult)
-            MethodName.constructor(List(ClassRef(ObjectClass)))
-          else
-            wit.makeCtorName(c.tpe)
+        val ctorID =
+          if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
+          else wit.makeCtorName(c.tpe)
         (List(i), () => {
-          if (c.tpe == wit.VoidType) {
+          if (!boxValue && c.tpe == wit.VoidType) {
             fb += wa.Call(genFunctionID.loadModule(c.className))
           } else {
-            genNewScalaClass(fb, c.className, ctor) {
-              genLoadValue(c.tpe)
-              c.tpe.toIRType match {
-                case t: PrimTypeWithRef if isResult => genBox(fb, t)
-                case ClassType(className, _) if isResult && ctx.getClassInfo(className).isWasmComponentResource =>
-                  genBox(fb, IntType) // there're too much special case for resource class... let's add a new type for it?
-                case _ =>
+            genNewScalaClass(fb, c.className, ctorID) {
+              if (c.tpe == wit.VoidType) fb += wa.GlobalGet(genGlobalID.undef)
+              else {
+                genLoadMemory(fb, c.tpe, ptr)
+                val maxElemSize = cases.map(c => wit.elemSize(c.tpe)).max
+                val elemSize = wit.elemSize(c.tpe)
+                genMovePtr(fb, ptr, maxElemSize - elemSize)
+                if (boxValue) {
+                  c.tpe.toIRType match {
+                    case t: PrimTypeWithRef => genBox(fb, t)
+                    case _ =>
+                  }
+                }
               }
             }
           }
@@ -225,6 +218,51 @@ object CABIToScalaJS {
     ) { () =>
       fb += wa.Unreachable
     }
+    genAlignTo(fb, alignment, ptr)
+  }
+
+  private def genLoadVariantStack(
+    fb: FunctionBuilder,
+    cases: List[wit.CaseType],
+    vi: ValueIterator,
+    boxValue: Boolean,
+  )(implicit ctx: WasmContext): Unit = {
+    val flattened = Flatten.flattenVariants(cases.map(_.tpe))
+    fb.switch(
+      Sig(Nil, Nil),
+      Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
+    ) { () => vi.next(watpe.Int32) } (
+      cases.zipWithIndex.map { case (c, i) =>
+        // While the variant uses `case object`` when the value type is Unit,
+        // the Result/Option type still uses `case class Ok(())`` even when the value type is Unit.
+        val ctorID =
+          if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
+          else wit.makeCtorName(c.tpe)
+        (List(i), () => {
+          if (!boxValue && c.tpe == wit.VoidType) {
+            fb += wa.Call(genFunctionID.loadModule(c.className))
+          } else {
+            genNewScalaClass(fb, c.className, ctorID) {
+              if (c.tpe == wit.VoidType) fb += wa.GlobalGet(genGlobalID.undef)
+              else {
+                val expect = Flatten.flattenType(c.tpe)
+                genCoerceValues(fb, vi.copy(), flattened, expect)
+                genLoadStack(fb, c.tpe, ValueIterator(fb, expect))
+                if (boxValue) {
+                  c.tpe.toIRType match {
+                    case t: PrimTypeWithRef => genBox(fb, t)
+                    case _ =>
+                  }
+                }
+              }
+            }
+          }
+        })
+      }: _*
+    ) { () =>
+      fb += wa.Unreachable
+    }
+    for (t <- flattened) { vi.skip(t) }
   }
 
   /**

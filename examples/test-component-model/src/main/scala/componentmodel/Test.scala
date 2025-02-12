@@ -1,31 +1,34 @@
 package componentmodel
 
-import scala.scalajs.component
-import component.annotation._
-import component.unsigned._
+import scala.scalajs.{component => cm}
+import cm.annotation._
+import cm.unsigned._
 
 @ComponentImport("component:testing/basics")
-object Basics extends component.Interface {
-  def roundtripU8(a: UByte): UByte = component.native
-  def roundtripS8(a: Byte): Byte = component.native
-  def roundtripU16(a: UShort): UShort = component.native
-  def roundtripS16(a: Short): Short = component.native
-  def roundtripU32(a: UInt): UInt = component.native
-  def roundtripS32(a: Int): Int = component.native
-  // def roundtripU64(a: ULong): ULong = component.native
-  // def roundtripS64(a: Long): Long = component.native
-  def roundtripF32(a: Float): Float = component.native
-  def roundtripF64(a: Double): Double = component.native
-  def roundtripChar(a: Char): Char = component.native
+object Basics extends cm.Interface {
+  def roundtripU8(a: UByte): UByte = cm.native
+  def roundtripS8(a: Byte): Byte = cm.native
+  def roundtripU16(a: UShort): UShort = cm.native
+  def roundtripS16(a: Short): Short = cm.native
+  def roundtripU32(a: UInt): UInt = cm.native
+  def roundtripS32(a: Int): Int = cm.native
+  // def roundtripU64(a: ULong): ULong = cm.native
+  // def roundtripS64(a: Long): Long = cm.native
+  def roundtripF32(a: Float): Float = cm.native
+  def roundtripF64(a: Double): Double = cm.native
+  def roundtripChar(a: Char): Char = cm.native
 }
 
 @ComponentImport("component:testing/tests")
-object Tests extends component.Interface {
-  def roundtripString(a: String): String = component.native
-  def roundtripPoint(a: Point): Point = component.native
-  def testC1(a: C1): Unit = component.native
-  def roundtripC1(a: C1): C1 = component.native
-  def roundtripZ1(a: Z1): Z1 = component.native
-  def roundtripEnum(a: E1): E1 = component.native
-  def roundtripTuple(A: (C1, Z1)): (C1, Z1) = component.native
+object Tests extends cm.Interface {
+  def roundtripString(a: String): String = cm.native
+  def roundtripPoint(a: Point): Point = cm.native
+  def testC1(a: C1): Unit = cm.native
+  def roundtripC1(a: C1): C1 = cm.native
+  def roundtripZ1(a: Z1): Z1 = cm.native
+  def roundtripEnum(a: E1): E1 = cm.native
+  def roundtripTuple(a: (C1, Z1)): (C1, Z1) = cm.native
+  def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = cm.native
+  def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = cm.native
+  def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = cm.native
 }

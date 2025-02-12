@@ -103,7 +103,7 @@ object WasmInterfaceTypes {
   }
 
   final case class ResultType(ok: ValType, err: ValType) extends SpecializedType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(Names.ComponentResultClass, false)
+    def toIRType(): jstpe.Type = jstpe.ClassType(Names.ComponentResultClass, true)
   }
 
   final case class EnumType(labels: List[String]) extends SpecializedType {

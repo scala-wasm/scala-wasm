@@ -44,6 +44,21 @@ impl Run for Component {
         (C1::B(5521.53), Z1::A(64534)),
       );
 
+      assert_eq!(roundtrip_result(Ok(())), Ok(()));
+      assert_eq!(roundtrip_result(Err(())), Err(()));
+
+      assert_eq!(roundtrip_string_error(Ok(321.0)), Ok(321.0));
+      assert_eq!(roundtrip_string_error(Ok(0.0)), Ok(0.0));
+      assert_eq!(roundtrip_string_error(Ok(0.1)), Ok(0.1));
+      assert_eq!(roundtrip_string_error(Err("test")), Err("test".to_string()));
+
+      assert_eq!(roundtrip_enum_error(Ok(C1::A(0))), Ok(C1::A(0)));
+      assert_eq!(roundtrip_enum_error(Ok(C1::A(4))), Ok(C1::A(4)));
+      assert_eq!(roundtrip_enum_error(Ok(C1::B(55.5))), Ok(C1::B(55.5)));
+      assert_eq!(roundtrip_enum_error(Err(E1::A)), Err(E1::A));
+      assert_eq!(roundtrip_enum_error(Err(E1::B)), Err(E1::B));
+      assert_eq!(roundtrip_enum_error(Err(E1::C)), Err(E1::C));
+
       return Ok(());
     }
 }

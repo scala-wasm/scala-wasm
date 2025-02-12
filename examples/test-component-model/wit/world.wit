@@ -49,6 +49,10 @@ interface tests {
   roundtrip-enum: func(a: e1) -> e1;
 
   roundtrip-tuple: func(a: tuple<c1, z1>) -> tuple<c1, z1>;
+
+  roundtrip-result: func(a: result) -> result;
+  roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;
+  roundtrip-enum-error: func(a: result<c1, e1>) -> result<c1, e1>;
 }
 
 interface test-imports {

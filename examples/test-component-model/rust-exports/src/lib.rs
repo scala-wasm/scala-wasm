@@ -30,6 +30,9 @@ impl Tests for Component {
   fn roundtrip_z1(a: Z1) -> Z1 { a }
   fn roundtrip_enum(a: E1) -> E1 { a }
   fn roundtrip_tuple(a: (C1, Z1)) -> (C1, Z1) { a }
+  fn roundtrip_result(a: Result<(), ()>) -> Result<(), ()> { a }
+  fn roundtrip_string_error(a: Result<f32, String>) -> Result<f32, String> { a }
+  fn roundtrip_enum_error(a: Result<C1, E1>) -> Result<C1, E1> { a }
 }
 
 bindings::export!(Component with_types_in bindings);

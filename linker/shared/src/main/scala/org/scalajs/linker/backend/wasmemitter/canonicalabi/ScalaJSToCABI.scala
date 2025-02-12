@@ -44,6 +44,7 @@ object ScalaJSToCABI {
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         val offset = fb.addLocal(NoOriginalName, watpe.Int32)
         val units = fb.addLocal(NoOriginalName, watpe.Int32)
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.i16Array))
         fb += wa.Call(genFunctionID.cabiStoreString)
         // now we have [i32(string offset), i32(string units)] on stack
         fb += wa.LocalSet(units)
@@ -110,46 +111,14 @@ object ScalaJSToCABI {
         }
 
       case wit.VariantType(_, cases) =>
-        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
-        val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+        genStoreVariantMemory(fb, cases, (_) => {})
 
-        val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
-        fb += wa.LocalSet(variant)
-        fb += wa.LocalSet(ptr)
-
-        fb.switchByType(Nil) {
-          () => fb += wa.LocalGet(variant)
-        } {
-          cases.map { c =>
-            val classID = genTypeID.forClass(c.className)
-            val index = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("_index")))
-            val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
-            (c.className, () => {
-              fb += wa.Drop
-
-              fb += wa.LocalGet(ptr)
-              fb += wa.LocalGet(variant)
-              fb += wa.RefCast(watpe.RefType(genTypeID.forClass(c.className)))
-              fb += wa.StructGet(classID, index)
-              wit.discriminantType(cases) match {
-                case wit.U8Type => fb += wa.I32Store8()
-                case wit.U16Type => fb += wa.I32Store16()
-                case wit.U32Type => fb += wa.I32Store()
-                case t => throw new AssertionError(s"Invalid discriminant type $t")
-              }
-              genMovePtr(fb, ptr, wit.discriminantType(cases))
-              genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
-
-              fb += wa.LocalGet(ptr)
-              fb += wa.LocalGet(variant)
-              fb += wa.RefCast(watpe.RefType(genTypeID.forClass(c.className)))
-              fb += wa.StructGet(classID, value)
-              genStoreMemory(fb, c.tpe)
-            })
-          }: _*
-        } { () =>
-          fb += wa.Unreachable
-        }
+      case wit.ResultType(ok, err) =>
+        val cases = List(
+          wit.CaseType(ComponentResultOkClass, ok),
+          wit.CaseType(ComponentResultErrClass, err)
+        )
+        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
 
       case wit.ResourceType(_) =>
         fb += wa.I32Store()
@@ -236,8 +205,7 @@ object ScalaJSToCABI {
         }
 
       case wit.StringType =>
-        // array i16
-        fb += wa.RefAsNonNull // TODO NPE if null
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.i16Array))
         fb += wa.Call(genFunctionID.cabiStoreString) // baseAddr, units
 
       case wit.TupleType(fields) =>
@@ -271,34 +239,98 @@ object ScalaJSToCABI {
         }
 
       case wit.VariantType(_, cases) =>
-        val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
-        val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
-        fb += wa.LocalSet(tmp)
+        genStoreVariantStack(fb, cases, (_) => {})
 
-        fb.switchByType(watpe.Int32 +: flattened) {
-          () =>
-            fb += wa.LocalGet(tmp)
-        } {
-          cases.map { case c =>
-            val classID = genTypeID.forClass(c.className)
-            val index = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("_index")))
-            val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
-            (c.className, () => {
-              val l = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(c.className)))
-              fb += wa.LocalTee(l)
-              fb += wa.StructGet(classID, index)
-              fb += wa.LocalGet(l)
-              fb += wa.StructGet(classID, value)
-              genStoreStack(fb, c.tpe)
-              genCoerceValues(fb, Flatten.flattenType(c.tpe), flattened)
-            })
-          }: _*
-        } { () =>
-          fb += wa.Unreachable
-        }
+      case wit.ResultType(ok, err) =>
+        val cases = List(
+          wit.CaseType(ComponentResultOkClass, ok),
+          wit.CaseType(ComponentResultErrClass, err)
+        )
+        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
 
       case _ => throw new AssertionError(s"Unexpected type: $tpe")
 
+    }
+  }
+
+  private def genStoreVariantMemory(
+    fb: FunctionBuilder,
+    cases: List[wit.CaseType],
+    genUnbox: (wit.ValType) => Unit,
+  ): Unit = {
+    val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+    val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+
+    val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
+    fb += wa.LocalSet(variant)
+    fb += wa.LocalSet(ptr)
+
+    fb.switchByType(Nil) {
+      () => fb += wa.LocalGet(variant)
+    } {
+      cases.map { c =>
+        val classID = genTypeID.forClass(c.className)
+        val index = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("_index")))
+        val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
+        (c.className, () => {
+          fb += wa.Drop
+
+          fb += wa.LocalGet(ptr)
+          fb += wa.LocalGet(variant)
+          fb += wa.RefCast(watpe.RefType(genTypeID.forClass(c.className)))
+          fb += wa.StructGet(classID, index)
+          wit.discriminantType(cases) match {
+            case wit.U8Type => fb += wa.I32Store8()
+            case wit.U16Type => fb += wa.I32Store16()
+            case wit.U32Type => fb += wa.I32Store()
+            case t => throw new AssertionError(s"Invalid discriminant type $t")
+          }
+          genMovePtr(fb, ptr, wit.discriminantType(cases))
+          genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
+
+          fb += wa.LocalGet(ptr)
+          fb += wa.LocalGet(variant)
+          fb += wa.RefCast(watpe.RefType(genTypeID.forClass(c.className)))
+          fb += wa.StructGet(classID, value)
+          genUnbox(c.tpe)
+          genStoreMemory(fb, c.tpe)
+        })
+      }: _*
+    } { () =>
+      fb += wa.Unreachable
+    }
+  }
+
+  private def genStoreVariantStack(
+      fb: FunctionBuilder,
+      cases: List[wit.CaseType],
+      genUnbox: (wit.ValType) => Unit,
+  )(implicit ctx: WasmContext): Unit = {
+    val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+    val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
+    fb += wa.LocalSet(tmp)
+
+    fb.switchByType(watpe.Int32 +: flattened) {
+      () =>
+        fb += wa.LocalGet(tmp)
+    } {
+      cases.map { case c =>
+        val classID = genTypeID.forClass(c.className)
+        val index = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("_index")))
+        val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
+        (c.className, () => {
+          val l = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(c.className)))
+          fb += wa.LocalTee(l)
+          fb += wa.StructGet(classID, index)
+          fb += wa.LocalGet(l)
+          fb += wa.StructGet(classID, value)
+          genUnbox(c.tpe)
+          genStoreStack(fb, c.tpe)
+          genCoerceValues(fb, Flatten.flattenType(c.tpe), flattened)
+        })
+      }: _*
+    } { () =>
+      fb += wa.Unreachable
     }
   }
 
@@ -370,11 +402,18 @@ object ScalaJSToCABI {
     fb += wa.LocalSet(ptr)
   }
 
-  private def genUnbox(fb: FunctionBuilder, targetTpe: PrimType): Unit = {
+  private def genUnbox(fb: FunctionBuilder, targetTpe: wit.ValType): Unit = {
+    targetTpe.toIRType() match {
+      case t: PrimTypeWithRef => genUnbox(fb, t)
+      case _ =>
+    }
+  }
+
+  private def genUnbox(fb: FunctionBuilder, targetTpe: PrimTypeWithRef): Unit = {
     targetTpe match {
-      case NothingType | NullType | UndefType =>
+      case NothingType | NullType =>
         throw new AssertionError(s"Unexpected unboxing to $targetTpe")
-      case StringType | VoidType =>
+      case VoidType =>
       case p: PrimTypeWithRef =>
         fb += wa.Call(genFunctionID.unbox(p.primRef))
     }

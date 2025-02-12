@@ -1816,7 +1816,7 @@ private class FunctionEmitter private (
       fb += wa.RefIsNull
       maybeGenInvert()
       BooleanType
-    } else if (isStringType(lhsType) && isStringType(rhsType)) {
+    } else if (isStringType(lhsType) && isStringType(rhsType)) { // WASI
       // string cannot be compared by req.eq
       genTreeAuto(lhs)
       genTreeAuto(rhs)

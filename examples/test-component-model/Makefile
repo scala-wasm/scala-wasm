@@ -20,4 +20,7 @@ compose: new
 run: compose
 	$(WASMTIME) -W function-references,gc out.wasm
 
-.PHONY: fetch build
+clean:
+	rm -f main.wasm out.wasm
+
+.PHONY: fetch build embed new compose run
