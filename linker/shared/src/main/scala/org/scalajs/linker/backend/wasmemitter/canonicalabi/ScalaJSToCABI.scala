@@ -1,6 +1,6 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
-import org.scalajs.ir.{Types => jstpe}
+import org.scalajs.ir.Types._
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Names._
@@ -23,7 +23,7 @@ object ScalaJSToCABI {
 
   // assume that there're ptr and value of `tpe` are on the stack.
   def genStoreMemory(fb: FunctionBuilder, tpe: wit.ValType): Unit = {
-    wit.despecialize(tpe) match {
+    tpe match {
       case wit.VoidType =>
       case wit.BoolType | wit.S8Type | wit.U8Type =>
         fb += wa.I32Store8()
@@ -59,6 +59,33 @@ object ScalaJSToCABI {
         fb += wa.LocalGet(units)
         fb += wa.I32Store()
 
+      case wit.TupleType(fields) =>
+        val className = ClassName("scala.Tuple" + fields.size)
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(tuple)
+        fb += wa.LocalSet(ptr)
+
+        var offset = 0
+        for ((f, i) <- fields.zipWithIndex) {
+          fb += wa.LocalGet(ptr)
+          if (offset > 0) {
+            fb += wa.I32Const(offset)
+            fb += wa.I32Add
+          }
+          fb += wa.LocalGet(tuple)
+          fb += wa.StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
+          )
+          f.toIRType() match {
+            case t: PrimTypeWithRef => genUnbox(fb, t)
+            case _ =>
+          }
+          genStoreMemory(fb, f)
+          offset += wit.elemSize(f)
+        }
+
       case wit.RecordType(className, fields) =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         // TODO: NPE if null
@@ -84,7 +111,7 @@ object ScalaJSToCABI {
 
       case wit.VariantType(_, cases) =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
-        val variant = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.ObjectStruct))
+        val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
 
         val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
         fb += wa.LocalSet(variant)
@@ -132,7 +159,7 @@ object ScalaJSToCABI {
   }
 
   def genStoreStack(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
-    wit.despecialize(tpe) match {
+    tpe match {
       case wit.VoidType => fb += wa.Drop
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type | wit.S64Type |
@@ -147,7 +174,7 @@ object ScalaJSToCABI {
           case None =>
             // array
             val arrType = transformSingleType(tpe.toIRType())
-            val arrayTypeRef = jstpe.ArrayTypeRef.of(wit.toTypeRef(elemType))
+            val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
             val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
 
             val arr = fb.addLocal(NoOriginalName, arrType)
@@ -188,7 +215,7 @@ object ScalaJSToCABI {
                 // value
                 fb += wa.LocalGet(arr)
                 fb += wa.LocalGet(iLocal)
-                fb += wa.Call(genFunctionID.arrayGetFor(jstpe.ArrayTypeRef.of(wit.toTypeRef(elemType))))
+                fb += wa.Call(genFunctionID.arrayGetFor(ArrayTypeRef.of(wit.toTypeRef(elemType))))
                 genStoreMemory(fb, elemType)
 
                 // i := i + 1
@@ -213,6 +240,23 @@ object ScalaJSToCABI {
         fb += wa.RefAsNonNull // TODO NPE if null
         fb += wa.Call(genFunctionID.cabiStoreString) // baseAddr, units
 
+      case wit.TupleType(fields) =>
+        val className = ClassName("scala.Tuple" + fields.size)
+        val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(record)
+        for ((f, i) <- fields.zipWithIndex) {
+          fb += wa.LocalGet(record)
+          fb += wa.StructGet(
+            genTypeID.forClass(className),
+            genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
+          )
+          f.toIRType() match {
+            case t: PrimTypeWithRef => genUnbox(fb, t)
+            case _ =>
+          }
+          genStoreStack(fb, f)
+        }
+
       case wit.RecordType(className, fields) =>
         // TODO: NPE if null
         val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
@@ -227,7 +271,7 @@ object ScalaJSToCABI {
         }
 
       case wit.VariantType(_, cases) =>
-        val tmp = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.ObjectStruct))
+        val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
         val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
         fb += wa.LocalSet(tmp)
 
@@ -324,5 +368,15 @@ object ScalaJSToCABI {
     fb += wa.I32Const(size)
     fb += wa.I32Add
     fb += wa.LocalSet(ptr)
+  }
+
+  private def genUnbox(fb: FunctionBuilder, targetTpe: PrimType): Unit = {
+    targetTpe match {
+      case NothingType | NullType | UndefType =>
+        throw new AssertionError(s"Unexpected unboxing to $targetTpe")
+      case StringType | VoidType =>
+      case p: PrimTypeWithRef =>
+        fb += wa.Call(genFunctionID.unbox(p.primRef))
+    }
   }
 }

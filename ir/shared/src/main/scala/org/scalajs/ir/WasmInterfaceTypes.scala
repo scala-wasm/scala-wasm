@@ -92,7 +92,7 @@ object WasmInterfaceTypes {
   }
 
   final case class TupleType(ts: List[ValType]) extends SpecializedType {
-    def toIRType(): jstpe.Type = ???
+    def toIRType(): jstpe.Type = jstpe.ClassType(ClassName("scala.Tuple" + ts.size), true)
   }
 
   final case class CaseType(className: ClassName, tpe: ValType) {
@@ -163,7 +163,13 @@ object WasmInterfaceTypes {
     case st: SpecializedType => st match {
 
       case TupleType(ts) =>
-        RecordType(???, ts.zipWithIndex.map { case (t, i) => FieldType(???, t) })
+        val className = ClassName("scala.Tuple" + ts.size)
+        RecordType(
+          className,
+          ts.zipWithIndex.map { case (t, i) =>
+            FieldType(FieldName(className, SimpleFieldName(s"_${i+1}")), t)
+          }
+        )
 
       case EnumType(labels) =>
         VariantType(???, labels.map(l => CaseType(???, VoidType)))

@@ -30,7 +30,7 @@ object CABIToScalaJS {
     * @param ptr - memory offset for loading data from
     */
   def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType, ptr: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
-    wit.despecialize(tpe) match {
+    tpe match {
       case wit.VoidType => // do nothing
       case pt: wit.PrimValType =>
         fb += wa.LocalGet(ptr)
@@ -69,6 +69,21 @@ object CABIToScalaJS {
           }
         }
         genAlignTo(fb, wit.alignment(tpe), ptr)
+
+      case wit.TupleType(fields) =>
+        val ctor = MethodName.constructor(fields.map(_ => ClassRef(ObjectClass)))
+        val className = ClassName("scala.Tuple" + fields.size)
+        genNewScalaClass(fb, className, ctor) {
+          for (f <- fields) {
+            val align = wit.alignment(f)
+            genAlignTo(fb, align, ptr)
+            genLoadMemory(fb, f, ptr) // load and move memory
+            f.toIRType() match {
+              case t: PrimTypeWithRef => genBox(fb, t)
+              case _ =>
+            }
+          }
+        }
 
       case wit.ResourceType(_) =>
         fb += wa.LocalGet(ptr)
@@ -118,6 +133,20 @@ object CABIToScalaJS {
 
       case wit.ResourceType(_) =>
         vi.next(watpe.Int32)
+
+      case wit.TupleType(fields) =>
+        val ctor = MethodName.constructor(fields.map(_ => ClassRef(ObjectClass)))
+        val className = ClassName("scala.Tuple" + fields.size)
+        genNewScalaClass(fb, className, ctor) {
+          for (f <- fields) {
+            val fieldType = Flatten.flattenType(f)
+            genLoadStack(fb, f, vi)
+            f.toIRType() match {
+              case t: PrimTypeWithRef => genBox(fb, t)
+              case _ =>
+            }
+          }
+        }
 
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
@@ -184,7 +213,7 @@ object CABIToScalaJS {
             genNewScalaClass(fb, c.className, ctor) {
               genLoadValue(c.tpe)
               c.tpe.toIRType match {
-                case t: PrimType if isResult => genBox(fb, t)
+                case t: PrimTypeWithRef if isResult => genBox(fb, t)
                 case ClassType(className, _) if isResult && ctx.getClassInfo(className).isWasmComponentResource =>
                   genBox(fb, IntType) // there're too much special case for resource class... let's add a new type for it?
                 case _ =>
@@ -241,76 +270,13 @@ object CABIToScalaJS {
     fb += wa.LocalGet(instanceLocal)
   }
 
-
-  private def genBox(fb: FunctionBuilder, primType: PrimType): Unit = {
+  private def genBox(fb: FunctionBuilder, primType: PrimTypeWithRef): Unit = {
     primType match {
-      case NothingType | NullType | UndefType =>
+      case NothingType | NullType =>
         throw new AssertionError(s"Unexpected boxing from $primType")
-      case BooleanType | ByteType | ShortType =>
-        fb += wa.RefI31
       case VoidType =>
-      case IntType =>
-        genBox(fb, watpe.Int32, SpecialNames.IntegerBoxClass)
-      case LongType =>
-        genBox(fb, watpe.Int64, SpecialNames.LongBoxClass)
-      case FloatType =>
-        genBox(fb, watpe.Float32, SpecialNames.FloatBoxClass)
-      case DoubleType =>
-        genBox(fb, watpe.Float64, SpecialNames.DoubleBoxClass)
-      case CharType =>
-        genBox(fb, watpe.Int32, SpecialNames.CharBoxClass)
-      case StringType =>
-    }
-  }
-
-  /** Copied from FunctionEmitter. */
-  private def genBox(fb: FunctionBuilder, primType: watpe.SimpleType, boxClassName: ClassName): Type = {
-    val primLocal = fb.addLocal(NoOriginalName, primType)
-    fb += wa.LocalSet(primLocal)
-    fb += wa.GlobalGet(genGlobalID.forVTable(boxClassName))
-    fb += wa.GlobalGet(genGlobalID.forITable(boxClassName))
-    fb += wa.LocalGet(primLocal)
-    fb += wa.StructNew(genTypeID.forClass(boxClassName))
-
-    ClassType(boxClassName, nullable = false)
-  }
-
-  private def genUnbox(fb: FunctionBuilder, targetTpe: PrimType)(
-    implicit ctx: WasmContext
-  ): Unit = {
-    targetTpe match {
-        case ShortType | ByteType =>
-        case IntType =>
-        case LongType =>
-        case DoubleType =>
-        case FloatType =>
-        case NullType =>
-        case NothingType =>
-        case BooleanType =>
-        case CharType =>
-        case VoidType =>
-        case StringType =>
-        case UndefType =>
-    }
-    val boxClass =
-      if (targetTpe == CharType) SpecialNames.CharBoxClass
-      else if (targetTpe == LongType) SpecialNames.LongBoxClass
-      else SpecialNames.BooleanBoxClass
-    val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
-    val resultType = transformPrimType(targetTpe)
-
-    fb.block(Sig(List(watpe.RefType.anyref), List(resultType))) { doneLabel =>
-      fb.block(Sig(List(watpe.RefType.anyref), Nil)) { isNullLabel =>
-        fb += wa.BrOnNull(isNullLabel)
-        val structTypeID = genTypeID.forClass(boxClass)
-        fb += wa.RefCast(watpe.RefType(structTypeID))
-        fb += wa.StructGet(
-          structTypeID,
-          genFieldID.forClassInstanceField(fieldName)
-        )
-        fb += wa.Br(doneLabel)
-      }
-      fb += SWasmGen.genZeroOf(targetTpe)
+      case p =>
+        fb += wa.Call(genFunctionID.box(p.primRef))
     }
   }
 

@@ -362,7 +362,7 @@ final class FunctionBuilder(
     scrutinee()
     for ((c, label) <- clauseLabels) {
       val className = c._1
-      instrs += BrOnCast(label, RefType.nullable(genTypeID.ObjectStruct), RefType.nullable(genTypeID.forClass(className)))
+      instrs += BrOnCast(label, RefType.anyref, RefType.nullable(genTypeID.forClass(className)))
     }
     instrs += Unreachable
 

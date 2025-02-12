@@ -16,6 +16,7 @@ object TestsExport extends component.Interface {
   def testC1(a: C1): Unit = {}
 
   def roundtripEnum(a: E1): E1 = { a }
+  def roundtripTuple(a: (C1, Z1)): (C1, Z1) = { a }
 }
 
 @ComponentExport("component:testing/test-imports")
@@ -52,6 +53,11 @@ object TestImports extends component.Interface {
     assert(roundtripEnum(E1.A) == E1.A)
     assert(roundtripEnum(E1.B) == E1.B)
     assert(roundtripEnum(E1.C) == E1.C)
+
+    assert(roundtripTuple((C1.A(5), Z1.A(500))) == (C1.A(5), Z1.A(500)))
+    assert(roundtripTuple((C1.B(200.0f), Z1.B)) == (C1.B(200.0f), Z1.B))
+    assert(roundtripTuple(C1.A(4), Z1.B)._1 == C1.A(4))
+    assert(roundtripTuple(C1.A(4), Z1.B)._2 == Z1.B)
   }
 }
 

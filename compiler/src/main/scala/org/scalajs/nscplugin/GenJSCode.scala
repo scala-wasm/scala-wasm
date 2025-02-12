@@ -2378,6 +2378,9 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         primitiveIRWIT.get(toIRType(tpe))
       }.getOrElse {
         tpe.typeSymbol match {
+          case tsym if tsym.fullName.startsWith("scala.Tuple") =>
+            wit.TupleType(tpe.typeArgs.map(toWIT(_)))
+
           case tsym if isWasmComponentRecordClass(tsym) =>
             // TODO: it needs to be sorted by the order of record in wit definition
             val className = encodeClassName(tsym)

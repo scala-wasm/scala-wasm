@@ -3,7 +3,7 @@ mod bindings;
 
 use crate::bindings::exports::component::testing::basics::Guest as Basics;
 use crate::bindings::exports::component::testing::tests::Guest as Tests;
-use crate::bindings::exports::component::testing::tests::{Point, C1, Z1, E1};
+use crate::bindings::exports::component::testing::tests::*;
 
 struct Component;
 
@@ -29,6 +29,7 @@ impl Tests for Component {
   fn roundtrip_c1(a: C1) -> C1 { a }
   fn roundtrip_z1(a: Z1) -> Z1 { a }
   fn roundtrip_enum(a: E1) -> E1 { a }
+  fn roundtrip_tuple(a: (C1, Z1)) -> (C1, Z1) { a }
 }
 
 bindings::export!(Component with_types_in bindings);

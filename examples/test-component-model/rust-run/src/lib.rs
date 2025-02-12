@@ -2,7 +2,7 @@
 mod bindings;
 
 use crate::bindings::exports::wasi::cli::run::Guest as Run;
-use crate::bindings::component::testing::tests;
+use crate::bindings::component::testing::tests::*;
 use crate::bindings::component::testing::test_imports;
 
 struct Component;
@@ -11,29 +11,38 @@ impl Run for Component {
     fn run() -> Result<(), ()> {
       test_imports::run();
       assert_eq!(
-        tests::roundtrip_string("aaa"),
+        roundtrip_string("aaa"),
         "aaa",
       );
       assert_eq!(
-        tests::roundtrip_string(""),
+        roundtrip_string(""),
         "",
       );
 
-      let p = tests::Point { x: 0, y: 3 };
+      let p = Point { x: 0, y: 3 };
       assert_eq!(
-        tests::roundtrip_point(p), p
+        roundtrip_point(p), p
       );
 
-      tests::test_c1(tests::C1::A(100));
-      assert_eq!(tests::roundtrip_c1(tests::C1::A(2)), tests::C1::A(2));
-      assert_eq!(tests::roundtrip_c1(tests::C1::A(0)), tests::C1::A(0));
-      assert_eq!(tests::roundtrip_c1(tests::C1::B(100.0)), tests::C1::B(100.0));
-      assert_eq!(tests::roundtrip_z1(tests::Z1::A(140)), tests::Z1::A(140));
-      assert_eq!(tests::roundtrip_z1(tests::Z1::B), tests::Z1::B);
+      test_c1(C1::A(100));
+      assert_eq!(roundtrip_c1(C1::A(2)), C1::A(2));
+      assert_eq!(roundtrip_c1(C1::A(0)), C1::A(0));
+      assert_eq!(roundtrip_c1(C1::B(100.0)), C1::B(100.0));
+      assert_eq!(roundtrip_z1(Z1::A(140)), Z1::A(140));
+      assert_eq!(roundtrip_z1(Z1::B), Z1::B);
 
-      assert_eq!(tests::roundtrip_enum(tests::E1::A), tests::E1::A);
-      assert_eq!(tests::roundtrip_enum(tests::E1::B), tests::E1::B);
-      assert_eq!(tests::roundtrip_enum(tests::E1::C), tests::E1::C);
+      assert_eq!(roundtrip_enum(E1::A), E1::A);
+      assert_eq!(roundtrip_enum(E1::B), E1::B);
+      assert_eq!(roundtrip_enum(E1::C), E1::C);
+
+      assert_eq!(
+        roundtrip_tuple((C1::A(0), Z1::B)),
+        (C1::A(0), Z1::B)
+      );
+      assert_eq!(
+        roundtrip_tuple((C1::B(5521.53), Z1::A(64534))),
+        (C1::B(5521.53), Z1::A(64534)),
+      );
 
       return Ok(());
     }

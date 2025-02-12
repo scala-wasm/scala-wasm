@@ -922,9 +922,12 @@ object Serializers {
           writeFieldName(f.label)
           writeWITType(f.tpe)
         }
-      case wit.TupleType(_) =>
+      case wit.TupleType(fields) =>
         buffer.writeByte(TagWITTupleType)
-        ???
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeWITType(f)
+        }
       case wit.VariantType(className, cases) =>
         buffer.writeByte(TagWITVariantType)
         writeName(className)
@@ -2361,6 +2364,11 @@ object Serializers {
             readWITType(),
             if (readBoolean()) Some(readInt()) else None
           )
+        case TagWITTupleType =>
+          wit.TupleType(
+            List.fill(readInt()) { readWITType() }
+          )
+
         case TagWITRecordType =>
           wit.RecordType(
             readClassName(),

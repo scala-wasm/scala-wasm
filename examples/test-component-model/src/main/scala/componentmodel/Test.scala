@@ -27,4 +27,5 @@ object Tests extends component.Interface {
   def roundtripC1(a: C1): C1 = component.native
   def roundtripZ1(a: Z1): Z1 = component.native
   def roundtripEnum(a: E1): E1 = component.native
+  def roundtripTuple(A: (C1, Z1)): (C1, Z1) = component.native
 }
