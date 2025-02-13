@@ -121,6 +121,11 @@ object VarGen {
     // CanonicalABI
     final case object cabiLoadString extends FunctionID
     final case object cabiStoreString extends FunctionID
+    // print
+    final case object wasiCliGetStdout extends FunctionID
+    final case object blockingWriteAndFlush extends FunctionID
+    final case object dropOutputStream extends FunctionID
+    final case object printlnInt extends FunctionID
 
     // JS helpers
 

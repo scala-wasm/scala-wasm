@@ -1,6 +1,7 @@
 package component:testing;
 
 world scala {
+  import wasi:cli/stdout@0.2.0;
   import basics;
   import tests;
 

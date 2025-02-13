@@ -151,6 +151,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     if (true/*isWASI*/) { // scalastyle:ignore
       genUndefinedAndIsUndef()
       genNaiveFmod()
+      genPrintlnInt()
     }
   }
 
@@ -589,6 +590,203 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         Expr(List(StructNewDefault(genTypeID.itables)))
       )
     )
+  }
+
+  private def genPrintlnInt()(implicit ctx: WasmContext): Unit = {
+    // (type (;1;) (func (result i32)))
+    // (import "wasi:cli/stdout@0.2.2" "get-stdout" (func (;1;) (type 1)))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:cli/stdout@0.2.0",
+        "get-stdout",
+        ImportDesc.Func(
+          genFunctionID.wasiCliGetStdout,
+          OriginalName(genFunctionID.wasiCliGetStdout.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(Nil, List(Int32)))
+        )
+      )
+    )
+
+    // (type (;0;) (func (param i32 i32 i32 i32)))
+    // (import "wasi:io/streams" "[method]output-stream.blocking-write-and-flush" (func (;0;) (type 0)))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:io/streams@0.2.0",
+        "[method]output-stream.blocking-write-and-flush",
+        ImportDesc.Func(
+          genFunctionID.blockingWriteAndFlush,
+          OriginalName(genFunctionID.blockingWriteAndFlush.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(List(Int32, Int32, Int32, Int32), Nil))
+        )
+      )
+    )
+
+    // (import "wasi:io/streams@0.2.2" "[resource-drop]output-stream" ... ))
+    ctx.moduleBuilder.addImport(
+      Import(
+        "wasi:io/streams@0.2.0",
+        "[resource-drop]output-stream",
+        ImportDesc.Func(
+          genFunctionID.dropOutputStream,
+          OriginalName(genFunctionID.dropOutputStream.toString()),
+          ctx.moduleBuilder.functionTypeToTypeID(
+            FunctionType(List(Int32), Nil))
+        )
+      )
+    )
+
+
+    val fb = newFunctionBuilder(genFunctionID.printlnInt)
+    val num = fb.addParam("num", Int32)
+
+    val tmp = fb.addLocal("tmp", Int32)
+    val negative = fb.addLocal("negative", Int32)
+    val length = fb.addLocal("length", Int32)
+    val ptr = fb.addLocal("ptr", Int32)
+    val idx = fb.addLocal("idx", Int32)
+    val retAddr = fb.addLocal("ret_addr", Int32)
+
+    fb += LocalGet(num)
+    fb += I32Eqz
+    fb.ifThenElse() {
+      fb += I32Const(2)
+      fb += LocalTee(length)
+      fb += Call(genFunctionID.malloc)
+      fb += LocalTee(ptr)
+      fb += I32Const(48) // '0'
+      fb += I32Store8()
+
+      fb += LocalGet(ptr)
+      fb += I32Const(1)
+      fb += I32Add
+      fb += I32Const(10) // \n
+      fb += I32Store8()
+    } {
+      fb += LocalGet(num)
+      fb += I32Const(0)
+      fb += I32LtS
+      fb.ifThenElse(Int32) {
+        fb += LocalGet(num)
+        fb += I32Const(-1)
+        fb += I32Mul
+        fb += LocalSet(num)
+
+        fb += I32Const(1)
+        fb += LocalSet(negative)
+        fb += I32Const(2) // for '-' and '\n'
+      } {
+        fb += I32Const(0)
+        fb += LocalSet(negative)
+        fb += I32Const(1) // for '\n'
+      }
+      fb += LocalSet(length)
+
+      fb += LocalGet(num)
+      fb += LocalSet(tmp)
+      fb.loop() { loop =>
+        fb += LocalGet(tmp)
+        fb += I32Eqz
+        fb.ifThenElse() { // break
+        } {
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32DivS
+          fb += LocalSet(tmp)
+
+          fb += LocalGet(length)
+          fb += I32Const(1)
+          fb += I32Add
+          fb += LocalSet(length)
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(length)
+      fb += Call(genFunctionID.malloc)
+      fb += LocalSet(ptr)
+
+      // fill
+      fb += LocalGet(num)
+      fb += LocalSet(tmp)
+
+      // append '\n'
+      fb += LocalGet(ptr)
+      fb += LocalGet(length)
+      fb += I32Const(1)
+      fb += I32Sub
+      fb += I32Add
+      fb += I32Const(10)
+      fb += I32Store8()
+
+      fb += LocalGet(length)
+      fb += I32Const(2) // skip the last for '\n'
+      fb += I32Sub
+      fb += LocalSet(idx)
+
+      fb.loop() { loop =>
+        fb += LocalGet(tmp)
+        fb += I32Eqz
+        fb.ifThenElse() { // break
+        } {
+          fb += LocalGet(ptr)
+          fb += LocalGet(idx)
+          fb += I32Add // ptr to store
+
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32RemS
+          fb += I32Const(48) // '0'
+          fb += I32Add
+          fb += I32Store8()
+
+          fb += LocalGet(idx)
+          fb += I32Const(1)
+          fb += I32Sub
+          fb += LocalSet(idx)
+
+          fb += LocalGet(tmp)
+          fb += I32Const(10)
+          fb += I32DivS
+          fb += LocalSet(tmp)
+
+          fb += Br(loop)
+        }
+      }
+
+      fb += LocalGet(negative)
+      fb.ifThen() {
+        fb += LocalGet(ptr)
+        fb += I32Const(45) // '-'
+        fb += I32Store8()
+      }
+    }
+
+
+    val out = fb.addLocal("out", Int32)
+    // now, $ptr has memory offset, and $length has array length
+    // get stdout
+    fb += Call(genFunctionID.wasiCliGetStdout)
+    fb += LocalTee(out)
+    fb += LocalGet(ptr)
+    fb += LocalGet(length)
+    fb += I32Const(12) // result<_, stream-error>
+    fb += Call(genFunctionID.malloc)
+    fb += LocalTee(retAddr)
+
+    fb += Call(genFunctionID.blockingWriteAndFlush)
+
+    fb += LocalGet(ptr)
+    fb += Call(genFunctionID.free)
+    fb += LocalGet(retAddr)
+    fb += Call(genFunctionID.free)
+
+    // drop outputstream
+    fb += LocalGet(out)
+    fb += Call(genFunctionID.dropOutputStream)
+
+    fb.buildAndAddToModule()
   }
 
   private def genPrimitiveTypeDataGlobals()(implicit ctx: WasmContext): Unit = {
