@@ -83,6 +83,7 @@ trait JSDefinitions {
     lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.component.Result")
     lazy val ComponentResultOkClass    = getRequiredClass("scala.scalajs.component.Ok")
     lazy val ComponentResultErrClass   = getRequiredClass("scala.scalajs.component.Err")
+    lazy val ComponentOptionClass      = getRequiredClass("scala.scalajs.component.Option")
     lazy val ComponentVariantClass     = getRequiredClass("scala.scalajs.component.Variant")
     lazy val ComponentResourceClass    = getRequiredClass("scala.scalajs.component.Resource")
     lazy val ComponentInterfaceClass   = getRequiredClass("scala.scalajs.component.Interface")

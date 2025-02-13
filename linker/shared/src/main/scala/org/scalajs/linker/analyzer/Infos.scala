@@ -683,7 +683,18 @@ object Infos {
             generateForWIT(f.tpe)
           }
 
-
+        case wit.OptionType(t) =>
+          val cases = List(
+            wit.CaseType(ComponentOptionSomeClass, t),
+            wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
+          )
+          builder.addInstantiatedClass(ComponentOptionSomeClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          builder.addInstantiatedClass(ComponentOptionNoneClass, MethodName.constructor(Nil))
+          for (c <- cases) {
+            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(c.tpe)
+          }
 
         case wit.ResultType(ok, err) =>
           val cases = List(
@@ -693,7 +704,7 @@ object Infos {
           for (c <- cases) {
             val ctor = wit.makeCtorName(c.tpe)
             builder.addInstantiatedClass(c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
-            builder.maybeAddReferencedClass(ClassRef(c.className))
+            // builder.maybeAddReferencedClass(ClassRef(c.className))
             builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
             builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
             generateForWIT(c.tpe)

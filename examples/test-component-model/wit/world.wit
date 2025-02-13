@@ -50,6 +50,9 @@ interface tests {
 
   roundtrip-tuple: func(a: tuple<c1, z1>) -> tuple<c1, z1>;
 
+  roundtrip-option: func(a: option<string>) -> option<string>;
+  roundtrip-double-option: func(a: option<option<string>>) -> option<option<string>>;
+
   roundtrip-result: func(a: result) -> result;
   roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;
   roundtrip-enum-error: func(a: result<c1, e1>) -> result<c1, e1>;

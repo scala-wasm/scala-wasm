@@ -5,6 +5,7 @@ import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.Names._
 import org.scalajs.ir.Trees.MemberNamespace
 import org.scalajs.ir.OriginalName.NoOriginalName
+import org.scalajs.ir.ClassKind
 
 import org.scalajs.linker.backend.webassembly.FunctionBuilder
 import org.scalajs.linker.backend.webassembly.{Instructions => wa}
@@ -93,6 +94,13 @@ object CABIToScalaJS {
       case variant @ wit.VariantType(className, cases) =>
         genLoadVariantMemory(fb, cases, ptr, wit.alignment(variant), false)
 
+      case option @ wit.OptionType(t) =>
+        val cases = List(
+          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
+          wit.CaseType(ComponentOptionSomeClass, t)
+        )
+        genLoadVariantMemory(fb, cases, ptr, wit.alignment(option), true)
+
       case result @ wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
@@ -158,6 +166,18 @@ object CABIToScalaJS {
           boxValue = false
         )
 
+      case option @ wit.OptionType(t) =>
+        val cases = List(
+          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
+          wit.CaseType(ComponentOptionSomeClass, t)
+        )
+        genLoadVariantStack(
+          fb,
+          cases,
+          vi,
+          boxValue = true
+        )
+
       case wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
@@ -190,13 +210,14 @@ object CABIToScalaJS {
      genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
     })(
       cases.zipWithIndex.map { case (c, i) =>
-        val ctorID =
-          if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
-          else wit.makeCtorName(c.tpe)
         (List(i), () => {
-          if (!boxValue && c.tpe == wit.VoidType) {
+          val isModule = ctx.getClassInfo(c.className).kind == ClassKind.ModuleClass
+          if (isModule) {
             fb += wa.Call(genFunctionID.loadModule(c.className))
           } else {
+            val ctorID =
+              if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
+              else wit.makeCtorName(c.tpe)
             genNewScalaClass(fb, c.className, ctorID) {
               if (c.tpe == wit.VoidType) fb += wa.GlobalGet(genGlobalID.undef)
               else {
@@ -235,13 +256,14 @@ object CABIToScalaJS {
       cases.zipWithIndex.map { case (c, i) =>
         // While the variant uses `case object`` when the value type is Unit,
         // the Result/Option type still uses `case class Ok(())`` even when the value type is Unit.
-        val ctorID =
-          if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
-          else wit.makeCtorName(c.tpe)
         (List(i), () => {
-          if (!boxValue && c.tpe == wit.VoidType) {
+          val isModule = ctx.getClassInfo(c.className).kind == ClassKind.ModuleClass
+          if (isModule) {
             fb += wa.Call(genFunctionID.loadModule(c.className))
           } else {
+            val ctorID =
+              if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
+              else wit.makeCtorName(c.tpe)
             genNewScalaClass(fb, c.className, ctorID) {
               if (c.tpe == wit.VoidType) fb += wa.GlobalGet(genGlobalID.undef)
               else {

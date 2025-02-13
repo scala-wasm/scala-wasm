@@ -680,6 +680,13 @@ object Names {
   final val ComponentVariantIndexFieldName: SimpleFieldName =
     SimpleFieldName("_index")
 
+  final val ComponentOptionClass: ClassName =
+    ClassName("scala.scalajs.component.Option")
+  final val ComponentOptionSomeClass: ClassName =
+    ClassName("scala.scalajs.component.Some")
+  final val ComponentOptionNoneClass: ClassName =
+    ClassName("scala.scalajs.component.None$")
+
 
 
   // ---------------------------------------------------

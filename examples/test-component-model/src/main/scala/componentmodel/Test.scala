@@ -28,6 +28,8 @@ object Tests extends cm.Interface {
   def roundtripZ1(a: Z1): Z1 = cm.native
   def roundtripEnum(a: E1): E1 = cm.native
   def roundtripTuple(a: (C1, Z1)): (C1, Z1) = cm.native
+  def roundtripOption(a: cm.Option[String]): cm.Option[String] = cm.native
+  def roundtripDoubleOption(a: cm.Option[cm.Option[String]]): cm.Option[cm.Option[String]] = cm.native
   def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = cm.native
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = cm.native
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = cm.native

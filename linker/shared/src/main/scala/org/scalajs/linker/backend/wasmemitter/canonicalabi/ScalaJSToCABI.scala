@@ -113,6 +113,13 @@ object ScalaJSToCABI {
       case wit.VariantType(_, cases) =>
         genStoreVariantMemory(fb, cases, (_) => {})
 
+      case wit.OptionType(t) =>
+        val cases = List(
+          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
+          wit.CaseType(ComponentOptionSomeClass, t)
+        )
+        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+
       case wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
@@ -241,6 +248,13 @@ object ScalaJSToCABI {
       case wit.VariantType(_, cases) =>
         genStoreVariantStack(fb, cases, (_) => {})
 
+      case wit.OptionType(t) =>
+        val cases = List(
+          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
+          wit.CaseType(ComponentOptionSomeClass, t)
+        )
+        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+
       case wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
@@ -311,8 +325,7 @@ object ScalaJSToCABI {
     fb += wa.LocalSet(tmp)
 
     fb.switchByType(watpe.Int32 +: flattened) {
-      () =>
-        fb += wa.LocalGet(tmp)
+      () => fb += wa.LocalGet(tmp)
     } {
       cases.map { case c =>
         val classID = genTypeID.forClass(c.className)

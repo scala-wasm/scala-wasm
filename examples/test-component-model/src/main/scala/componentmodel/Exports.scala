@@ -18,7 +18,10 @@ object TestsExport extends cm.Interface {
   def roundtripEnum(a: E1): E1 = a
   def roundtripTuple(a: (C1, Z1)): (C1, Z1) = a
 
-  def roundtripResult(a: cm.Result[Unit, Unit]): Result[Unit, Unit] = a
+  def roundtripOption(a: cm.Option[String]): cm.Option[String] = a
+  def roundtripDoubleOption(a: cm.Option[cm.Option[String]]): cm.Option[cm.Option[String]] = a
+
+  def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = a
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = a
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = a
 }
@@ -62,6 +65,12 @@ object TestImports extends cm.Interface {
     assert(roundtripTuple((C1.B(200.0f), Z1.B)) == (C1.B(200.0f), Z1.B))
     assert(roundtripTuple(C1.A(4), Z1.B)._1 == C1.A(4))
     assert(roundtripTuple(C1.A(4), Z1.B)._2 == Z1.B)
+
+    assert(roundtripOption(cm.Some("ok")) == cm.Some("ok"))
+    assert(roundtripOption(cm.None) == cm.None)
+    // assert(roundtripDoubleOption(cm.Some(cm.Some("foo"))) == cm.Some(cm.Some("foo")))
+    // assert(roundtripDoubleOption(cm.Some(cm.None)) == cm.Some(cm.None))
+    // assert(roundtripDoubleOption(cm.None) == cm.None)
 
     assert(cm.Err("aaa") != cm.Err("bbb"))
     assert(roundtripResult(cm.Ok(())) == cm.Ok(()))

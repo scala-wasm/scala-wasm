@@ -2399,6 +2399,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             val List(ok, err) = tpe.typeArgs
             wit.ResultType(toWIT(ok), toWIT(err))
 
+          case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
+            val List(t) = tpe.typeArgs
+            wit.OptionType(toWIT(t))
+
           case tsym if tsym.isSubClass(ComponentVariantClass) && tsym.isSealed =>
             // Sort by declaration order, we need to know which index
             // corresponds to which type.

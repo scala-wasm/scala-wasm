@@ -44,6 +44,12 @@ impl Run for Component {
         (C1::B(5521.53), Z1::A(64534)),
       );
 
+      assert_eq!(roundtrip_option(Some("test")), Some("test".to_string()));
+      assert_eq!(roundtrip_option(None), None);
+      assert_eq!(roundtrip_double_option(Some(Some("test"))), Some(Some("test".to_string())));
+      assert_eq!(roundtrip_double_option(Some(None)), Some(None));
+      assert_eq!(roundtrip_double_option(None), None);
+
       assert_eq!(roundtrip_result(Ok(())), Ok(()));
       assert_eq!(roundtrip_result(Err(())), Err(()));
 

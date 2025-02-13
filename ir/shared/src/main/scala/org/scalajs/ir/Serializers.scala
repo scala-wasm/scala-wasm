@@ -939,9 +939,9 @@ object Serializers {
       case wit.EnumType(_) =>
         buffer.writeByte(TagWITEnumType)
         ???
-      case wit.OptionType(_) =>
+      case wit.OptionType(t) =>
         buffer.writeByte(TagWITOptionType)
-        ???
+        writeWITType(t)
       case wit.ResultType(ok, err) =>
         buffer.writeByte(TagWITResultType)
         writeWITType(ok)
@@ -2380,7 +2380,8 @@ object Serializers {
             List.fill(readInt()) { wit.CaseType(readClassName(), readWITType()) }
           )
         case TagWITEnumType => ???
-        case TagWITOptionType => ???
+        case TagWITOptionType =>
+          wit.OptionType(readWITType())
         case TagWITResultType =>
           wit.ResultType(readWITType(), readWITType())
         case TagWITFlagsType => ???
