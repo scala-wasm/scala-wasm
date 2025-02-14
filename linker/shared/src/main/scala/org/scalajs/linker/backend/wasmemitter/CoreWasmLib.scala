@@ -151,6 +151,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     if (true/*isWASI*/) { // scalastyle:ignore
       genUndefinedAndIsUndef()
       genNaiveFmod()
+      genAllocatedPtrs()
       genPrintlnInt()
     }
   }
@@ -787,6 +788,19 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb += Call(genFunctionID.dropOutputStream)
 
     fb.buildAndAddToModule()
+  }
+
+  private def genAllocatedPtrs()(implicit ctx: WasmContext): Unit = {
+    assert(true /*WASI*/)
+    ctx.addGlobal(
+      Global(
+        genGlobalID.allocatedPtrs,
+        OriginalName(genGlobalID.allocatedPtrs.toString()),
+        isMutable = true,
+        Int32,
+        Expr(List(I32Const(0)))
+      )
+    )
   }
 
   private def genPrimitiveTypeDataGlobals()(implicit ctx: WasmContext): Unit = {
@@ -4441,7 +4455,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += LocalSet(p)
 
         fb.loop() { loop =>
-          // loop until we find a block p, where the ptr is withing the p and block pointed by p
+          // loop until we find a block p, where the ptr is within the p and block pointed by p
           // !(ptr > p && ptr < p->next)
           fb += LocalGet(ptr)
           fb += LocalGet(p)

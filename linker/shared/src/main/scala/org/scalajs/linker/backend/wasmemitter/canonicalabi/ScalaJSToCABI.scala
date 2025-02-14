@@ -18,11 +18,23 @@ import org.scalajs.linker.backend.wasmemitter.SpecialNames
 import org.scalajs.linker.backend.wasmemitter.TypeTransformer.transformSingleType
 import org.scalajs.ir.WasmInterfaceTypes.U8Type
 
+import scala.collection.mutable.ListBuffer
 
 object ScalaJSToCABI {
 
+  private def addLocalPtr(fb: FunctionBuilder): wanme.LocalID = {
+    val offset = fb.addLocal("offset", watpe.Int32)
+    fb += wa.I32Const(-1)
+    fb += wa.LocalSet(offset)
+    offset
+  }
+
   // assume that there're ptr and value of `tpe` are on the stack.
-  def genStoreMemory(fb: FunctionBuilder, tpe: wit.ValType): Unit = {
+  def genStoreMemory(
+      fb: FunctionBuilder,
+      tpe: wit.ValType,
+      localIdsToFree: ListBuffer[wanme.LocalID]
+  ): Unit = {
     tpe match {
       case wit.VoidType =>
       case wit.BoolType | wit.S8Type | wit.U8Type =>
@@ -42,7 +54,7 @@ object ScalaJSToCABI {
 
       case wit.StringType =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
-        val offset = fb.addLocal(NoOriginalName, watpe.Int32)
+        val offset = addLocalPtr(fb)
         val units = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.i16Array))
         fb += wa.Call(genFunctionID.cabiStoreString)
@@ -59,6 +71,8 @@ object ScalaJSToCABI {
         fb += wa.I32Add
         fb += wa.LocalGet(units)
         fb += wa.I32Store()
+
+        localIdsToFree.append(offset)
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
@@ -83,7 +97,7 @@ object ScalaJSToCABI {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _ =>
           }
-          genStoreMemory(fb, f)
+          genStoreMemory(fb, f, localIdsToFree)
           offset += wit.elemSize(f)
         }
 
@@ -106,26 +120,26 @@ object ScalaJSToCABI {
             genTypeID.forClass(className),
             genFieldID.forClassInstanceField(f.label)
           )
-          genStoreMemory(fb, f.tpe)
+          genStoreMemory(fb, f.tpe, localIdsToFree)
           offset += wit.elemSize(f.tpe)
         }
 
       case wit.VariantType(_, cases) =>
-        genStoreVariantMemory(fb, cases, (_) => {})
+        genStoreVariantMemory(fb, cases, (_) => {}, localIdsToFree)
 
       case wit.OptionType(t) =>
         val cases = List(
           wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
           wit.CaseType(ComponentOptionSomeClass, t)
         )
-        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) }, localIdsToFree)
 
       case wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
           wit.CaseType(ComponentResultErrClass, err)
         )
-        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) }, localIdsToFree)
 
       case wit.ResourceType(_) =>
         fb += wa.I32Store()
@@ -134,7 +148,11 @@ object ScalaJSToCABI {
     }
   }
 
-  def genStoreStack(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
+  def genStoreStack(
+      fb: FunctionBuilder,
+      tpe: wit.ValType,
+      localIdsToFree: ListBuffer[wanme.LocalID]
+  )(implicit ctx: WasmContext): Unit = {
     tpe match {
       case wit.VoidType => fb += wa.Drop
       // Scala.js has a same representation
@@ -192,7 +210,7 @@ object ScalaJSToCABI {
                 fb += wa.LocalGet(arr)
                 fb += wa.LocalGet(iLocal)
                 fb += wa.Call(genFunctionID.arrayGetFor(ArrayTypeRef.of(wit.toTypeRef(elemType))))
-                genStoreMemory(fb, elemType)
+                genStoreMemory(fb, elemType, localIdsToFree)
 
                 // i := i + 1
                 fb += wa.LocalGet(iLocal)
@@ -212,8 +230,16 @@ object ScalaJSToCABI {
         }
 
       case wit.StringType =>
+        val offset = addLocalPtr(fb)
+        val units = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.i16Array))
         fb += wa.Call(genFunctionID.cabiStoreString) // baseAddr, units
+
+        fb += wa.LocalSet(units)
+        fb += wa.LocalTee(offset)
+        fb += wa.LocalGet(units)
+
+        localIdsToFree.append(offset)
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
@@ -229,7 +255,7 @@ object ScalaJSToCABI {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _ =>
           }
-          genStoreStack(fb, f)
+          genStoreStack(fb, f, localIdsToFree)
         }
 
       case wit.RecordType(className, fields) =>
@@ -242,25 +268,25 @@ object ScalaJSToCABI {
             genTypeID.forClass(className),
             genFieldID.forClassInstanceField(f.label)
           )
-          genStoreStack(fb, f.tpe)
+          genStoreStack(fb, f.tpe, localIdsToFree)
         }
 
       case wit.VariantType(_, cases) =>
-        genStoreVariantStack(fb, cases, (_) => {})
+        genStoreVariantStack(fb, cases, (_) => {}, localIdsToFree)
 
       case wit.OptionType(t) =>
         val cases = List(
           wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
           wit.CaseType(ComponentOptionSomeClass, t)
         )
-        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) }, localIdsToFree)
 
       case wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
           wit.CaseType(ComponentResultErrClass, err)
         )
-        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) }, localIdsToFree)
 
       case _ => throw new AssertionError(s"Unexpected type: $tpe")
 
@@ -271,6 +297,7 @@ object ScalaJSToCABI {
     fb: FunctionBuilder,
     cases: List[wit.CaseType],
     genUnbox: (wit.ValType) => Unit,
+    localIdsToFree: ListBuffer[wanme.LocalID]
   ): Unit = {
     val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
     val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
@@ -307,7 +334,7 @@ object ScalaJSToCABI {
           fb += wa.RefCast(watpe.RefType(genTypeID.forClass(c.className)))
           fb += wa.StructGet(classID, value)
           genUnbox(c.tpe)
-          genStoreMemory(fb, c.tpe)
+          genStoreMemory(fb, c.tpe, localIdsToFree)
         })
       }: _*
     } { () =>
@@ -319,6 +346,7 @@ object ScalaJSToCABI {
       fb: FunctionBuilder,
       cases: List[wit.CaseType],
       genUnbox: (wit.ValType) => Unit,
+      localIdsToFree: ListBuffer[wanme.LocalID]
   )(implicit ctx: WasmContext): Unit = {
     val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
     val flattened = Flatten.flattenVariants(cases.map(t => t.tpe))
@@ -338,7 +366,7 @@ object ScalaJSToCABI {
           fb += wa.LocalGet(l)
           fb += wa.StructGet(classID, value)
           genUnbox(c.tpe)
-          genStoreStack(fb, c.tpe)
+          genStoreStack(fb, c.tpe, localIdsToFree)
           genCoerceValues(fb, Flatten.flattenType(c.tpe), flattened)
         })
       }: _*

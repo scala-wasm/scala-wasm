@@ -7,7 +7,7 @@ import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.standard.LinkedClass
 
-import org.scalajs.linker.backend.wasmemitter.VarGen.genFunctionID
+import org.scalajs.linker.backend.wasmemitter.VarGen.{genFunctionID, genGlobalID}
 import org.scalajs.linker.backend.wasmemitter.WasmContext
 import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 import org.scalajs.linker.backend.wasmemitter.FunctionEmitter
@@ -20,8 +20,10 @@ import org.scalajs.linker.backend.webassembly.{Types => watpe}
 import org.scalajs.linker.backend.webassembly.component.Flatten
 import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueIterator
 
+import scala.collection.mutable.ListBuffer
+
 object InteropEmitter {
-  // import
+
 
   def genComponentNativeInterop(clazz: LinkedClass, member: ComponentNativeMemberDef)(
     implicit ctx: WasmContext
@@ -73,6 +75,7 @@ object InteropEmitter {
 
     val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
 
+    val localIDsToFree = ListBuffer[wanme.LocalID]()
     // adapt params to CanonicalABI
     loweredFuncType.paramsOffset match {
       case Some(offset) =>
@@ -80,7 +83,7 @@ object InteropEmitter {
       case None =>
         params.map { case (localID, tpe) =>
           fb += wa.LocalGet(localID)
-          ScalaJSToCABI.genStoreStack(fb, tpe)
+          ScalaJSToCABI.genStoreStack(fb, tpe, localIDsToFree)
         }
     }
 
@@ -113,6 +116,16 @@ object InteropEmitter {
           CABIToScalaJS.genLoadStack(fb, resultType, vi)
         }
     }
+    val frees = localIDsToFree.toList
+    for (p <- frees) {
+      fb += wa.LocalGet(p)
+      fb += wa.I32Const(0)
+      fb += wa.I32GtS
+      fb.ifThen() { // p > 0
+        fb += wa.LocalGet(p)
+        fb += wa.Call(genFunctionID.free)
+      }
+    }
 
     // Call the component function
     fb.buildAndAddToModule()
@@ -142,62 +155,129 @@ object InteropEmitter {
 
     // gen export adapter func
     val exportFunctionID = genFunctionID.forExport(exportDef.exportName)
-    val fb = new FunctionBuilder(
-      ctx.moduleBuilder,
-      exportFunctionID,
-      OriginalName(exportDef.exportName),
-      pos,
-    )
-
     val flatFuncType = Flatten.liftFlattenFuncType(exportDef.signature)
 
-    fb.setResultTypes(flatFuncType.funcType.results)
-
-    val returnOffsetOpt = flatFuncType.returnOffset match {
-      case Some(offsetType) =>
-        val returnOffsetID = fb.addLocal("ret_addr", watpe.Int32)
-        // for storing the result data onto memory, after inner function call
-        fb += wa.I32Const(wit.elemSize(exportDef.signature.resultType))
-        fb += wa.Call(genFunctionID.malloc)
-        fb += wa.LocalTee(returnOffsetID)
-        Some(returnOffsetID)
-      case None => // do nothing
-        None
-    }
-
-    flatFuncType.paramsOffset match {
-      case Some(paramsOffset) => ??? // TODO read params from linear memory
-      case None =>
-        val vi = flatFuncType.stackParams.map { t =>
-           (fb.addParam(NoOriginalName, t), t)
-        }
-        val iterator = new ValueIterator(fb, vi)
-        exportDef.signature.paramTypes.foreach { paramTy =>
-          CABIToScalaJS.genLoadStack(fb, paramTy, iterator)
-        }
-    }
-
-    fb += wa.Call(internalFunctionID)
-
-    returnOffsetOpt match {
-      case Some(offset) =>
-        exportDef.signature.resultType.foreach { resultType =>
-          ScalaJSToCABI.genStoreMemory(fb, resultType)
-        }
-        fb += wa.LocalGet(offset)
-      case None =>
-        // CABI expects to have a return value on stack
-        exportDef.signature.resultType.foreach { resultType =>
-          ScalaJSToCABI.genStoreStack(fb, resultType)
-        }
-    }
-
-    fb.buildAndAddToModule()
-    ctx.moduleBuilder.addExport(
-      wamod.Export(
-        exportDef.exportName,
-        wamod.ExportDesc.Func(exportFunctionID)
+    val localIDsToFree = ListBuffer[wanme.LocalID]()
+    locally {
+      val fb = new FunctionBuilder(
+        ctx.moduleBuilder,
+        exportFunctionID,
+        OriginalName(exportDef.exportName),
+        pos,
       )
-    )
+      fb.setResultTypes(flatFuncType.funcType.results)
+
+      val returnOffsetOpt = flatFuncType.returnOffset match {
+        case Some(offsetType) =>
+          val returnOffsetID = fb.addLocal("ret_addr", watpe.Int32)
+          // for storing the result data onto memory, after inner function call
+          fb += wa.I32Const(wit.elemSize(exportDef.signature.resultType))
+          fb += wa.Call(genFunctionID.malloc)
+          fb += wa.LocalTee(returnOffsetID)
+          Some(returnOffsetID)
+        case None => // do nothing
+          None
+      }
+
+      flatFuncType.paramsOffset match {
+        case Some(paramsOffset) => ??? // TODO read params from linear memory
+        case None =>
+          val vi = flatFuncType.stackParams.map { t =>
+             (fb.addParam(NoOriginalName, t), t)
+          }
+          val iterator = new ValueIterator(fb, vi)
+          exportDef.signature.paramTypes.foreach { paramTy =>
+            CABIToScalaJS.genLoadStack(fb, paramTy, iterator)
+          }
+      }
+
+      fb += wa.Call(internalFunctionID)
+
+      returnOffsetOpt match {
+        case Some(offset) =>
+          exportDef.signature.resultType.foreach { resultType =>
+            ScalaJSToCABI.genStoreMemory(fb, resultType, localIDsToFree)
+          }
+          fb += wa.LocalGet(offset)
+        case None =>
+          // CABI expects to have a return value on stack
+          exportDef.signature.resultType.foreach { resultType =>
+            ScalaJSToCABI.genStoreStack(fb, resultType, localIDsToFree)
+          }
+      }
+
+      // prepare cleanup cleanup
+      // Store the list of pointers in linear memory, and free each of them in the post-return function
+      // The allocated memory offset for this is stored in allocatedPtrs global
+      val cleanups = localIDsToFree.toList
+      fb += wa.I32Const(cleanups.size * 4)
+      fb += wa.Call(genFunctionID.malloc)
+      fb += wa.GlobalSet(genGlobalID.allocatedPtrs)
+      for ((p, i) <- cleanups.zipWithIndex) {
+        fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
+        fb += wa.I32Const(i * 4)
+        fb += wa.I32Add
+        fb += wa.LocalGet(p)
+        fb += wa.I32Store()
+      }
+
+      fb.buildAndAddToModule()
+      ctx.moduleBuilder.addExport(
+        wamod.Export(
+          exportDef.exportName,
+          wamod.ExportDesc.Func(exportFunctionID)
+        )
+      )
+    }
+
+    // post return
+    if (localIDsToFree.nonEmpty) {
+      // wasm-tools convention: prefixed with cabi_post_${func} will be post-return of $func
+      // https://github.com/alexcrichton/wasm-tools/blob/da3e9730810c2e8782eb30db9a450aaa5fce881b/crates/wit-parser/src/resolve.rs#L2339-L2341
+      // In future, we'd like to follow the spec https://github.com/WebAssembly/component-model/pull/378
+      val postReturnName = "cabi_post_" + exportDef.exportName
+      val postReturnFunctionID = genFunctionID.forExport(postReturnName)
+
+      val fb = new FunctionBuilder(
+        ctx.moduleBuilder,
+        postReturnFunctionID,
+        OriginalName(postReturnName),
+        pos,
+      )
+
+      // > if a post-return is present, it has type (func (param flatten_functype({}, $ft, 'lift').results))
+      // https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#canon-lift
+      for (r <- flatFuncType.funcType.results) {
+        fb.addParam(NoOriginalName, r)
+      }
+
+      val ptr = fb.addLocal("ptr", watpe.Int32)
+      val cleanups = localIDsToFree.toList
+      for (i <- 0 until cleanups.size) {
+        fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
+        fb += wa.I32Const(i * 4)
+        fb += wa.I32Add
+        fb += wa.I32Load()
+        fb += wa.LocalTee(ptr)
+        fb += wa.I32Const(0)
+        fb += wa.I32GtS
+        fb.ifThen() {
+          fb += wa.LocalGet(ptr)
+          fb += wa.Call(genFunctionID.free)
+        }
+      }
+      fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
+      fb += wa.Call(genFunctionID.free)
+
+      fb.buildAndAddToModule()
+      ctx.moduleBuilder.addExport(
+        wamod.Export(
+          // wasm-tools convention: prefixed with cabi_post_${func} will be post-return of $func
+          // https://github.com/alexcrichton/wasm-tools/blob/da3e9730810c2e8782eb30db9a450aaa5fce881b/crates/wit-parser/src/resolve.rs#L2339-L2341
+          postReturnName,
+          wamod.ExportDesc.Func(postReturnFunctionID)
+        )
+      )
+    }
   }
 }

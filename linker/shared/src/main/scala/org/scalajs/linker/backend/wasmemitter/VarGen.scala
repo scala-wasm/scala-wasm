@@ -53,6 +53,11 @@ object VarGen {
     case object emptyStringArray extends GlobalID
     /** Offset of the linear memory pointing to the starting point of freelist. */
     case object freep extends GlobalID
+    /** A global memory offset that stores a list of pointers allocated
+      * during the execution of an exported component function.
+      * These pointers should be cleaned up at the post-return.
+      */
+    case object allocatedPtrs extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
