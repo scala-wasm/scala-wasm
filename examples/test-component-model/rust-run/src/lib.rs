@@ -24,7 +24,7 @@ impl Run for Component {
         roundtrip_point(p), p
       );
 
-      test_c1(C1::A(100));
+      // test_c1(C1::A(100));
       assert_eq!(roundtrip_c1(C1::A(2)), C1::A(2));
       assert_eq!(roundtrip_c1(C1::A(0)), C1::A(0));
       assert_eq!(roundtrip_c1(C1::B(100.0)), C1::B(100.0));

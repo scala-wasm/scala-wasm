@@ -131,6 +131,7 @@ object VarGen {
     final case object blockingWriteAndFlush extends FunctionID
     final case object dropOutputStream extends FunctionID
     final case object printlnInt extends FunctionID
+    final case object dumpMemory extends FunctionID
 
     // JS helpers
 

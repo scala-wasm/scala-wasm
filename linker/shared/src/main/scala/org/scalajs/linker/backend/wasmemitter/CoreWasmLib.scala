@@ -153,6 +153,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genNaiveFmod()
       genAllocatedPtrs()
       genPrintlnInt()
+      genPrintMemory()
     }
   }
 
@@ -591,6 +592,50 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         Expr(List(StructNewDefault(genTypeID.itables)))
       )
     )
+  }
+
+  private def genPrintMemory()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.dumpMemory)
+    val offset = fb.addParam("offset", Int32)
+    val byteLength = fb.addParam("byte_length", Int32)
+
+    val iLocal = fb.addLocal("i", Int32)
+    val end = fb.addLocal("end", Int32)
+
+    fb += LocalGet(offset)
+    fb += LocalGet(byteLength)
+    fb += I32Add
+    fb += LocalSet(end)
+
+    fb += LocalGet(offset)
+    fb += LocalSet(iLocal)
+
+    fb.block() { exit =>
+      fb.loop() { loop =>
+        fb += LocalGet(iLocal)
+        fb += LocalGet(end)
+        fb += I32GeU
+        fb += BrIf(exit)
+
+        fb += LocalGet(iLocal)
+        fb += I32Load8U()
+
+        // print
+        fb += Call(genFunctionID.printlnInt)
+
+        fb += LocalGet(iLocal)
+        fb += I32Const(1)
+        fb += I32Add
+        fb += LocalSet(iLocal)
+
+        fb += Br(loop)
+      }
+    }
+
+    fb += I32Const(999999)
+    fb += Call(genFunctionID.printlnInt)
+
+    fb.buildAndAddToModule()
   }
 
   private def genPrintlnInt()(implicit ctx: WasmContext): Unit = {
@@ -1962,9 +2007,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                   fb += GlobalGet(genGlobalID.undef)
                 case StringType =>
                   fb += LocalGet(objParam)
-                  if (true /*!isWASI*/) // scalastyle:ignore
+                  if (true /*!isWASI*/) { // scalastyle:ignore
                     fb += RefCast(RefType(genTypeID.i16Array))
-                  else {
+                  } else {
                     fb += ExternConvertAny
                     fb += RefAsNonNull
                   }
@@ -1975,9 +2020,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             } else {
               fb += LocalGet(objParam)
               if (primType == StringType) {
-                if (true /*isWASI*/) // scalastyle:ignore
+                if (true /*isWASI*/) { // scalastyle:ignore
                   fb += RefCast(RefType.nullable(genTypeID.i16Array))
-                else
+                } else
                   fb += ExternConvertAny
               }
             }
@@ -4573,17 +4618,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.ifThen() {
       fb += LocalGet(newSize)
       fb += Call(genFunctionID.malloc)
-      fb += Return
-    }
-
-    // newSize <= 0
-    fb += LocalGet(newSize)
-    fb += I32Const(0)
-    fb += I32LeS
-    fb.ifThen() {
-      fb += LocalGet(originalPtr)
-      fb += Call(genFunctionID.free)
-      fb += I32Const(0)
       fb += Return
     }
 

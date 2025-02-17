@@ -675,6 +675,12 @@ object Infos {
           for (t <- paramTypes) generateForWIT(t)
           resultType.foreach { t => generateForWIT(t) }
 
+        case wit.TupleType(fields) =>
+          val className = ClassName("scala.Tuple" + fields.size)
+          val ctorID = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(className, ctorID)
+          for (f <- fields) generateForWIT(f)
+
         case wit.RecordType(className, fields) =>
           val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
           builder.addInstantiatedClass(className, ctor)

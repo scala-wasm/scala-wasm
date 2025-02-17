@@ -25,16 +25,13 @@ import ValueIterators._
 
 object CABIToScalaJS {
 
-  /** Load data from linear memory and move the pointer.
-    *
-    * @param tpe - target Wasm Interface Type to load
-    * @param ptr - memory offset for loading data from
+  /** Load data from linear memory.
+    * This generator expects an offset to be on the stack before loading.
     */
-  def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType, ptr: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
+  def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
     tpe match {
       case wit.VoidType => // do nothing
       case pt: wit.PrimValType =>
-        fb += wa.LocalGet(ptr)
         pt match {
           case wit.VoidType => throw new AssertionError("should be handled outside")
           case wit.BoolType => fb += wa.I32Load8U()
@@ -50,63 +47,71 @@ object CABIToScalaJS {
           case wit.F64Type => fb += wa.F64Load()
           case wit.CharType => fb += wa.I32Load()
           case wit.StringType =>
+            val base = fb.addLocal(NoOriginalName, watpe.Int32)
+            fb += wa.LocalTee(base)
             fb += wa.I32Load() // offset
-            fb += wa.LocalGet(ptr)
+            fb += wa.LocalGet(base)
             fb += wa.I32Const(4)
             fb += wa.I32Add
             fb += wa.I32Load() // code units (UTF-16)
             fb += wa.Call(genFunctionID.cabiLoadString)
         }
-        genMovePtr(fb, ptr, tpe)
+        // genMovePtr(fb, ptr, tpe)
 
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
         val ctor = MethodName.constructor(typeRefs)
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        fb += wa.LocalSet(ptr)
         genNewScalaClass(fb, className, ctor) {
           for (f <- fields) {
-            val align = wit.alignment(f.tpe)
-            genAlignTo(fb, align, ptr)
-            genLoadMemory(fb, f.tpe, ptr) // load and move memory
+            genAlignTo(fb, wit.alignment(f.tpe), ptr)
+            fb += wa.LocalGet(ptr)
+            genLoadMemory(fb, f.tpe)
+            genMovePtr(fb, ptr, wit.elemSize(f.tpe))
           }
         }
-        genAlignTo(fb, wit.alignment(tpe), ptr)
+        // genAlignTo(fb, wit.alignment(tpe), ptr)
 
       case wit.TupleType(fields) =>
         val ctor = MethodName.constructor(fields.map(_ => ClassRef(ObjectClass)))
         val className = ClassName("scala.Tuple" + fields.size)
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        fb += wa.LocalSet(ptr)
         genNewScalaClass(fb, className, ctor) {
           for (f <- fields) {
             val align = wit.alignment(f)
             genAlignTo(fb, align, ptr)
-            genLoadMemory(fb, f, ptr) // load and move memory
+            fb += wa.LocalGet(ptr)
+            genLoadMemory(fb, f) // load and move memory
             f.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _ =>
             }
+            genMovePtr(fb, ptr, wit.elemSize(f))
           }
         }
+        // genAlignTo(fb, wit.alignment(tpe), ptr)
 
       case wit.ResourceType(_) =>
-        fb += wa.LocalGet(ptr)
         fb += wa.I32Load()
-        genMovePtr(fb, ptr, tpe)
 
       case variant @ wit.VariantType(className, cases) =>
-        genLoadVariantMemory(fb, cases, ptr, wit.alignment(variant), false)
+        genLoadVariantMemory(fb, cases, false)
 
       case option @ wit.OptionType(t) =>
         val cases = List(
           wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
           wit.CaseType(ComponentOptionSomeClass, t)
         )
-        genLoadVariantMemory(fb, cases, ptr, wit.alignment(option), true)
+        genLoadVariantMemory(fb, cases, true)
 
       case result @ wit.ResultType(ok, err) =>
         val cases = List(
           wit.CaseType(ComponentResultOkClass, ok),
           wit.CaseType(ComponentResultErrClass, err)
         )
-        genLoadVariantMemory(fb, cases, ptr, wit.alignment(result), true)
+        genLoadVariantMemory(fb, cases, true)
 
       case tpe => throw new AssertionError(s"unsupported tpe: $tpe")
     }
@@ -197,17 +202,20 @@ object CABIToScalaJS {
   private def genLoadVariantMemory(
     fb: FunctionBuilder,
     cases: List[wit.CaseType],
-    ptr: wanme.LocalID,
-    alignment: Int,
     boxValue: Boolean
   )(implicit ctx: WasmContext): Unit = {
+    val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+    fb += wa.LocalSet(ptr)
+
     val flattened = Flatten.flattenVariants(cases.map(_.tpe))
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
     )( () => {
-     genLoadMemory(fb, wit.discriminantType(cases), ptr) // load i32 (case index) from memory
-     genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
+      fb += wa.LocalGet(ptr)
+      genLoadMemory(fb, wit.discriminantType(cases)) // load i32 (case index) from memory
+      genMovePtr(fb, ptr, wit.elemSize(wit.discriminantType(cases)))
+      genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
     })(
       cases.zipWithIndex.map { case (c, i) =>
         (List(i), () => {
@@ -221,7 +229,8 @@ object CABIToScalaJS {
             genNewScalaClass(fb, c.className, ctorID) {
               if (c.tpe == wit.VoidType) fb += wa.GlobalGet(genGlobalID.undef)
               else {
-                genLoadMemory(fb, c.tpe, ptr)
+                fb += wa.LocalGet(ptr)
+                genLoadMemory(fb, c.tpe)
                 val maxElemSize = cases.map(c => wit.elemSize(c.tpe)).max
                 val elemSize = wit.elemSize(c.tpe)
                 genMovePtr(fb, ptr, maxElemSize - elemSize)
@@ -239,7 +248,7 @@ object CABIToScalaJS {
     ) { () =>
       fb += wa.Unreachable
     }
-    genAlignTo(fb, alignment, ptr)
+    // genAlignTo(fb, alignment, ptr)
   }
 
   private def genLoadVariantStack(
@@ -248,11 +257,17 @@ object CABIToScalaJS {
     vi: ValueIterator,
     boxValue: Boolean,
   )(implicit ctx: WasmContext): Unit = {
+    // val idx = fb.addLocal(NoOriginalName, watpe.Int32)
     val flattened = Flatten.flattenVariants(cases.map(_.tpe))
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-    ) { () => vi.next(watpe.Int32) } (
+    ) { () =>
+      vi.next(watpe.Int32)
+      // fb += wa.LocalTee(idx)
+      // fb += wa.Call(genFunctionID.printlnInt)
+      // fb += wa.LocalGet(idx)
+    } (
       cases.zipWithIndex.map { case (c, i) =>
         // While the variant uses `case object`` when the value type is Unit,
         // the Result/Option type still uses `case class Ok(())`` even when the value type is Unit.
@@ -316,7 +331,7 @@ object CABIToScalaJS {
       }
     }
     // drop padding
-    // for (_ <- types.drop(expect.length)) {} // do nothing since there's no values on the stack
+    // for (_ <- types.drop(expect.length)) {  }
   }
 
   private def genNewScalaClass(fb: FunctionBuilder, cls: ClassName, ctor: MethodName)(

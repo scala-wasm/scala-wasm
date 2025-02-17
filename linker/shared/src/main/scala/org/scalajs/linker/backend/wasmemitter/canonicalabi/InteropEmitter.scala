@@ -81,7 +81,7 @@ object InteropEmitter {
       case Some(offset) =>
         // TODO : put params onto linear memory
       case None =>
-        params.map { case (localID, tpe) =>
+        params.foreach { case (localID, tpe) =>
           fb += wa.LocalGet(localID)
           ScalaJSToCABI.genStoreStack(fb, tpe, localIDsToFree)
         }
@@ -90,19 +90,18 @@ object InteropEmitter {
     loweredFuncType.returnOffset match {
       case Some(_) =>
         val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
-        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         val returnSize = wit.elemSize(member.signature.resultType)
         fb += wa.I32Const(returnSize)
         fb += wa.Call(genFunctionID.malloc)
         fb += wa.LocalTee(returnPtr)
-        fb += wa.LocalTee(ptr)
 
         fb += wa.Call(importFunctionID)
 
         // Response back to Scala.js representation
 
         member.signature.resultType.foreach { resultType =>
-          CABIToScalaJS.genLoadMemory(fb, resultType, ptr)
+          fb += wa.LocalGet(returnPtr)
+          CABIToScalaJS.genLoadMemory(fb, resultType)
         }
         fb += wa.LocalGet(returnPtr)
         fb += wa.Call(genFunctionID.free)
@@ -170,7 +169,6 @@ object InteropEmitter {
       val returnOffsetOpt = flatFuncType.returnOffset match {
         case Some(offsetType) =>
           val returnOffsetID = fb.addLocal("ret_addr", watpe.Int32)
-          // for storing the result data onto memory, after inner function call
           fb += wa.I32Const(wit.elemSize(exportDef.signature.resultType))
           fb += wa.Call(genFunctionID.malloc)
           fb += wa.LocalTee(returnOffsetID)
@@ -199,6 +197,7 @@ object InteropEmitter {
             ScalaJSToCABI.genStoreMemory(fb, resultType, localIDsToFree)
           }
           fb += wa.LocalGet(offset)
+          localIDsToFree.append(offset)
         case None =>
           // CABI expects to have a return value on stack
           exportDef.signature.resultType.foreach { resultType =>
