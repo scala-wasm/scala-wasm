@@ -55,6 +55,16 @@ object CABIToScalaJS {
             fb += wa.I32Add
             fb += wa.I32Load() // code units (UTF-16)
             fb += wa.Call(genFunctionID.cabiLoadString)
+
+            // Save stack pointer to restore post-return
+            // see: `genFunctionID.malloc`
+            fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+            fb += wa.LocalGet(base)
+            fb += wa.I32GtU
+            fb.ifThen() { // if savedStackPointer > offset
+              fb += wa.LocalGet(base)
+              fb += wa.GlobalSet(genGlobalID.savedStackPointer)
+            }
         }
         // genMovePtr(fb, ptr, tpe)
 
@@ -132,9 +142,21 @@ object CABIToScalaJS {
       case wit.F64Type => vi.next(watpe.Float64)
 
       case wit.StringType =>
+        val offset = fb.addLocal(NoOriginalName, watpe.Int32)
         vi.next(watpe.Int32)
+        fb += wa.LocalTee(offset)
         vi.next(watpe.Int32)
         fb += wa.Call(genFunctionID.cabiLoadString)
+
+        // Save stack pointer to restore post-return
+        // see: `genFunctionID.malloc`
+        fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+        fb += wa.LocalGet(offset)
+        fb += wa.I32GtU
+        fb.ifThen() { // if savedStackPointer > offset
+          fb += wa.LocalGet(offset)
+          fb += wa.GlobalSet(genGlobalID.savedStackPointer)
+        }
 
       case wit.ResourceType(_) =>
         vi.next(watpe.Int32)

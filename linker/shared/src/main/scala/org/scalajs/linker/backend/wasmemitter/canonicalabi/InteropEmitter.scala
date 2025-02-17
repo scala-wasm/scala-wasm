@@ -20,7 +20,6 @@ import org.scalajs.linker.backend.webassembly.{Types => watpe}
 import org.scalajs.linker.backend.webassembly.component.Flatten
 import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueIterator
 
-import scala.collection.mutable.ListBuffer
 
 object InteropEmitter {
 
@@ -59,6 +58,11 @@ object InteropEmitter {
       member.pos,
     )
 
+    val savedStackPointer = fb.addLocal("saved_sp", watpe.Int32)
+
+    fb += wa.GlobalGet(genGlobalID.stackPointer)
+    fb += wa.LocalSet(savedStackPointer)
+
     val params = member.signature.paramTypes.map { p =>
       val irType = p.toIRType()
       val localID = fb.addParam(
@@ -75,7 +79,6 @@ object InteropEmitter {
 
     val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
 
-    val localIDsToFree = ListBuffer[wanme.LocalID]()
     // adapt params to CanonicalABI
     loweredFuncType.paramsOffset match {
       case Some(offset) =>
@@ -83,7 +86,7 @@ object InteropEmitter {
       case None =>
         params.foreach { case (localID, tpe) =>
           fb += wa.LocalGet(localID)
-          ScalaJSToCABI.genStoreStack(fb, tpe, localIDsToFree)
+          ScalaJSToCABI.genStoreStack(fb, tpe)
         }
     }
 
@@ -103,8 +106,6 @@ object InteropEmitter {
           fb += wa.LocalGet(returnPtr)
           CABIToScalaJS.genLoadMemory(fb, resultType)
         }
-        fb += wa.LocalGet(returnPtr)
-        fb += wa.Call(genFunctionID.free)
 
       case None =>
         fb += wa.Call(importFunctionID)
@@ -115,16 +116,9 @@ object InteropEmitter {
           CABIToScalaJS.genLoadStack(fb, resultType, vi)
         }
     }
-    val frees = localIDsToFree.toList
-    for (p <- frees) {
-      fb += wa.LocalGet(p)
-      fb += wa.I32Const(0)
-      fb += wa.I32GtS
-      fb.ifThen() { // p > 0
-        fb += wa.LocalGet(p)
-        fb += wa.Call(genFunctionID.free)
-      }
-    }
+
+    fb += wa.LocalGet(savedStackPointer)
+    fb += wa.GlobalSet(genGlobalID.stackPointer)
 
     // Call the component function
     fb.buildAndAddToModule()
@@ -156,7 +150,7 @@ object InteropEmitter {
     val exportFunctionID = genFunctionID.forExport(exportDef.exportName)
     val flatFuncType = Flatten.liftFlattenFuncType(exportDef.signature)
 
-    val localIDsToFree = ListBuffer[wanme.LocalID]()
+
     locally {
       val fb = new FunctionBuilder(
         ctx.moduleBuilder,
@@ -165,6 +159,14 @@ object InteropEmitter {
         pos,
       )
       fb.setResultTypes(flatFuncType.funcType.results)
+
+      val savedStackPointer = fb.addLocal("saved_sp", watpe.Int32)
+
+      // prepare clean up
+      // save a stack pointer to restore in global, and restore the stack pointer
+      // in post-return function
+      fb += wa.GlobalGet(genGlobalID.stackPointer)
+      fb += wa.GlobalSet(genGlobalID.savedStackPointer)
 
       val returnOffsetOpt = flatFuncType.returnOffset match {
         case Some(offsetType) =>
@@ -194,30 +196,14 @@ object InteropEmitter {
       returnOffsetOpt match {
         case Some(offset) =>
           exportDef.signature.resultType.foreach { resultType =>
-            ScalaJSToCABI.genStoreMemory(fb, resultType, localIDsToFree)
+            ScalaJSToCABI.genStoreMemory(fb, resultType)
           }
           fb += wa.LocalGet(offset)
-          localIDsToFree.append(offset)
         case None =>
           // CABI expects to have a return value on stack
           exportDef.signature.resultType.foreach { resultType =>
-            ScalaJSToCABI.genStoreStack(fb, resultType, localIDsToFree)
+            ScalaJSToCABI.genStoreStack(fb, resultType)
           }
-      }
-
-      // prepare cleanup cleanup
-      // Store the list of pointers in linear memory, and free each of them in the post-return function
-      // The allocated memory offset for this is stored in allocatedPtrs global
-      val cleanups = localIDsToFree.toList
-      fb += wa.I32Const(cleanups.size * 4)
-      fb += wa.Call(genFunctionID.malloc)
-      fb += wa.GlobalSet(genGlobalID.allocatedPtrs)
-      for ((p, i) <- cleanups.zipWithIndex) {
-        fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
-        fb += wa.I32Const(i * 4)
-        fb += wa.I32Add
-        fb += wa.LocalGet(p)
-        fb += wa.I32Store()
       }
 
       fb.buildAndAddToModule()
@@ -230,7 +216,7 @@ object InteropEmitter {
     }
 
     // post return
-    if (localIDsToFree.nonEmpty) {
+    locally {
       // wasm-tools convention: prefixed with cabi_post_${func} will be post-return of $func
       // https://github.com/alexcrichton/wasm-tools/blob/da3e9730810c2e8782eb30db9a450aaa5fce881b/crates/wit-parser/src/resolve.rs#L2339-L2341
       // In future, we'd like to follow the spec https://github.com/WebAssembly/component-model/pull/378
@@ -250,23 +236,12 @@ object InteropEmitter {
         fb.addParam(NoOriginalName, r)
       }
 
-      val ptr = fb.addLocal("ptr", watpe.Int32)
-      val cleanups = localIDsToFree.toList
-      for (i <- 0 until cleanups.size) {
-        fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
-        fb += wa.I32Const(i * 4)
-        fb += wa.I32Add
-        fb += wa.I32Load()
-        fb += wa.LocalTee(ptr)
-        fb += wa.I32Const(0)
-        fb += wa.I32GtS
-        fb.ifThen() {
-          fb += wa.LocalGet(ptr)
-          fb += wa.Call(genFunctionID.free)
-        }
-      }
-      fb += wa.GlobalGet(genGlobalID.allocatedPtrs)
-      fb += wa.Call(genFunctionID.free)
+      fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+      fb += wa.GlobalSet(genGlobalID.stackPointer)
+
+      // must be 0 (if exported function calls an external function, which call our function)
+      // fb += wa.GlobalGet(genGlobalID.stackPointer)
+      // fb += wa.Call(genFunctionID.printlnInt)
 
       fb.buildAndAddToModule()
       ctx.moduleBuilder.addExport(

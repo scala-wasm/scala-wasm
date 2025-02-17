@@ -51,13 +51,8 @@ object VarGen {
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
     case object emptyStringArray extends GlobalID
-    /** Offset of the linear memory pointing to the starting point of freelist. */
-    case object freep extends GlobalID
-    /** A global memory offset that stores a list of pointers allocated
-      * during the execution of an exported component function.
-      * These pointers should be cleaned up at the post-return.
-      */
-    case object allocatedPtrs extends GlobalID
+    case object stackPointer extends GlobalID
+    case object savedStackPointer extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -120,8 +115,8 @@ object VarGen {
     // WASI
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
+
     final case object malloc extends FunctionID
-    final case object free extends FunctionID
     final case object realloc extends FunctionID
     // CanonicalABI
     final case object cabiLoadString extends FunctionID
