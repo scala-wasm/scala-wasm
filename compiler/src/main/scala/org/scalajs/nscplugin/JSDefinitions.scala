@@ -80,6 +80,7 @@ trait JSDefinitions {
     lazy val ComponentImportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentImport")
     lazy val ComponentExportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentExport")
     lazy val ComponentRecordAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentRecord")
+    lazy val ComponentFlagsAnnotation  = getRequiredClass("scala.scalajs.component.annotation.ComponentFlags")
     lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.component.Result")
     lazy val ComponentResultOkClass    = getRequiredClass("scala.scalajs.component.Ok")
     lazy val ComponentResultErrClass   = getRequiredClass("scala.scalajs.component.Err")

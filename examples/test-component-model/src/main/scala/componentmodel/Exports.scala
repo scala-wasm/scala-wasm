@@ -24,6 +24,10 @@ object TestsExport extends cm.Interface {
   def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = a
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = a
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = a
+
+  def roundtripF8(a: F1): F1 = a
+  def roundtripF16(a: F2): F2 = a
+  def roundtripF32(a: F3): F3 = a
 }
 
 @ComponentExport("component:testing/test-imports")
@@ -81,6 +85,11 @@ object TestImports extends cm.Interface {
     assert(cm.Err(E1.A) == roundtripEnumError(cm.Err(E1.A)))
     assert(cm.Err(E1.B) == roundtripEnumError(cm.Err(E1.B)))
     assert(cm.Err(E1.C) == roundtripEnumError(cm.Err(E1.C)))
+
+    assert(
+      F1(false, false, false, false, true, true, false, false) ==
+        roundtripF8(F1(false, false, false, false, true, true, false, false))
+    )
   }
 }
 
@@ -126,3 +135,29 @@ object E1 {
     val _index = 2
   }
 }
+
+@ComponentFlags
+final case class F1(
+  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
+  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean
+)
+
+@ComponentFlags
+final case class F2(
+  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
+  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean,
+  b8: Boolean, b9: Boolean, b10: Boolean, b11: Boolean,
+  b12: Boolean, b13: Boolean, b14: Boolean, b15: Boolean
+)
+
+@ComponentFlags
+final case class F3(
+  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
+  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean,
+  b8: Boolean, b9: Boolean, b10: Boolean, b11: Boolean,
+  b12: Boolean, b13: Boolean, b14: Boolean, b15: Boolean,
+  b16: Boolean, b17: Boolean, b18: Boolean, b19: Boolean,
+  b20: Boolean, b21: Boolean, b22: Boolean, b23: Boolean,
+  b24: Boolean, b25: Boolean, b26: Boolean, b27: Boolean,
+  b28: Boolean, b29: Boolean, b30: Boolean, b31: Boolean
+)

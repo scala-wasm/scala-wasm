@@ -112,8 +112,8 @@ object WasmInterfaceTypes {
   final case class OptionType(tpe: ValType) extends SpecializedType {
     def toIRType(): jstpe.Type = jstpe.ClassType(Names.ComponentOptionClass, true)
   }
-  final case class FlagsType(labels: List[String]) extends FundamentalType {
-    def toIRType(): jstpe.Type = ???
+  final case class FlagsType(className: ClassName, fields: List[FieldType]) extends FundamentalType {
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
   }
 
   final case class ResourceType(className: ClassName) extends FundamentalType {
@@ -143,7 +143,7 @@ object WasmInterfaceTypes {
     case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
     case EnumType(labels) => ???
     case OptionType(tpe) => ???
-    case FlagsType(labels) => ???
+    case FlagsType(className, fields) => jstpe.ClassRef(className)
     case ResourceType(className) => jstpe.ClassRef(className)
   }
 
@@ -223,7 +223,13 @@ object WasmInterfaceTypes {
         val indexSize = alignTo(elemSize(discriminantType(cases)), maxCaseAlignment(cases))
         val size = indexSize + cases.map(c => elemSize(c.tpe)).max
         alignTo(size, alignment(tpe))
-      case FlagsType(labels) => ???
+      case FlagsType(_, fields) =>
+        val n = fields.size
+        assert(n > 0)
+        assert(n <= 32)
+        if (n <= 8) 1
+        else if (n <= 16) 2
+        else 4
       case ResourceType(className) => 4
     }
 
@@ -247,7 +253,13 @@ object WasmInterfaceTypes {
         val maxCaseAlign = maxCaseAlignment(cases)
         val caseIndexAlign = alignment(discriminantType(cases))
         if (maxCaseAlign > caseIndexAlign) maxCaseAlign else caseIndexAlign
-      case FlagsType(labels) => ???
+      case FlagsType(_, fields) =>
+        val n = fields.size
+        assert(n > 0)
+        assert(n <= 32)
+        if (n <= 8) 1
+        else if (n <= 16) 2
+        else 4
       case ResourceType(className) => 4
     }
 

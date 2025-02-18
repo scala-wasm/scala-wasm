@@ -65,6 +65,13 @@ impl Run for Component {
       assert_eq!(roundtrip_enum_error(Err(E1::B)), Err(E1::B));
       assert_eq!(roundtrip_enum_error(Err(E1::C)), Err(E1::C));
 
+      assert_eq!(roundtrip_f8(F1::B0 | F1::B7), F1::B0 | F1::B7);
+      assert_eq!(roundtrip_f16(F2::B7 | F2::B8 | F2::B15), F2::B7 | F2::B8 | F2::B15);
+      assert_eq!(
+        roundtrip_f32(F3::B7 | F3::B8 | F3::B15 | F3::B31),
+        F3::B7 | F3::B8 | F3::B15 | F3::B31,
+      );
+
       return Ok(());
     }
 }

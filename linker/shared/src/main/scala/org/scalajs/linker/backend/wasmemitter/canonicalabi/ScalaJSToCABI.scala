@@ -86,6 +86,13 @@ object ScalaJSToCABI {
           genMovePtr(fb, ptr, wit.elemSize(f))
         }
 
+      case flags @ wit.FlagsType(className, fields) =>
+        val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(flagsLocal)
+        // ptr on the stack
+        packFlagsIntoInt(fb, flags, flagsLocal) // i32
+        fb += wa.I32Store()
+
       case wit.RecordType(className, fields) =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         // TODO: NPE if null
@@ -128,6 +135,7 @@ object ScalaJSToCABI {
       case _ => ???
     }
   }
+
 
   def genStoreStack(
       fb: FunctionBuilder,
@@ -219,6 +227,11 @@ object ScalaJSToCABI {
         fb += wa.LocalSet(units)
         fb += wa.LocalTee(offset)
         fb += wa.LocalGet(units)
+
+      case flags @ wit.FlagsType(className, fields) =>
+        val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.LocalSet(flagsLocal)
+        packFlagsIntoInt(fb, flags, flagsLocal) // i32
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
@@ -402,6 +415,39 @@ object ScalaJSToCABI {
           throw new AssertionError(s"Illegal core wasm type: $t")
       }
     }
+  }
+
+  /** Leaves an i32 value on the stack.
+    *
+    * @param flags - The type of flags to pack.
+    * @param localID - The local ID containing the flags value to be packed.
+    */
+  private def packFlagsIntoInt(
+    fb: FunctionBuilder,
+    flags: wit.FlagsType,
+    localID: wanme.LocalID
+  ): Unit = {
+    val result = fb.addLocal(NoOriginalName, watpe.Int32)
+    fb += wa.I32Const(0)
+    fb += wa.LocalSet(result)
+    for ((f, i) <- flags.fields.zipWithIndex) {
+      fb += wa.LocalGet(localID)
+      fb += wa.StructGet(
+        genTypeID.forClass(flags.className),
+        genFieldID.forClassInstanceField(f.label)
+      )
+      fb += wa.I32Const(0)
+      fb += wa.I32Ne
+      fb.ifThen() {
+        fb += wa.LocalGet(result)
+        fb += wa.I32Const(1)
+        fb += wa.I32Const(i)
+        fb += wa.I32Shl
+        fb += wa.I32Or
+        fb += wa.LocalSet(result)
+      }
+    }
+    fb += wa.LocalGet(result)
   }
 
   private def genAlignTo(fb: FunctionBuilder, align: Int, ptr: wanme.LocalID): Unit = {

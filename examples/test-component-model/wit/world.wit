@@ -54,6 +54,23 @@ interface tests {
   roundtrip-option: func(a: option<string>) -> option<string>;
   roundtrip-double-option: func(a: option<option<string>>) -> option<option<string>>;
 
+  flags f1 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+  }
+  flags f2 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+    b8, b9, b10, b11, b12, b13, b14, b15,
+  }
+  flags f3 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+    b8, b9, b10, b11, b12, b13, b14, b15,
+    b16, b17, b18, b19, b20, b21, b22, b23,
+    b24, b25, b26, b27, b28, b29, b30, b31,
+  }
+  roundtrip-f8: func(a: f1) -> f1;
+  roundtrip-f16: func(a: f2) -> f2;
+  roundtrip-f32: func(a: f3) -> f3;
+
   roundtrip-result: func(a: result) -> result;
   roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;
   roundtrip-enum-error: func(a: result<c1, e1>) -> result<c1, e1>;

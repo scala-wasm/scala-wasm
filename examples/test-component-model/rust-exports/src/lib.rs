@@ -35,6 +35,10 @@ impl Tests for Component {
   fn roundtrip_enum_error(a: Result<C1, E1>) -> Result<C1, E1> { a }
   fn roundtrip_option(a: Option<String>) -> Option<String> { a }
   fn roundtrip_double_option(a: Option<Option<String>>) -> Option<Option<String>> { a }
+
+  fn roundtrip_f8(a: F1) -> F1 { a }
+  fn roundtrip_f16(a: F2) -> F2 { a }
+  fn roundtrip_f32(a: F3) -> F3 { a }
 }
 
 bindings::export!(Component with_types_in bindings);

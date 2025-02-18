@@ -946,7 +946,14 @@ object Serializers {
         buffer.writeByte(TagWITResultType)
         writeWITType(ok)
         writeWITType(err)
-      case wit.FlagsType(_) => buffer.writeByte(TagWITFlagsType)
+      case wit.FlagsType(className, fields) =>
+        buffer.writeByte(TagWITFlagsType)
+        writeName(className)
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeFieldName(f.label)
+          writeWITType(f.tpe)
+        }
       case wit.ResourceType(className) =>
         buffer.writeByte(TagWITResourceType)
         writeName(className)
@@ -2384,7 +2391,11 @@ object Serializers {
           wit.OptionType(readWITType())
         case TagWITResultType =>
           wit.ResultType(readWITType(), readWITType())
-        case TagWITFlagsType => ???
+        case TagWITFlagsType =>
+          wit.FlagsType(
+            readClassName(),
+            List.fill(readInt()) { wit.FieldType(readFieldName(), readWITType()) }
+          )
         case TagWITResourceType => wit.ResourceType(readClassName())
       }
     }

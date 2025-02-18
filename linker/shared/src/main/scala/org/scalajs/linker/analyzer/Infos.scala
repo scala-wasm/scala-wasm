@@ -689,6 +689,10 @@ object Infos {
             generateForWIT(f.tpe)
           }
 
+        case wit.FlagsType(className, fields) =>
+          val ctor = MethodName.constructor(fields.map(_ => BooleanRef))
+          builder.addInstantiatedClass(className, ctor)
+
         case wit.OptionType(t) =>
           val cases = List(
             wit.CaseType(ComponentOptionSomeClass, t),

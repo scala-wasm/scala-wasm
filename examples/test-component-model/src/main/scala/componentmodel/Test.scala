@@ -33,4 +33,5 @@ object Tests extends cm.Interface {
   def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = cm.native
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = cm.native
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = cm.native
+  def roundtripF8(a: F1): F1 = cm.native
 }

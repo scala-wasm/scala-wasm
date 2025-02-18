@@ -2381,6 +2381,17 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           case tsym if tsym.fullName.startsWith("scala.Tuple") =>
             wit.TupleType(tpe.typeArgs.map(toWIT(_)))
 
+          case tsym if isWasmComponentFlagsClass(tsym) =>
+            // TODO:  all fields needs to boolean
+            val className = encodeClassName(tsym)
+            val fields: List[wit.FieldType] = tsym.info.decls.collect {
+              case f if f.isField =>
+                val label = encodeFieldSym(f)(f.pos).name
+                assert(toIRType(f.tpe) == jstpe.BooleanType)
+                wit.FieldType(label, wit.BoolType)
+            }.toList
+            wit.FlagsType(className, fields)
+
           case tsym if isWasmComponentRecordClass(tsym) =>
             // TODO: it needs to be sorted by the order of record in wit definition
             val className = encodeClassName(tsym)
@@ -2398,6 +2409,10 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           case tsym if tsym.isSubClass(ComponentResultClass) && tsym.isSealed =>
             val List(ok, err) = tpe.typeArgs
             wit.ResultType(toWIT(ok), toWIT(err))
+
+          case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
+            val List(t) = tpe.typeArgs
+            wit.OptionType(toWIT(t))
 
           case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
             val List(t) = tpe.typeArgs
@@ -7233,6 +7248,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
   private def isWasmComponentRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(ComponentRecordAnnotation) && sym.isFinal
 
+  private def isWasmComponentFlagsClass(sym: Symbol): Boolean =
+    sym.hasAnnotation(ComponentFlagsAnnotation) && sym.isFinal
 
   private def isWasmComponentInterfaceClass(sym: Symbol): Boolean =
     sym.tpe.typeSymbol.isNonBottomSubClass(ComponentInterfaceClass) &&

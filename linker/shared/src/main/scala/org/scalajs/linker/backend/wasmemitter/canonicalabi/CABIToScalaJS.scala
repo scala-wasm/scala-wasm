@@ -68,6 +68,10 @@ object CABIToScalaJS {
         }
         // genMovePtr(fb, ptr, tpe)
 
+      case flags: wit.FlagsType =>
+        fb += wa.I32Load()
+        unpackFlagsFromInt(fb, flags)
+
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
         val ctor = MethodName.constructor(typeRefs)
@@ -174,6 +178,10 @@ object CABIToScalaJS {
             }
           }
         }
+
+      case flags: wit.FlagsType =>
+        vi.next(watpe.Int32)
+        unpackFlagsFromInt(fb, flags)
 
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
@@ -354,6 +362,25 @@ object CABIToScalaJS {
     }
     // drop padding
     // for (_ <- types.drop(expect.length)) {  }
+  }
+
+  /** Given an i32 bitflags value on the stack, extracts the boolean flag values. */
+  private def unpackFlagsFromInt(
+    fb: FunctionBuilder,
+    flags: wit.FlagsType,
+  ): Unit = {
+    val packedValue = fb.addLocal(NoOriginalName, watpe.Int32)
+    fb += wa.LocalSet(packedValue)
+    val ctorID = MethodName.constructor(flags.fields.map(_ => BooleanRef))
+    genNewScalaClass(fb, flags.className, ctorID) {
+      for ((f, i) <- flags.fields.zipWithIndex) {
+        fb += wa.LocalGet(packedValue)
+        fb += wa.I32Const(i)
+        fb += wa.I32ShrU
+        fb += wa.I32Const(1)
+        fb += wa.I32And
+      }
+    }
   }
 
   private def genNewScalaClass(fb: FunctionBuilder, cls: ClassName, ctor: MethodName)(
