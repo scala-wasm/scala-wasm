@@ -21,6 +21,8 @@ object Basics extends cm.Interface {
 
 @ComponentImport("component:testing/tests")
 object Tests extends cm.Interface {
+  def roundtripBasics1(a: (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char)):
+    (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char) = cm.native
   def roundtripString(a: String): String = cm.native
   def roundtripPoint(a: Point): Point = cm.native
   def testC1(a: C1): Unit = cm.native
@@ -34,4 +36,5 @@ object Tests extends cm.Interface {
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = cm.native
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = cm.native
   def roundtripF8(a: F1): F1 = cm.native
+  def roundtripFlags(a: (F1, F1)): (F1, F1) = cm.native
 }

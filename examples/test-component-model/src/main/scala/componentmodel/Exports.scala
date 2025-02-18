@@ -8,6 +8,10 @@ import cm.unsigned._
 
 @ComponentExport("component:testing/tests")
 object TestsExport extends cm.Interface {
+  def roundtripBasics0(a: (UInt, Int)):
+    (UInt, Int) = a
+  def roundtripBasics1(a: (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char)):
+    (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char) = a
   def roundtripString(a: String): String = a
   def roundtripPoint(a: Point): Point = a
 
@@ -28,6 +32,7 @@ object TestsExport extends cm.Interface {
   def roundtripF8(a: F1): F1 = a
   def roundtripF16(a: F2): F2 = a
   def roundtripF32(a: F3): F3 = a
+  def roundtripFlags(a: (F1, F1)): (F1, F1) = a
 }
 
 @ComponentExport("component:testing/test-imports")
@@ -48,6 +53,11 @@ object TestImports extends cm.Interface {
     assert(0.0 == roundtripF64(0.0))
 
     assert('a' == roundtripChar('a'))
+
+    assert(
+      (127, 127, 32767, 32767, 2147483647, 2147483647, 0.0f, 0.0, 'x') ==
+      roundtripBasics1((127, 127, 32767, 32767, 2147483647, 2147483647, 0.0f, 0.0, 'x'))
+    )
 
     assert("foo" == roundtripString("foo"))
     assert("" == roundtripString(""))
@@ -89,6 +99,15 @@ object TestImports extends cm.Interface {
     assert(
       F1(false, false, false, false, true, true, false, false) ==
         roundtripF8(F1(false, false, false, false, true, true, false, false))
+    )
+
+    assert(
+      (F1(false, false, false, false, true, true, false, false),
+       F1(false, false, false, false, true, true, false, false)) ==
+        roundtripFlags(
+          (F1(false, false, false, false, true, true, false, false),
+           F1(false, false, false, false, true, true, false, false))
+        )
     )
   }
 }

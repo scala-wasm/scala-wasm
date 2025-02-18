@@ -398,6 +398,8 @@ object CABIToScalaJS {
     primType match {
       case NothingType | NullType =>
         throw new AssertionError(s"Unexpected boxing from $primType")
+      case ByteType | ShortType =>
+        fb += wa.RefI31
       case VoidType =>
       case p =>
         fb += wa.Call(genFunctionID.box(p.primRef))

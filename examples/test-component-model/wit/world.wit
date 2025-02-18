@@ -36,6 +36,11 @@ interface basics {
 }
 
 interface tests {
+  roundtrip-basics0: func(a: tuple<u32, s32>)
+    -> tuple<u32, s32>;
+  roundtrip-basics1: func(a: tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>)
+    -> tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>;
+
   record point { x: s32, y: s32 }
   roundtrip-string: func(a: string) -> string;
   roundtrip-point: func(a: point) -> point;
@@ -70,6 +75,7 @@ interface tests {
   roundtrip-f8: func(a: f1) -> f1;
   roundtrip-f16: func(a: f2) -> f2;
   roundtrip-f32: func(a: f3) -> f3;
+  roundtrip-flags: func(a: tuple<f1, f1>) -> tuple<f1, f1>;
 
   roundtrip-result: func(a: result) -> result;
   roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;

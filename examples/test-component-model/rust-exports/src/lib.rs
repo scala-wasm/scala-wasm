@@ -23,6 +23,8 @@ impl Basics for Component {
 
 #[allow(unused_variables)]
 impl Tests for Component {
+  fn roundtrip_basics0(a: (u32, i32)) -> (u32, i32) { a }
+  fn roundtrip_basics1(a: (u8, i8, u16, i16, u32, i32, f32, f64, char)) -> (u8, i8, u16, i16, u32, i32, f32, f64, char) { a }
   fn roundtrip_string(a: String) -> String { a }
   fn roundtrip_point(a: Point) -> Point { a }
   fn test_c1(a: C1) {}
@@ -39,6 +41,7 @@ impl Tests for Component {
   fn roundtrip_f8(a: F1) -> F1 { a }
   fn roundtrip_f16(a: F2) -> F2 { a }
   fn roundtrip_f32(a: F3) -> F3 { a }
+  fn roundtrip_flags(a: (F1, F1)) -> (F1, F1) { a }
 }
 
 bindings::export!(Component with_types_in bindings);

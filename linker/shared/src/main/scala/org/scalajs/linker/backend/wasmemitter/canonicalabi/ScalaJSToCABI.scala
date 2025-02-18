@@ -88,6 +88,7 @@ object ScalaJSToCABI {
 
       case flags @ wit.FlagsType(className, fields) =>
         val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(flagsLocal)
         // ptr on the stack
         packFlagsIntoInt(fb, flags, flagsLocal) // i32
@@ -230,6 +231,7 @@ object ScalaJSToCABI {
 
       case flags @ wit.FlagsType(className, fields) =>
         val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(flagsLocal)
         packFlagsIntoInt(fb, flags, flagsLocal) // i32
 

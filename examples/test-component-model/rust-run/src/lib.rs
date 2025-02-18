@@ -10,6 +10,12 @@ struct Component;
 impl Run for Component {
     fn run() -> Result<(), ()> {
       test_imports::run();
+
+      assert_eq!(
+        roundtrip_basics1((u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')),
+        (u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')
+      );
+
       assert_eq!(
         roundtrip_string("aaa"),
         "aaa",
@@ -71,6 +77,8 @@ impl Run for Component {
         roundtrip_f32(F3::B7 | F3::B8 | F3::B15 | F3::B31),
         F3::B7 | F3::B8 | F3::B15 | F3::B31,
       );
+
+      assert_eq!(roundtrip_flags((F1::B0 | F1::B7, F1::B3)), (F1::B0 | F1::B7, F1::B3));
 
       return Ok(());
     }
