@@ -18,7 +18,7 @@ compose: new
 	wac plug --plug scala.wasm rust-run/target/wasm32-wasip2/release/rust_run.wasm -o out.wasm
 
 run: compose
-	$(WASMTIME) -W function-references,gc out.wasm
+	$(WASMTIME) -W function-references,gc -C collector=null out.wasm
 
 clean:
 	rm -f main.wasm out.wasm
