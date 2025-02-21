@@ -12,6 +12,11 @@ object TestsExport extends cm.Interface {
     (UInt, Int) = a
   def roundtripBasics1(a: (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char)):
     (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char) = a
+
+  def roundtripListU16(a: Array[UShort]): Array[UShort] = a
+  def roundtripListPoint(a: Array[Point]): Array[Point] = a
+  def roundtripListVariant(a: Array[C1]): Array[C1] = a
+
   def roundtripString(a: String): String = a
   def roundtripPoint(a: Point): Point = a
 
@@ -55,9 +60,44 @@ object TestImports extends cm.Interface {
     assert('a' == roundtripChar('a'))
 
     assert(
-      (127, 127, 32767, 32767, 2147483647, 2147483647, 0.0f, 0.0, 'x') ==
-      roundtripBasics1((127, 127, 32767, 32767, 2147483647, 2147483647, 0.0f, 0.0, 'x'))
+      (127, 127, 32767, 32767, 532423, 2147483647, 0.0f, 0.0, 'x') ==
+      roundtripBasics1((127, 127, 32767, 32767, 532423, 2147483647, 0.0f, 0.0, 'x'))
     )
+
+
+    // new Array goes like:
+    // that contains Assign(JSArraySelect(...), ...)
+    // why it's "JS"ArraySelect?
+    // def apply(x: Short, xs: Short*): Array[Short] = {
+    //   val array = new Array[Short](xs.length + 1)
+    //   ...
+    //   for (x <- xs.iterator) { array(i) = x; i += 1 }
+    //   array
+    // }
+    val arr = {
+      val arr = new Array[UShort](3)
+      arr(0) = 0
+      arr(1) = 1
+      arr(2) = 2
+      arr
+    }
+    assert(arr.sameElements(roundtripListU16(arr)))
+
+    val arr2 = {
+      val arr = new Array[Point](2)
+      arr(0) = Point(0, 0)
+      arr(1) = Point(3, 0)
+      arr
+    }
+    assert(arr2.sameElements(roundtripListPoint(arr2)))
+
+    val arr3 = {
+      val arr = new Array[C1](2)
+      arr(0) = C1.A(0)
+      arr(1) = C1.B(3)
+      arr
+    }
+    assert(arr3.sameElements(roundtripListVariant(arr3)))
 
     assert("foo" == roundtripString("foo"))
     assert("" == roundtripString(""))

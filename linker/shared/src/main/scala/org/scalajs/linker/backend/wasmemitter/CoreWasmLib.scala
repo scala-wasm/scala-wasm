@@ -1101,12 +1101,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       val base = fb.addLocal("base", Int32)
 
       fb += GlobalGet(genGlobalID.stackPointer)
-      fb += LocalTee(base)
-      fb += LocalGet(nbytes) // newPtr = stackPointer + nbytes
-      fb += I32Add
 
       // align
-      // ((newPtr + alignment - 1) / alignment) * alignment
+      // ((base + alignment - 1) / alignment) * alignment
       fb += I32Const(alignment)
       fb += I32Add
       fb += I32Const(1)
@@ -1115,6 +1112,10 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += I32DivU
       fb += I32Const(alignment)
       fb += I32Mul
+      fb += LocalTee(base)
+
+      fb += LocalGet(nbytes) // newPtr = stackPointer + nbytes
+      fb += I32Add
 
       fb += GlobalSet(genGlobalID.stackPointer)
 
@@ -4393,11 +4394,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     } else fb += Unreachable
 
     fb.buildAndAddToModule()
-  }
-
-  private def genMallocAndFree()(implicit ctx: WasmContext): Unit = {
-    assert(true /*isWASI*/) // scalastyle:ignore
-
   }
 
   // (func (param $originalPtr i32)

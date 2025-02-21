@@ -236,12 +236,13 @@ object InteropEmitter {
         fb.addParam(NoOriginalName, r)
       }
 
+      // must be 0 (if exported function calls an external function, which call our function)
+      // fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+      // fb += wa.Call(genFunctionID.printlnInt)
+
       fb += wa.GlobalGet(genGlobalID.savedStackPointer)
       fb += wa.GlobalSet(genGlobalID.stackPointer)
 
-      // must be 0 (if exported function calls an external function, which call our function)
-      // fb += wa.GlobalGet(genGlobalID.stackPointer)
-      // fb += wa.Call(genFunctionID.printlnInt)
 
       fb.buildAndAddToModule()
       ctx.moduleBuilder.addExport(

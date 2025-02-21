@@ -48,8 +48,10 @@ object CABIToScalaJS {
           case wit.CharType => fb += wa.I32Load()
           case wit.StringType =>
             val base = fb.addLocal(NoOriginalName, watpe.Int32)
+            val stringOffset = fb.addLocal(NoOriginalName, watpe.Int32)
             fb += wa.LocalTee(base)
             fb += wa.I32Load() // offset
+            fb += wa.LocalTee(stringOffset)
             fb += wa.LocalGet(base)
             fb += wa.I32Const(4)
             fb += wa.I32Add
@@ -59,14 +61,39 @@ object CABIToScalaJS {
             // Save stack pointer to restore post-return
             // see: `genFunctionID.malloc`
             fb += wa.GlobalGet(genGlobalID.savedStackPointer)
-            fb += wa.LocalGet(base)
+            fb += wa.LocalGet(stringOffset)
             fb += wa.I32GtU
             fb.ifThen() { // if savedStackPointer > offset
-              fb += wa.LocalGet(base)
+              fb += wa.LocalGet(stringOffset)
               fb += wa.GlobalSet(genGlobalID.savedStackPointer)
             }
         }
         // genMovePtr(fb, ptr, tpe)
+
+      case listType: wit.ListType =>
+        listType.length match {
+          case None =>
+            val base = fb.addLocal(NoOriginalName, watpe.Int32)
+            val listOffset = fb.addLocal(NoOriginalName, watpe.Int32)
+            fb += wa.LocalTee(base)
+            fb += wa.I32Load() // offset
+            fb += wa.LocalTee(listOffset)
+
+            fb += wa.LocalGet(base)
+            fb += wa.I32Const(4)
+            fb += wa.I32Add
+            fb += wa.I32Load() // length
+            genLoadVariableLengthList(fb, listType)
+
+            fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+            fb += wa.LocalGet(listOffset)
+            fb += wa.I32GtU
+            fb.ifThen() { // if savedStackPointer > offset
+              fb += wa.LocalGet(listOffset)
+              fb += wa.GlobalSet(genGlobalID.savedStackPointer)
+            }
+          case Some(value) => ???
+        }
 
       case flags: wit.FlagsType =>
         fb += wa.I32Load()
@@ -97,7 +124,7 @@ object CABIToScalaJS {
             val align = wit.alignment(f)
             genAlignTo(fb, align, ptr)
             fb += wa.LocalGet(ptr)
-            genLoadMemory(fb, f) // load and move memory
+            genLoadMemory(fb, f)
             f.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _ =>
@@ -179,6 +206,28 @@ object CABIToScalaJS {
           }
         }
 
+      case listType: wit.ListType =>
+        listType.length match {
+          case None =>
+            val offset = fb.addLocal(NoOriginalName, watpe.Int32)
+            // val length = fb.addLocal(NoOriginalName, watpe.Int32)
+            vi.next(watpe.Int32)
+            fb += wa.LocalTee(offset)
+            vi.next(watpe.Int32)
+            genLoadVariableLengthList(fb, listType)
+
+            // Save stack pointer to restore post-return
+            // see: `genFunctionID.malloc`
+            fb += wa.GlobalGet(genGlobalID.savedStackPointer)
+            fb += wa.LocalGet(offset)
+            fb += wa.I32GtU
+            fb.ifThen() { // if savedStackPointer > offset
+              fb += wa.LocalGet(offset)
+              fb += wa.GlobalSet(genGlobalID.savedStackPointer)
+            }
+          case Some(value) => ???
+        }
+
       case flags: wit.FlagsType =>
         vi.next(watpe.Int32)
         unpackFlagsFromInt(fb, flags)
@@ -227,6 +276,67 @@ object CABIToScalaJS {
 
       case _ => ???
     }
+  }
+
+  private def genLoadVariableLengthList(
+    fb: FunctionBuilder,
+    listType: wit.ListType
+  )(implicit ctx: WasmContext): Unit = {
+    val wit.ListType(elemType, maybeLength) = listType
+    assert(maybeLength.isEmpty)
+    val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
+    val arrayUnderlyingID = genTypeID.underlyingOf(arrayTypeRef)
+    val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
+    val elemSize = wit.elemSize(elemType)
+
+    val base = fb.addLocal(NoOriginalName, watpe.Int32)
+    val length = fb.addLocal(NoOriginalName, watpe.Int32)
+    val iLocal = fb.addLocal("iLocal", watpe.Int32)
+    val array = fb.addLocal("array", watpe.RefType(arrayUnderlyingID))
+
+    fb += wa.LocalSet(length)
+    fb += wa.LocalSet(base)
+
+    fb += wa.LocalGet(length)
+    fb += wa.ArrayNewDefault(arrayUnderlyingID)
+    fb += wa.LocalSet(array)
+
+    fb += wa.I32Const(0)
+    fb += wa.LocalSet(iLocal)
+
+    fb.block() { exit =>
+      fb.loop() { loop =>
+        // if i >= units, break
+        fb += wa.LocalGet(iLocal)
+        fb += wa.LocalGet(length)
+        fb += wa.I32GeU
+        fb += wa.BrIf(exit)
+
+        // for array.set
+        fb += wa.LocalGet(array)
+        fb += wa.LocalGet(iLocal)
+
+        fb += wa.LocalGet(base)
+        fb += wa.LocalGet(iLocal)
+        fb += wa.I32Const(elemSize)
+        fb += wa.I32Mul
+        fb += wa.I32Add
+        genLoadMemory(fb, elemType)
+
+        fb += wa.ArraySet(arrayUnderlyingID)
+
+        fb += wa.LocalGet(iLocal)
+        fb += wa.I32Const(1)
+        fb += wa.I32Add
+        fb += wa.LocalSet(iLocal)
+
+        fb += wa.Br(loop)
+      }
+    }
+
+    SWasmGen.genLoadVTableAndITableForArray(fb, arrayTypeRef)
+    fb += wa.LocalGet(array)
+    fb += wa.StructNew(genTypeID.forArrayClass(arrayTypeRef))
   }
 
   private def genLoadVariantMemory(

@@ -23,6 +23,9 @@ object Basics extends cm.Interface {
 object Tests extends cm.Interface {
   def roundtripBasics1(a: (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char)):
     (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char) = cm.native
+  def roundtripListU16(a: Array[UShort]): Array[UShort] = cm.native
+  def roundtripListPoint(a: Array[Point]): Array[Point] = cm.native
+  def roundtripListVariant(a: Array[C1]): Array[C1] = cm.native
   def roundtripString(a: String): String = cm.native
   def roundtripPoint(a: Point): Point = cm.native
   def testC1(a: C1): Unit = cm.native

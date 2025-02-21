@@ -45,6 +45,10 @@ interface tests {
   roundtrip-string: func(a: string) -> string;
   roundtrip-point: func(a: point) -> point;
 
+  roundtrip-list-u16: func(a: list<u16>) -> list<u16>;
+  roundtrip-list-point: func(a: list<point>) -> list<point>;
+  roundtrip-list-variant: func(a: list<c1>) -> list<c1>;
+
   variant c1 { a(s32), b(f32) }
   variant z1 { a(s32), b }
   test-c1: func(a: c1);
@@ -80,6 +84,7 @@ interface tests {
   roundtrip-result: func(a: result) -> result;
   roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;
   roundtrip-enum-error: func(a: result<c1, e1>) -> result<c1, e1>;
+
 }
 
 interface test-imports {

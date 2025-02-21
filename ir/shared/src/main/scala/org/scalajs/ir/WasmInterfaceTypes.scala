@@ -129,7 +129,7 @@ object WasmInterfaceTypes {
     case VoidType => jstpe.ClassRef(BoxedUnitClass)
     case BoolType => jstpe.BooleanRef
     case U8Type | S8Type => jstpe.ByteRef
-    case U16Type | S16Type => jstpe.IntRef
+    case U16Type | S16Type => jstpe.ShortRef
     case U32Type | S32Type => jstpe.IntRef
     case U64Type | S64Type => jstpe.LongRef
     case F32Type => jstpe.FloatRef

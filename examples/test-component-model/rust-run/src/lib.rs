@@ -25,6 +25,21 @@ impl Run for Component {
         "",
       );
 
+      assert_eq!(
+        roundtrip_list_u16(&[0, 1, 1, 2, 3, 5]),
+        [0, 1, 1, 2, 3, 5]
+      );
+
+      assert_eq!(
+        roundtrip_list_point(&[Point{x:3,y:4}, Point{x:5,y:6}]),
+        [Point{x:3,y:4}, Point{x:5,y:6}]
+      );
+
+      assert_eq!(
+        roundtrip_list_variant(&[C1::A(5), C1::B(55.5)]),
+        [C1::A(5), C1::B(55.5)],
+      );
+
       let p = Point { x: 0, y: 3 };
       assert_eq!(
         roundtrip_point(p), p

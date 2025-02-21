@@ -24,7 +24,7 @@ object ScalaJSToCABI {
   def genStoreMemory(
       fb: FunctionBuilder,
       tpe: wit.ValType,
-  ): Unit = {
+  )(implicit ctx: WasmContext): Unit = {
     tpe match {
       case wit.VoidType =>
       case wit.BoolType | wit.S8Type | wit.U8Type =>
@@ -63,10 +63,29 @@ object ScalaJSToCABI {
         fb += wa.LocalGet(units)
         fb += wa.I32Store()
 
+      case tpe: wit.ListType =>
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val offset = fb.addLocal(NoOriginalName, watpe.Int32)
+        val length = fb.addLocal(NoOriginalName, watpe.Int32)
+        genStoreList(fb, tpe)
+        fb += wa.LocalSet(length)
+        fb += wa.LocalSet(offset)
+
+        fb += wa.LocalTee(ptr)
+        fb += wa.LocalGet(offset)
+        fb += wa.I32Store()
+
+        fb += wa.LocalGet(ptr)
+        fb += wa.I32Const(4)
+        fb += wa.I32Add
+        fb += wa.LocalGet(length)
+        fb += wa.I32Store()
+
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(tuple)
         fb += wa.LocalSet(ptr)
 
@@ -98,6 +117,7 @@ object ScalaJSToCABI {
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         // TODO: NPE if null
         val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(record)
         fb += wa.LocalSet(ptr)
 
@@ -152,71 +172,8 @@ object ScalaJSToCABI {
 
       case wit.ResourceType(_) =>
 
-      case tpe @ wit.ListType(elemType, maybeLength) =>
-        maybeLength match {
-          case None =>
-            // array
-            val arrType = transformSingleType(tpe.toIRType())
-            val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
-            val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
-
-            val arr = fb.addLocal(NoOriginalName, arrType)
-            val len = fb.addLocal(NoOriginalName, watpe.Int32)
-            val iLocal = fb.addLocal(NoOriginalName, watpe.Int32)
-            val baseAddr = fb.addLocal(NoOriginalName, watpe.Int32)
-
-            val size = wit.elemSize(elemType)
-
-            fb += wa.LocalTee(arr)
-
-            fb += wa.StructGet(arrayStructTypeID, genFieldID.objStruct.arrayUnderlying)
-            fb += wa.ArrayLen
-            fb += wa.LocalTee(len)
-            fb += wa.I32Const(size)
-            fb += wa.I32Mul // required bytes to store array on linear memory
-
-            fb += wa.Call(genFunctionID.malloc) // base address
-            fb += wa.LocalSet(baseAddr)
-
-            fb += wa.I32Const(0)
-            fb += wa.LocalSet(iLocal)
-
-            fb.block() { exit =>
-              fb.loop() { loop =>
-                fb += wa.LocalGet(iLocal)
-                fb += wa.LocalGet(len)
-                fb += wa.I32Eq
-                fb += wa.BrIf(exit)
-
-                // addr to store
-                fb += wa.LocalGet(baseAddr)
-                fb += wa.LocalGet(iLocal)
-                fb += wa.I32Const(size)
-                fb += wa.I32Mul
-                fb += wa.I32Add
-
-                // value
-                fb += wa.LocalGet(arr)
-                fb += wa.LocalGet(iLocal)
-                fb += wa.Call(genFunctionID.arrayGetFor(ArrayTypeRef.of(wit.toTypeRef(elemType))))
-                genStoreMemory(fb, elemType)
-
-                // i := i + 1
-                fb += wa.LocalGet(iLocal)
-                fb += wa.I32Const(1)
-                fb += wa.I32Add
-                fb += wa.LocalSet(iLocal)
-
-                fb += wa.Br(loop)
-              }
-
-            }
-
-            fb += wa.LocalGet(baseAddr)
-            fb += wa.LocalGet(len)
-
-          case Some(value) => ???
-        }
+      case tpe: wit.ListType =>
+        genStoreList(fb, tpe)
 
       case wit.StringType =>
         val offset = fb.addLocal(NoOriginalName, watpe.Int32)
@@ -238,6 +195,7 @@ object ScalaJSToCABI {
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
         val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(record)
         for ((f, i) <- fields.zipWithIndex) {
           fb += wa.LocalGet(record)
@@ -255,6 +213,7 @@ object ScalaJSToCABI {
       case wit.RecordType(className, fields) =>
         // TODO: NPE if null
         val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(record)
         for (f <- fields) {
           fb += wa.LocalGet(record)
@@ -287,11 +246,84 @@ object ScalaJSToCABI {
     }
   }
 
+  /** Given an `Array` instance provided on the stack,
+    *  place it into linear memory for CABI, and return its base address and length.
+    */
+  private def genStoreList(
+    fb: FunctionBuilder,
+    listType: wit.ListType
+  )(implicit ctx: WasmContext): Unit = {
+    val wit.ListType(elemType, maybeLength) = listType
+    maybeLength match {
+      case None =>
+        // array
+        val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
+        val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
+        val arrType = watpe.RefType.nullable(arrayStructTypeID)
+
+        val arr = fb.addLocal(NoOriginalName, arrType)
+        val len = fb.addLocal(NoOriginalName, watpe.Int32)
+        val iLocal = fb.addLocal(NoOriginalName, watpe.Int32)
+        val baseAddr = fb.addLocal(NoOriginalName, watpe.Int32)
+
+        val size = wit.elemSize(elemType)
+
+        fb += wa.RefCast(watpe.RefType.nullable(arrayStructTypeID))
+        fb += wa.LocalTee(arr)
+
+        fb += wa.StructGet(arrayStructTypeID, genFieldID.objStruct.arrayUnderlying)
+        fb += wa.ArrayLen
+        fb += wa.LocalTee(len)
+        fb += wa.I32Const(size)
+        fb += wa.I32Mul // required bytes to store array on linear memory
+
+        fb += wa.Call(genFunctionID.malloc) // base address
+        fb += wa.LocalSet(baseAddr)
+
+        fb += wa.I32Const(0)
+        fb += wa.LocalSet(iLocal)
+
+        fb.block() { exit =>
+          fb.loop() { loop =>
+            fb += wa.LocalGet(iLocal)
+            fb += wa.LocalGet(len)
+            fb += wa.I32Eq
+            fb += wa.BrIf(exit)
+
+            // addr to store
+            fb += wa.LocalGet(baseAddr)
+            fb += wa.LocalGet(iLocal)
+            fb += wa.I32Const(size)
+            fb += wa.I32Mul
+            fb += wa.I32Add
+
+            // value
+            fb += wa.LocalGet(arr)
+            fb += wa.LocalGet(iLocal)
+            fb += wa.Call(genFunctionID.arrayGetFor(ArrayTypeRef.of(wit.toTypeRef(elemType))))
+            genStoreMemory(fb, elemType)
+
+            // i := i + 1
+            fb += wa.LocalGet(iLocal)
+            fb += wa.I32Const(1)
+            fb += wa.I32Add
+            fb += wa.LocalSet(iLocal)
+
+            fb += wa.Br(loop)
+          }
+        }
+        fb += wa.LocalGet(baseAddr)
+        fb += wa.LocalGet(len)
+
+      case Some(value) => ???
+    }
+  }
+
   private def genStoreVariantMemory(
     fb: FunctionBuilder,
     cases: List[wit.CaseType],
     genUnbox: (wit.ValType) => Unit,
-  ): Unit = {
+  )(implicit ctx: WasmContext): Unit = {
     val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
     val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
 
