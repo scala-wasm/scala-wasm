@@ -96,8 +96,11 @@ object CABIToScalaJS {
         }
 
       case flags: wit.FlagsType =>
-        fb += wa.I32Load()
-        unpackFlagsFromInt(fb, flags)
+        wit.elemSize(flags) match {
+          case 1 => fb += wa.I32Load8U()
+          case 2 => fb += wa.I32Load16U()
+          case 4 => fb += wa.I32Load()
+        }
 
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
@@ -121,8 +124,7 @@ object CABIToScalaJS {
         fb += wa.LocalSet(ptr)
         genNewScalaClass(fb, className, ctor) {
           for (f <- fields) {
-            val align = wit.alignment(f)
-            genAlignTo(fb, align, ptr)
+            genAlignTo(fb, wit.alignment(f), ptr)
             fb += wa.LocalGet(ptr)
             genLoadMemory(fb, f)
             f.toIRType() match {
@@ -230,7 +232,6 @@ object CABIToScalaJS {
 
       case flags: wit.FlagsType =>
         vi.next(watpe.Int32)
-        unpackFlagsFromInt(fb, flags)
 
       case wit.RecordType(className, fields) =>
         val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
@@ -402,11 +403,7 @@ object CABIToScalaJS {
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-    ) { () =>
-      vi.next(watpe.Int32)
-      // fb += wa.LocalTee(idx)
-      // fb += wa.Call(genFunctionID.printlnInt)
-      // fb += wa.LocalGet(idx)
+    ) { () => vi.next(watpe.Int32)
     } (
       cases.zipWithIndex.map { case (c, i) =>
         // While the variant uses `case object`` when the value type is Unit,
@@ -472,25 +469,6 @@ object CABIToScalaJS {
     }
     // drop padding
     // for (_ <- types.drop(expect.length)) {  }
-  }
-
-  /** Given an i32 bitflags value on the stack, extracts the boolean flag values. */
-  private def unpackFlagsFromInt(
-    fb: FunctionBuilder,
-    flags: wit.FlagsType,
-  ): Unit = {
-    val packedValue = fb.addLocal(NoOriginalName, watpe.Int32)
-    fb += wa.LocalSet(packedValue)
-    val ctorID = MethodName.constructor(flags.fields.map(_ => BooleanRef))
-    genNewScalaClass(fb, flags.className, ctorID) {
-      for ((f, i) <- flags.fields.zipWithIndex) {
-        fb += wa.LocalGet(packedValue)
-        fb += wa.I32Const(i)
-        fb += wa.I32ShrU
-        fb += wa.I32Const(1)
-        fb += wa.I32And
-      }
-    }
   }
 
   private def genNewScalaClass(fb: FunctionBuilder, cls: ClassName, ctor: MethodName)(

@@ -19,6 +19,7 @@ object Basics extends cm.Interface {
   def roundtripChar(a: Char): Char = cm.native
 }
 
+import TestImportsHelper._
 @ComponentImport("component:testing/tests")
 object Tests extends cm.Interface {
   def roundtripBasics1(a: (UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char)):

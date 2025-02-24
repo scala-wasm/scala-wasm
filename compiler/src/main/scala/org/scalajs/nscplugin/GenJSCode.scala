@@ -2371,8 +2371,19 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       else Some(toWIT(tpe))
     }
 
+
     def toWIT(tpe: Type): wit.ValType = {
-      toWITMaybeArray(tpe).orElse {
+      def toFlagTypeOpt(tpe: Type): Option[wit.FlagsType] = {
+        for {
+          ann <- tpe.typeSymbolDirect.annotations.find(_.symbol == ComponentFlagsAnnotation)
+          numFlags <- ann.intArg(0)
+          if toIRType(tpe) == jstpe.IntType
+        } yield wit.FlagsType(numFlags)
+      }
+
+      toFlagTypeOpt(tpe).orElse {
+        toWITMaybeArray(tpe)
+      }.orElse {
         unsigned2WIT.get(tpe.typeSymbolDirect)
       }.orElse {
         primitiveIRWIT.get(toIRType(tpe))
@@ -2380,17 +2391,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         tpe.typeSymbol match {
           case tsym if tsym.fullName.startsWith("scala.Tuple") =>
             wit.TupleType(tpe.typeArgs.map(toWIT(_)))
-
-          case tsym if isWasmComponentFlagsClass(tsym) =>
-            // TODO:  all fields needs to boolean
-            val className = encodeClassName(tsym)
-            val fields: List[wit.FieldType] = tsym.info.decls.collect {
-              case f if f.isField =>
-                val label = encodeFieldSym(f)(f.pos).name
-                assert(toIRType(f.tpe) == jstpe.BooleanType)
-                wit.FieldType(label, wit.BoolType)
-            }.toList
-            wit.FlagsType(className, fields)
 
           case tsym if isWasmComponentRecordClass(tsym) =>
             // TODO: it needs to be sorted by the order of record in wit definition
@@ -7248,8 +7248,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
   private def isWasmComponentRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(ComponentRecordAnnotation) && sym.isFinal
 
-  private def isWasmComponentFlagsClass(sym: Symbol): Boolean =
-    sym.hasAnnotation(ComponentFlagsAnnotation) && sym.isFinal
+  private def isWasmComponentFlags(sym: Symbol): Boolean =
+    sym.hasAnnotation(ComponentFlagsAnnotation)
 
   private def isWasmComponentInterfaceClass(sym: Symbol): Boolean =
     sym.tpe.typeSymbol.isNonBottomSubClass(ComponentInterfaceClass) &&

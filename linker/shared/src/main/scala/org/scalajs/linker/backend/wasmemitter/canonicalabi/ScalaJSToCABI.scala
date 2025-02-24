@@ -83,6 +83,7 @@ object ScalaJSToCABI {
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
+        val isSpecialized = fields.size <= 2
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
@@ -92,11 +93,26 @@ object ScalaJSToCABI {
         for ((f, i) <- fields.zipWithIndex) {
           genAlignTo(fb, wit.alignment(f), ptr)
           fb += wa.LocalGet(ptr)
+          val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
           fb += wa.LocalGet(tuple)
-          fb += wa.StructGet(
-            genTypeID.forClass(className),
-            genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
-          )
+          if (isSpecialized) {
+            fb += wa.RefAsNonNull // NPE if null?
+            fb += wa.LocalGet(tuple)
+            fb += wa.StructGet(
+              genTypeID.forClass(className),
+              genFieldID.objStruct.vtable
+            )
+            fb += wa.StructGet(
+              genTypeID.forVTable(className),
+              genFieldID.forMethodTableEntry(methodName)
+            )
+            fb += wa.CallRef(ctx.tableFunctionType(methodName))
+          } else {
+            fb += wa.StructGet(
+              genTypeID.forClass(className),
+              genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
+            )
+          }
           f.toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _ =>
@@ -105,13 +121,12 @@ object ScalaJSToCABI {
           genMovePtr(fb, ptr, wit.elemSize(f))
         }
 
-      case flags @ wit.FlagsType(className, fields) =>
-        val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
-        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
-        fb += wa.LocalSet(flagsLocal)
-        // ptr on the stack
-        packFlagsIntoInt(fb, flags, flagsLocal) // i32
-        fb += wa.I32Store()
+      case flags: wit.FlagsType =>
+        wit.elemSize(flags) match {
+          case 1 => fb += wa.I32Store8()
+          case 2 => fb += wa.I32Store16()
+          case 4 => fb += wa.I32Store()
+        }
 
       case wit.RecordType(className, fields) =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
@@ -186,23 +201,35 @@ object ScalaJSToCABI {
         fb += wa.LocalTee(offset)
         fb += wa.LocalGet(units)
 
-      case flags @ wit.FlagsType(className, fields) =>
-        val flagsLocal = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
-        fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
-        fb += wa.LocalSet(flagsLocal)
-        packFlagsIntoInt(fb, flags, flagsLocal) // i32
+      case wit.FlagsType(_) =>
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
         val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        val isSpecialized = fields.size <= 2
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(record)
         for ((f, i) <- fields.zipWithIndex) {
+          val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
           fb += wa.LocalGet(record)
-          fb += wa.StructGet(
-            genTypeID.forClass(className),
-            genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
-          )
+          if (isSpecialized) {
+            fb += wa.RefAsNonNull // NPE if null?
+            fb += wa.LocalGet(record)
+            fb += wa.StructGet(
+              genTypeID.forClass(className),
+              genFieldID.objStruct.vtable
+            )
+            fb += wa.StructGet(
+              genTypeID.forVTable(className),
+              genFieldID.forMethodTableEntry(methodName)
+            )
+            fb += wa.CallRef(ctx.tableFunctionType(methodName))
+          } else {
+            fb += wa.StructGet(
+              genTypeID.forClass(className),
+              genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
+            )
+          }
           f.toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _ =>
@@ -449,39 +476,6 @@ object ScalaJSToCABI {
           throw new AssertionError(s"Illegal core wasm type: $t")
       }
     }
-  }
-
-  /** Leaves an i32 value on the stack.
-    *
-    * @param flags - The type of flags to pack.
-    * @param localID - The local ID containing the flags value to be packed.
-    */
-  private def packFlagsIntoInt(
-    fb: FunctionBuilder,
-    flags: wit.FlagsType,
-    localID: wanme.LocalID
-  ): Unit = {
-    val result = fb.addLocal(NoOriginalName, watpe.Int32)
-    fb += wa.I32Const(0)
-    fb += wa.LocalSet(result)
-    for ((f, i) <- flags.fields.zipWithIndex) {
-      fb += wa.LocalGet(localID)
-      fb += wa.StructGet(
-        genTypeID.forClass(flags.className),
-        genFieldID.forClassInstanceField(f.label)
-      )
-      fb += wa.I32Const(0)
-      fb += wa.I32Ne
-      fb.ifThen() {
-        fb += wa.LocalGet(result)
-        fb += wa.I32Const(1)
-        fb += wa.I32Const(i)
-        fb += wa.I32Shl
-        fb += wa.I32Or
-        fb += wa.LocalSet(result)
-      }
-    }
-    fb += wa.LocalGet(result)
   }
 
   private def genAlignTo(fb: FunctionBuilder, align: Int, ptr: wanme.LocalID): Unit = {

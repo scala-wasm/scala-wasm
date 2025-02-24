@@ -34,6 +34,7 @@ object TestsExport extends cm.Interface {
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = a
   def roundtripEnumError(a: cm.Result[C1, E1]): cm.Result[C1, E1] = a
 
+  import TestImportsHelper._
   def roundtripF8(a: F1): F1 = a
   def roundtripF16(a: F2): F2 = a
   def roundtripF32(a: F3): F3 = a
@@ -136,20 +137,88 @@ object TestImports extends cm.Interface {
     assert(cm.Err(E1.B) == roundtripEnumError(cm.Err(E1.B)))
     assert(cm.Err(E1.C) == roundtripEnumError(cm.Err(E1.C)))
 
-    assert(
-      F1(false, false, false, false, true, true, false, false) ==
-        roundtripF8(F1(false, false, false, false, true, true, false, false))
-    )
+    import TestImportsHelper._
+    assert((F1.b3 | F1.b6 | F1.b7) == roundtripF8(F1.b3 | F1.b6 | F1.b7))
 
     assert(
-      (F1(false, false, false, false, true, true, false, false),
-       F1(false, false, false, false, true, true, false, false)) ==
-        roundtripFlags(
-          (F1(false, false, false, false, true, true, false, false),
-           F1(false, false, false, false, true, true, false, false))
-        )
+      (F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7) ==
+      roundtripFlags((F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7))
     )
   }
+}
+
+object TestImportsHelper {
+  @ComponentFlags(8)
+  type F1 = Int
+  object F1 {
+    val b0 = 1 << 0
+    val b1 = 1 << 1
+    val b2 = 1 << 2
+    val b3 = 1 << 3
+    val b4 = 1 << 4
+    val b5 = 1 << 5
+    val b6 = 1 << 6
+    val b7 = 1 << 7
+  }
+
+  @ComponentFlags(16)
+  type F2 = Int
+  object F2 {
+    val b0  = 1 << 0
+    val b1  = 1 << 1
+    val b2  = 1 << 2
+    val b3  = 1 << 3
+    val b4  = 1 << 4
+    val b5  = 1 << 5
+    val b6  = 1 << 6
+    val b7  = 1 << 7
+    val b8  = 1 << 8
+    val b9  = 1 << 9
+    val b10 = 1 << 10
+    val b11 = 1 << 11
+    val b12 = 1 << 12
+    val b13 = 1 << 13
+    val b14 = 1 << 14
+    val b15 = 1 << 15
+  }
+
+  @ComponentFlags(32)
+  type F3 = Int
+  object F3 {
+    val b0  = 1 << 0
+    val b1  = 1 << 1
+    val b2  = 1 << 2
+    val b3  = 1 << 3
+    val b4  = 1 << 4
+    val b5  = 1 << 5
+    val b6  = 1 << 6
+    val b7  = 1 << 7
+    val b8  = 1 << 8
+    val b9  = 1 << 9
+    val b10 = 1 << 10
+    val b11 = 1 << 11
+    val b12 = 1 << 12
+    val b13 = 1 << 13
+    val b14 = 1 << 14
+    val b15 = 1 << 15
+    val b16 = 1 << 16
+    val b17 = 1 << 17
+    val b18 = 1 << 18
+    val b19 = 1 << 19
+    val b20 = 1 << 20
+    val b21 = 1 << 21
+    val b22 = 1 << 22
+    val b23 = 1 << 23
+    val b24 = 1 << 24
+    val b25 = 1 << 25
+    val b26 = 1 << 26
+    val b27 = 1 << 27
+    val b28 = 1 << 28
+    val b29 = 1 << 29
+    val b30 = 1 << 30
+    val b31 = 1 << 31
+  }
+
 }
 
 @ComponentRecord
@@ -194,29 +263,3 @@ object E1 {
     val _index = 2
   }
 }
-
-@ComponentFlags
-final case class F1(
-  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
-  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean
-)
-
-@ComponentFlags
-final case class F2(
-  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
-  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean,
-  b8: Boolean, b9: Boolean, b10: Boolean, b11: Boolean,
-  b12: Boolean, b13: Boolean, b14: Boolean, b15: Boolean
-)
-
-@ComponentFlags
-final case class F3(
-  b0: Boolean, b1: Boolean, b2: Boolean, b3: Boolean,
-  b4: Boolean, b5: Boolean, b6: Boolean, b7: Boolean,
-  b8: Boolean, b9: Boolean, b10: Boolean, b11: Boolean,
-  b12: Boolean, b13: Boolean, b14: Boolean, b15: Boolean,
-  b16: Boolean, b17: Boolean, b18: Boolean, b19: Boolean,
-  b20: Boolean, b21: Boolean, b22: Boolean, b23: Boolean,
-  b24: Boolean, b25: Boolean, b26: Boolean, b27: Boolean,
-  b28: Boolean, b29: Boolean, b30: Boolean, b31: Boolean
-)
