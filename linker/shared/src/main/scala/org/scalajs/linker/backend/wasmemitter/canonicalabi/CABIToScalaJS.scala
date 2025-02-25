@@ -22,9 +22,9 @@ import org.scalajs.linker.backend.wasmemitter.SWasmGen
 import org.scalajs.linker.backend.wasmemitter.WasmContext
 
 import ValueIterators._
+import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID.ObjectStruct
 
 object CABIToScalaJS {
-
   /** Load data from linear memory.
     * This generator expects an offset to be on the stack before loading.
     */
@@ -142,12 +142,36 @@ object CABIToScalaJS {
       case variant @ wit.VariantType(className, cases) =>
         genLoadVariantMemory(fb, cases, false)
 
-      case option @ wit.OptionType(t) =>
-        val cases = List(
-          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
-          wit.CaseType(ComponentOptionSomeClass, t)
-        )
-        genLoadVariantMemory(fb, cases, true)
+      case wit.OptionType(t) =>
+        val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
+        val maxCaseAlignment = wit.alignment(t)
+        val ctorID = MethodName.constructor(List(ClassRef(ObjectClass)))
+
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+
+        // load case index
+        fb += wa.LocalTee(ptr)
+        fb += wa.I32Load8U()
+
+        // move pointer
+        genMovePtr(fb, ptr, 1)
+        genAlignTo(fb, maxCaseAlignment, ptr)
+
+        fb.ifThenElse(optionType) {
+          // non-null
+          genNewScalaClass(fb, juOptionalClass, ctorID) {
+            fb += wa.LocalGet(ptr)
+            genLoadMemory(fb, t)
+            t.toIRType match {
+              case t: PrimTypeWithRef => genBox(fb, t)
+              case _ =>
+            }
+          }
+        } {
+          genNewScalaClass(fb, juOptionalClass, ctorID) {
+            fb += wa.RefNull(watpe.HeapType.Any)
+          }
+        }
 
       case result @ wit.ResultType(ok, err) =>
         val cases = List(
@@ -251,17 +275,26 @@ object CABIToScalaJS {
           boxValue = false
         )
 
-      case option @ wit.OptionType(t) =>
-        val cases = List(
-          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
-          wit.CaseType(ComponentOptionSomeClass, t)
-        )
-        genLoadVariantStack(
-          fb,
-          cases,
-          vi,
-          boxValue = true
-        )
+      case wit.OptionType(t) =>
+        val optionType = watpe.RefType(genTypeID.forClass(juOptionalClass))
+        val ctorID = MethodName.constructor(List(ClassRef(ObjectClass)))
+
+        vi.next(watpe.Int32)
+        fb.ifThenElse(optionType) {
+          // non-null
+          genNewScalaClass(fb, juOptionalClass, ctorID) {
+            genLoadStack(fb, t, vi)
+            t.toIRType match {
+              case t: PrimTypeWithRef => genBox(fb, t)
+              case _ =>
+            }
+          }
+        } {
+          genNewScalaClass(fb, juOptionalClass, ctorID) {
+            fb += wa.RefNull(watpe.HeapType.Any)
+          }
+        }
+
 
       case wit.ResultType(ok, err) =>
         val cases = List(
@@ -372,9 +405,6 @@ object CABIToScalaJS {
               else {
                 fb += wa.LocalGet(ptr)
                 genLoadMemory(fb, c.tpe)
-                val maxElemSize = cases.map(c => wit.elemSize(c.tpe)).max
-                val elemSize = wit.elemSize(c.tpe)
-                genMovePtr(fb, ptr, maxElemSize - elemSize)
                 if (boxValue) {
                   c.tpe.toIRType match {
                     case t: PrimTypeWithRef => genBox(fb, t)

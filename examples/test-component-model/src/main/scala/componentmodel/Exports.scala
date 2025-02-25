@@ -6,6 +6,8 @@ import scala.scalajs.component._
 import cm.annotation._
 import cm.unsigned._
 
+import java.util.Optional
+
 @ComponentExport("component:testing/tests")
 object TestsExport extends cm.Interface {
   def roundtripBasics0(a: (UInt, Int)):
@@ -27,8 +29,8 @@ object TestsExport extends cm.Interface {
   def roundtripEnum(a: E1): E1 = a
   def roundtripTuple(a: (C1, Z1)): (C1, Z1) = a
 
-  def roundtripOption(a: cm.Option[String]): cm.Option[String] = a
-  def roundtripDoubleOption(a: cm.Option[cm.Option[String]]): cm.Option[cm.Option[String]] = a
+  def roundtripOption(a: Optional[String]): Optional[String] = a
+  def roundtripDoubleOption(a: Optional[Optional[String]]): Optional[Optional[String]] = a
 
   def roundtripResult(a: cm.Result[Unit, Unit]): cm.Result[Unit, Unit] = a
   def roundtripStringError(a: cm.Result[Float, String]): cm.Result[Float, String] = a
@@ -120,11 +122,11 @@ object TestImports extends cm.Interface {
     assert(C1.A(4) == roundtripTuple(C1.A(4), Z1.B)._1)
     assert(Z1.B == roundtripTuple(C1.A(4), Z1.B)._2)
 
-    assert(cm.Some("ok") == roundtripOption(cm.Some("ok")))
-    assert(cm.None == roundtripOption(cm.None))
-    assert(cm.Some(cm.Some("foo")) == roundtripDoubleOption(cm.Some(cm.Some("foo"))))
-    assert(cm.Some(cm.None) == roundtripDoubleOption(cm.Some(cm.None)))
-    assert(cm.None == roundtripDoubleOption(cm.None))
+    assert(Optional.of("ok") == roundtripOption(Optional.of("ok")))
+    assert(Optional.empty == roundtripOption(Optional.empty[String]))
+    assert(Optional.of(Optional.of("foo")) == roundtripDoubleOption(Optional.of(Optional.of("foo"))))
+    assert(Optional.of(Optional.empty) == roundtripDoubleOption(Optional.of(Optional.empty[String])))
+    assert(Optional.empty == roundtripDoubleOption(Optional.empty[Optional[String]]))
     assert(cm.Err("aaa") != cm.Err("bbb"))
 
     assert(cm.Ok(()) == roundtripResult(cm.Ok(())))

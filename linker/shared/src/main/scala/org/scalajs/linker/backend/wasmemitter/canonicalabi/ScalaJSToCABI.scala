@@ -19,6 +19,17 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer.transformSingleTyp
 import org.scalajs.ir.WasmInterfaceTypes.U8Type
 
 object ScalaJSToCABI {
+  /** Accessing the private[this] field of `java.util.Optional`.
+    * Ideally, the field should be accessed through the getter function: `java.util.Optional#get`.
+    * However, to enable vtable dispatch for this method,
+    * `Preprocessor#AbstractMethodCallCollector` must collect calls to the `get` function,
+    * in addition to the Analyzer.
+    *
+    * We could mark these getters as called in `AbstractMethodCallCollector`,
+    * but that approach might be somewhat complicated.
+    * As an alternative, we access the private field for now.
+    */
+  private val juOptionalClass_value = FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value"))
 
   // assume that there're ptr and value of `tpe` are on the stack.
   def genStoreMemory(
@@ -94,20 +105,11 @@ object ScalaJSToCABI {
           genAlignTo(fb, wit.alignment(f), ptr)
           fb += wa.LocalGet(ptr)
           val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
-          fb += wa.LocalGet(tuple)
+
           if (isSpecialized) {
-            fb += wa.RefAsNonNull // NPE if null?
-            fb += wa.LocalGet(tuple)
-            fb += wa.StructGet(
-              genTypeID.forClass(className),
-              genFieldID.objStruct.vtable
-            )
-            fb += wa.StructGet(
-              genTypeID.forVTable(className),
-              genFieldID.forMethodTableEntry(methodName)
-            )
-            fb += wa.CallRef(ctx.tableFunctionType(methodName))
+            genVTableDispatch(fb, className, methodName, tuple)
           } else {
+            fb += wa.LocalGet(tuple)
             fb += wa.StructGet(
               genTypeID.forClass(className),
               genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
@@ -152,11 +154,45 @@ object ScalaJSToCABI {
         genStoreVariantMemory(fb, cases, (_) => {})
 
       case wit.OptionType(t) =>
-        val cases = List(
-          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
-          wit.CaseType(ComponentOptionSomeClass, t)
+        val flattened = Flatten.flattenVariants(List(wit.VoidType, t))
+        val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
+        val maxCaseAlignment = wit.alignment(t)
+
+        val opt = fb.addLocal(NoOriginalName, optionType)
+        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+        val value = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+
+        fb += wa.RefCast(optionType)
+        fb += wa.LocalSet(opt)
+        fb += wa.LocalSet(ptr)
+
+        fb += wa.LocalGet(opt)
+        fb += wa.StructGet(
+          genTypeID.forClass(juOptionalClass),
+          genFieldID.forClassInstanceField(juOptionalClass_value)
         )
-        genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+
+        fb += wa.LocalTee(value)
+        fb += wa.RefIsNull
+
+        fb.ifThenElse() {
+          // null
+          fb += wa.LocalGet(ptr)
+          fb += wa.I32Const(0)
+          fb += wa.I32Store8()
+        } {
+          // non-null
+          fb += wa.LocalGet(ptr)
+          fb += wa.I32Const(1)
+          fb += wa.I32Store8()
+          genMovePtr(fb, ptr, 1) // discriminant type size is always 1 for option
+          genAlignTo(fb, maxCaseAlignment, ptr)
+
+          fb += wa.LocalGet(ptr)
+          fb += wa.LocalGet(value)
+          genUnbox(fb, t)
+          genStoreMemory(fb, t)
+        }
 
       case wit.ResultType(ok, err) =>
         val cases = List(
@@ -205,26 +241,17 @@ object ScalaJSToCABI {
 
       case wit.TupleType(fields) =>
         val className = ClassName("scala.Tuple" + fields.size)
-        val record = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
+        val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
         val isSpecialized = fields.size <= 2
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
-        fb += wa.LocalSet(record)
+        fb += wa.LocalSet(tuple)
         for ((f, i) <- fields.zipWithIndex) {
           val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
-          fb += wa.LocalGet(record)
+
           if (isSpecialized) {
-            fb += wa.RefAsNonNull // NPE if null?
-            fb += wa.LocalGet(record)
-            fb += wa.StructGet(
-              genTypeID.forClass(className),
-              genFieldID.objStruct.vtable
-            )
-            fb += wa.StructGet(
-              genTypeID.forVTable(className),
-              genFieldID.forMethodTableEntry(methodName)
-            )
-            fb += wa.CallRef(ctx.tableFunctionType(methodName))
+            genVTableDispatch(fb, className, methodName, tuple)
           } else {
+            fb += wa.LocalGet(tuple)
             fb += wa.StructGet(
               genTypeID.forClass(className),
               genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
@@ -255,11 +282,35 @@ object ScalaJSToCABI {
         genStoreVariantStack(fb, cases, (_) => {})
 
       case wit.OptionType(t) =>
-        val cases = List(
-          wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
-          wit.CaseType(ComponentOptionSomeClass, t)
+        val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
+        val flattened = Flatten.flattenVariants(List(wit.VoidType, t))
+
+        val opt = fb.addLocal(NoOriginalName, optionType)
+        val value = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
+
+        fb += wa.RefCast(optionType)
+        fb += wa.LocalSet(opt)
+
+        fb += wa.LocalGet(opt)
+        fb += wa.StructGet(
+          genTypeID.forClass(juOptionalClass),
+          genFieldID.forClassInstanceField(juOptionalClass_value)
         )
-        genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
+        fb += wa.LocalTee(value)
+        fb += wa.RefIsNull
+
+        fb.ifThenElse(watpe.Int32 +: flattened) {
+          // null
+          fb += wa.I32Const(0)
+          genCoerceValues(fb, Flatten.flattenType(wit.VoidType), flattened)
+        } {
+          // non-null
+          fb += wa.I32Const(1)
+          fb += wa.LocalGet(value)
+          genUnbox(fb, t)
+          genStoreStack(fb, t)
+          genCoerceValues(fb, Flatten.flattenType(t), flattened)
+        }
 
       case wit.ResultType(ok, err) =>
         val cases = List(
@@ -476,6 +527,31 @@ object ScalaJSToCABI {
           throw new AssertionError(s"Illegal core wasm type: $t")
       }
     }
+  }
+
+  /** Used for calling the getter functions for _1 and _2 if tuples are specialized,
+    * since the _1 field won't be updated in specialized classes.
+    * We need to retrieve the value via the getter.
+    * We might need to update Preprocessor#AbstractMethodCallCollector
+    * to explicitly collect these getters so they appear in the vtable.
+    * These getters usually exist in standard libraries and are already collected, though.
+    **/
+  private def genVTableDispatch(fb: FunctionBuilder,
+      receiverClassName: ClassName, methodName: MethodName,
+      receiverLocal: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
+    val classInfo = ctx.getClassInfo(receiverClassName)
+    fb += wa.LocalGet(receiverLocal)
+    fb += wa.RefAsNonNull
+    fb += wa.LocalGet(receiverLocal)
+    fb += wa.StructGet(
+      genTypeID.forClass(receiverClassName),
+      genFieldID.objStruct.vtable
+    )
+    fb += wa.StructGet(
+      genTypeID.forVTable(receiverClassName),
+      genFieldID.forMethodTableEntry(methodName)
+    )
+    fb += wa.CallRef(ctx.tableFunctionType(methodName))
   }
 
   private def genAlignTo(fb: FunctionBuilder, align: Int, ptr: wanme.LocalID): Unit = {

@@ -110,7 +110,7 @@ object WasmInterfaceTypes {
     override def toIRType(): jstpe.Type = ???
   }
   final case class OptionType(tpe: ValType) extends SpecializedType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(Names.ComponentOptionClass, true)
+    def toIRType(): jstpe.Type = jstpe.ClassType(Names.juOptionalClass, true)
   }
   final case class FlagsType(numFields: Int) extends FundamentalType {
     def toIRType(): jstpe.Type = jstpe.IntType
@@ -176,10 +176,10 @@ object WasmInterfaceTypes {
 
       case OptionType(t) =>
         VariantType(
-          Names.ComponentOptionClass,
+          Names.juOptionalClass,
           List(
-            CaseType(Names.ComponentOptionSomeClass, t),
-            CaseType(Names.ComponentOptionNoneClass, VoidType)
+            CaseType(Names.juOptionalClass, VoidType),
+            CaseType(Names.juOptionalClass, t)
           )
         )
 

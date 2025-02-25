@@ -2410,11 +2410,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             val List(ok, err) = tpe.typeArgs
             wit.ResultType(toWIT(ok), toWIT(err))
 
-          case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
-            val List(t) = tpe.typeArgs
-            wit.OptionType(toWIT(t))
-
-          case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
+          case tsym if tsym.fullName == "java.util.Optional" =>
             val List(t) = tpe.typeArgs
             wit.OptionType(toWIT(t))
 

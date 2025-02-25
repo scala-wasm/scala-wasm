@@ -692,17 +692,13 @@ object Infos {
         case wit.FlagsType(_) =>
 
         case wit.OptionType(t) =>
-          val cases = List(
-            wit.CaseType(ComponentOptionSomeClass, t),
-            wit.CaseType(ComponentOptionNoneClass, wit.VoidType),
-          )
-          builder.addInstantiatedClass(ComponentOptionSomeClass, MethodName.constructor(List(ClassRef(ObjectClass))))
-          builder.addInstantiatedClass(ComponentOptionNoneClass, MethodName.constructor(Nil))
-          for (c <- cases) {
-            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
-            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
-            generateForWIT(c.tpe)
-          }
+          builder.addInstantiatedClass(juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          // builder.addInstantiatedClass(juOptionalModuleClass, Method)
+          // builder.addMethodCalled(juOptionalClass, juOptionalClass_get)
+          // builder.addMethodCalled(juOptionalModuleClass, juOptionalModuleClass_of)
+          // builder.addMethodCalled(juOptionalModuleClass, juOptionalModuleClass_empty)
+          builder.addFieldRead(FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+          generateForWIT(t)
 
         case wit.ResultType(ok, err) =>
           val cases = List(
