@@ -14,8 +14,8 @@ object Basics extends cm.Interface {
   def roundtripS16(a: Short): Short = cm.native
   def roundtripU32(a: UInt): UInt = cm.native
   def roundtripS32(a: Int): Int = cm.native
-  // def roundtripU64(a: ULong): ULong = cm.native
-  // def roundtripS64(a: Long): Long = cm.native
+  def roundtripU64(a: ULong): ULong = cm.native
+  def roundtripS64(a: Long): Long = cm.native
   def roundtripF32(a: Float): Float = cm.native
   def roundtripF64(a: Double): Double = cm.native
   def roundtripChar(a: Char): Char = cm.native

@@ -54,8 +54,8 @@ object TestImports extends cm.Interface {
     assert(128 == roundtripS16(128))
     assert(0 == roundtripU32(0))
     assert(30 == roundtripS32(30))
-    // assert(30 == roundtripU64(30))
-    // assert(30 == roundtripS64(30))
+    assert(30 == roundtripU64(30))
+    assert(30 == roundtripS64(30))
 
     assert(0.0f == roundtripF32(0.0f))
     assert(0.0 == roundtripF64(0.0))
