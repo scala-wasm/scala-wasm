@@ -1,9 +1,13 @@
 #[allow(warnings)]
 mod bindings;
 
+use crate::bindings::exports::component::testing::countable::{GuestCounter, Counter};
+use crate::bindings::exports::component::testing::countable::Guest as Countable;
 use crate::bindings::exports::component::testing::basics::Guest as Basics;
 use crate::bindings::exports::component::testing::tests::Guest as Tests;
 use crate::bindings::exports::component::testing::tests::*;
+
+use std::cell::RefCell;
 
 struct Component;
 
@@ -19,6 +23,58 @@ impl Basics for Component {
   fn roundtrip_f32(a: f32) -> f32 { a }
   fn roundtrip_f64(a: f64) -> f64 { a }
   fn roundtrip_char(a: char) -> char { a }
+}
+
+struct HostCounter {
+  value: i32,
+}
+impl HostCounter {
+  fn new(i: i32) -> Self {
+    HostCounter { value: i }
+  }
+  fn up(&mut self) {
+    self.value += 1;
+  }
+  fn down(&mut self) {
+    self.value -= 1
+  }
+  fn value_of(&self) -> i32 {
+      self.value
+  }
+}
+struct GuestCounterImpl {
+  inner: RefCell<HostCounter>,
+}
+impl GuestCounterImpl {
+  fn create(i: i32) -> Self {
+    let inner = HostCounter::new(i);
+    let inner = RefCell::new(inner);
+    GuestCounterImpl { inner }
+  }
+}
+
+impl GuestCounter for GuestCounterImpl {
+  fn new(i: i32) -> Self {
+    return GuestCounterImpl::create(i);
+  }
+  fn sum(a: Counter, b: Counter) -> Counter {
+    let s = a.get::<GuestCounterImpl>().value_of() + b.get::<GuestCounterImpl>().value_of();
+    let c = GuestCounterImpl::create(s);
+    return Counter::new(c);
+  }
+  fn up(&self) {
+      self.inner.borrow_mut().up();
+  }
+  fn down(&self) {
+      self.inner.borrow_mut().down();
+  }
+  fn value_of(&self) -> i32 {
+      self.inner.borrow().value_of()
+  }
+}
+
+impl Countable for Component {
+  type Counter = GuestCounterImpl;
 }
 
 #[allow(unused_variables)]

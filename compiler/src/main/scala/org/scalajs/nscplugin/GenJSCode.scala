@@ -669,9 +669,21 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       val methodsBuilder = List.newBuilder[js.MethodDef]
       val jsNativeMembersBuilder = List.newBuilder[js.JSNativeMemberDef]
+      val componentNativeMembersBuilder = List.newBuilder[js.ComponentNativeMemberDef]
 
-      for (dd <- collectDefDefs(impl)) {
-        if (dd.symbol.hasAnnotation(JSNativeAnnotation))
+      val componentModuleOpt = sym.getAnnotation(ComponentImportAnnotation).orElse {
+        sym.companionClass.getAnnotation(ComponentImportAnnotation)
+      }.flatMap(_.stringArg(0))
+
+      for (dd <- collectDefDefs(cd.impl)) {
+        if (dd.symbol.hasAnnotation(ComponentNativeAnnotation)) {
+          componentModuleOpt match {
+            case Some(module) =>
+              componentNativeMembersBuilder += genComponentNativeMemberDef(dd, module)
+            case None =>
+              throw new AssertionError("Cannot define component native member for non @ComponentImport annotated class.")
+          }
+        } else if (dd.symbol.hasAnnotation(JSNativeAnnotation))
           jsNativeMembersBuilder += genJSNativeMemberDef(dd)
         else
           methodsBuilder ++= genMethod(dd)
@@ -801,7 +813,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsConstructor = None,
           memberExports,
           jsNativeMembers,
-          Nil,
+          componentNativeMembers = componentNativeMembersBuilder.result(),
           topLevelExportDefs)(
           optimizerHints)
     }
@@ -2330,9 +2342,16 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         val (params, name) =
           if (isWasmComponentResourceType(sym.owner)) {
             val params = wit.ResourceType(encodeClassName(sym.owner)) +: baseParams
-            val resourceName = sym.owner.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+            val resourceName = sym.owner.rawname.encoded.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
             val name = s"[method]$resourceName.$methodName"
             (params, name)
+          } else if (sym.owner.isModuleClass && isWasmComponentResourceType(sym.owner.companionClass)) {
+            // companion object of the component.Resource class
+            val resourceName = sym.owner.companionClass.rawname.encoded.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+            val name =
+              if (sym.name == nme.apply) s"[constructor]$resourceName"
+              else s"[static]$resourceName.$methodName"
+            (baseParams, name)
           } else {
             (baseParams, methodName)
           }
@@ -3802,6 +3821,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           genApplyJSClassMethod(genExpr(receiver), sym, genActualArgs(sym, args))
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
+      } else if (sym.hasAnnotation(ComponentNativeAnnotation)) {
+        genComponentNativeMemberCall(sym, tree, None, isStat)
       } else if (isWasmComponentResourceType(receiver.tpe) &&
           receiver.tpe.typeSymbol.hasAnnotation(ComponentNativeAnnotation)) {
         genComponentNativeMemberCall(sym, tree, Some(receiver), isStat)

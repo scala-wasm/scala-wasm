@@ -4,6 +4,7 @@ world scala {
   import wasi:cli/stdout@0.2.0;
   import basics;
   import tests;
+  import countable;
 
   export tests;
   export test-imports;
@@ -12,6 +13,7 @@ world scala {
 world rust-exports {
   export basics;
   export tests;
+  export countable;
 }
 
 world rust-run {
@@ -33,6 +35,16 @@ interface basics {
   roundtrip-f32: func(a: f32) -> f32;
   roundtrip-f64: func(a: f64) -> f64;
   roundtrip-char: func(a: char) -> char;
+}
+
+interface countable {
+  resource counter {
+    constructor(i: s32);
+    sum: static func(a: counter, b: counter) -> counter;
+    up: func();
+    down: func();
+    value-of: func() -> s32;
+  }
 }
 
 interface tests {

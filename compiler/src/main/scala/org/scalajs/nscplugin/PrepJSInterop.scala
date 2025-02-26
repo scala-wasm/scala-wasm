@@ -210,8 +210,10 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
               exporters.getOrElseUpdate(target, mutable.ListBuffer.empty) ++= exports
             }
-            if (sym.isMethod && sym.owner.hasAnnotation(ComponentImportAnnotation))
-              checkWasmComponentImport(sym)
+            if (
+              (sym.isMethod && sym.owner.hasAnnotation(ComponentImportAnnotation)) ||
+              (sym.isMethod && sym.hasAnnotation(ComponentNativeAnnotation))
+            ) checkWasmComponentImport(sym)
           }
 
           if (sym.isLocalToBlock) {

@@ -48,6 +48,7 @@ object TestImports extends cm.Interface {
   def run(): Unit = {
     import Basics._
     import Tests._
+    import Countable._
     assert(1 == roundtripU8(1))
     assert(0 == roundtripS8(0))
     assert(0 == roundtripU16(0))
@@ -146,6 +147,18 @@ object TestImports extends cm.Interface {
       (F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7) ==
       roundtripFlags((F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7))
     )
+
+    locally {
+      val c1 = Counter(0)
+      c1.up()
+      assert(1 == c1.valueOf())
+
+      val c2 = Counter(100)
+      c2.down()
+      assert(99 == c2.valueOf())
+
+      assert(100 == Counter.sum(c1, c2).valueOf())
+    }
   }
 }
 

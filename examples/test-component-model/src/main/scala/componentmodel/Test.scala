@@ -21,6 +21,23 @@ object Basics extends cm.Interface {
   def roundtripChar(a: Char): Char = cm.native
 }
 
+object Countable {
+  @cm.native
+  @ComponentImport("component:testing/countable")
+  trait Counter extends cm.Resource {
+    def up(): Unit = cm.native
+    def down(): Unit = cm.native
+    def valueOf(): Int = cm.native
+  }
+  object Counter {
+    @cm.native
+    def apply(i: Int): Counter = cm.native
+
+    @cm.native
+    def sum(a: Counter, b: Counter): Counter = cm.native
+  }
+}
+
 import TestImportsHelper._
 @ComponentImport("component:testing/tests")
 object Tests extends cm.Interface {
