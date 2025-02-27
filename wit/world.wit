@@ -1,49 +1,7 @@
 package tanishiking:test@0.0.1;
 
 world socket {
-    import test;
     import wasi:cli/stdout@0.2.0;
     export wasi:cli/run@0.2.0;
 }
 
-world plug {
-    export test;
-}
-
-interface test {
-    ferris-say: func(content: string, width: u32) -> string;
-    get-origin: func() -> point;
-
-    new-counter: func() -> counter;
-    resource counter {
-      // new: static func() -> counter; TODO: support static method
-      up: func();
-      down: func();
-      value-of: func() -> s32;
-    }
-
-    record point {
-        x: u32,
-        y: u32,
-    }
-}
-
-    // add: func(a: u32, b: u32) -> u32;
-    // print-number: func(x: s32);
-    // say: func(content: string);
-    // parse: func(i: s32) -> tree;
-    // new-counter: func() -> counter;
-    // resource counter {
-    //   // new: static func() -> counter; TODO: support static method
-    //   up: func();
-    //   down: func();
-    //   value-of: func() -> s32;
-    // }
-    //
-    // variant tree {
-    //   num-value(s32),
-    //   float-value(f32),
-    //   str-value(string),
-    // }
-    //
-    // above max result (load from memory)

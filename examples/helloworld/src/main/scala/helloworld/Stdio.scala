@@ -52,7 +52,8 @@ final class LastOperationFailed(val value: Error) extends StreamError {
     type T = Error
     val _index = 0
 }
-final class Closed(val value: Unit) extends StreamError {
+final case object Closed extends StreamError {
+    val value = ()
     type T = Unit
     val _index = 1
 }

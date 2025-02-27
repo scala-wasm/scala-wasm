@@ -726,6 +726,9 @@ object Infos {
             builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
             generateForWIT(c.tpe)
           }
+
+        case wit.ResourceType(className) =>
+
         case _ =>
       }
 

@@ -151,8 +151,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     if (true/*isWASI*/) { // scalastyle:ignore
       genUndefinedAndIsUndef()
       genNaiveFmod()
-      genPrintlnInt()
-      genPrintMemory()
+      // genPrintlnInt()
+      // genPrintMemory()
     }
   }
 
