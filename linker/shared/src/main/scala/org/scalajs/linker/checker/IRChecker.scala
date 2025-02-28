@@ -784,6 +784,11 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
               i"JS type $className is not a valid target type for " +
               "Is/AsInstanceOf")
         }
+        if (kind == ClassKind.NativeWasmComponentResourceClass) {
+          reportError(
+              i"Resource class $className is not a valid target type for " +
+              "Is/AsInstanceOf")
+        }
 
       case _ =>
         // Non ClassTypes are checked by the ClassDef checker.

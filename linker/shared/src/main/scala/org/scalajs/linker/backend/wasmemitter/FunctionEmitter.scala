@@ -616,6 +616,8 @@ private class FunctionEmitter private (
     (generatedType, expectedType) match {
       case _ if generatedType == expectedType =>
         ()
+      case (ClassType(className, _), IntType) if ctx.getClassInfo(className).isWasmComponentResource =>
+        ()
       case (NothingType, _) =>
         ()
       case (_, VoidType) =>
@@ -650,6 +652,10 @@ private class FunctionEmitter private (
              */
             fb += wa.Call(genFunctionID.box(primType.primRef))
         }
+
+      case (ClassType(className, _), _) if ctx.getClassInfo(className).isWasmComponentResource =>
+        fb += wa.Call(genFunctionID.box(IntRef))
+
       case (StringType | ClassType(BoxedStringClass, _), _) =>
         if (false /*!isWASI*/) // scalastyle:ignore
           expectedType match {
@@ -2359,6 +2365,10 @@ private class FunctionEmitter private (
         // no-op
         ()
 
+      case ClassType(className, _)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        fb += wa.Call(genFunctionID.unbox(IntRef))
+
       case ArrayType(arrayTypeRef, true) =>
         arrayTypeRef match {
           case ArrayTypeRef(ClassRef(ObjectClass) | _: PrimRef, 1) =>
@@ -2428,6 +2438,10 @@ private class FunctionEmitter private (
             case targetTpe: PrimType =>
               // TODO Opt: We could do something better for things like double.asInstanceOf[int]
               genUnbox(targetTpe)
+
+            case ClassType(className, _)
+                if ctx.getClassInfo(className).isWasmComponentResource =>
+              fb += wa.Call(genFunctionID.unbox(IntRef))
 
             case _ =>
               targetWasmType match {

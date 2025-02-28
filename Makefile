@@ -6,3 +6,6 @@ new: embed
 
 run: new
 	wasmtime -W function-references,gc main.wasm
+
+serve: new
+	wasmtime serve -W function-references,gc main.wasm

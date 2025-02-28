@@ -117,7 +117,7 @@ object WasmInterfaceTypes {
   }
 
   final case class ResourceType(className: ClassName) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(className, true)
+    def toIRType(): jstpe.Type = jstpe.IntType
   }
 
   // ExternTypes
@@ -136,13 +136,13 @@ object WasmInterfaceTypes {
     case F64Type => jstpe.DoubleRef
     case CharType => jstpe.CharRef
     case StringType => jstpe.ClassRef(BoxedStringClass)
-    case ListType(elemType, length) => ???
+    case ListType(elemType, length) => throw new AssertionError(s"$tpe")
     case RecordType(className, fields) => jstpe.ClassRef(className)
-    case TupleType(ts) => ???
+    case TupleType(ts) => jstpe.ClassRef(ClassName("scala.Tuple" + ts.size))
     case VariantType(className, cases) => jstpe.ClassRef(className)
     case ResultType(ok, err) => jstpe.ClassRef(ComponentResultClass)
     case EnumType(labels) => ???
-    case OptionType(tpe) => ???
+    case OptionType(tpe) => jstpe.ClassRef(ClassName("java.util.Optional"))
     case FlagsType(_) => jstpe.IntRef
     case ResourceType(className) => jstpe.ClassRef(className)
   }

@@ -73,4 +73,5 @@ final case object Closed extends StreamError {
 @ComponentImport("wasi:io/error@0.2.0")
 trait Error extends component.Resource {
   def toDebugString(): String = component.native
+
 }
