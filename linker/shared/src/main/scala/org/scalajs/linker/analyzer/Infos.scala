@@ -20,10 +20,12 @@ import org.scalajs.ir.Traversers._
 import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.Version
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.backend.emitter.Transients._
 import org.scalajs.linker.standard.LinkedTopLevelExport
 import org.scalajs.linker.standard.ModuleSet.ModuleID
+import _root_.org.scalajs.linker.backend.wasmemitter.SpecialNames
 
 object Infos {
 
@@ -62,6 +64,7 @@ object Infos {
       val referencedFieldClasses: Map[FieldName, ClassName],
       val methods: Array[Map[MethodName, MethodInfo]],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
+      val componentNativeMembers: Map[MethodName, ReachabilityInfo],
       val jsMethodProps: List[ReachabilityInfo],
       val topLevelExports: List[TopLevelExportInfo]
   ) {
@@ -176,6 +179,10 @@ object Infos {
     val methodName: MethodName
   ) extends MemberReachabilityInfo
 
+  final case class WasmComponentNativeMemberReachable private[Infos] (
+    val methodName: MethodName
+  ) extends MemberReachabilityInfo
+
   def genReferencedFieldClasses(fields: List[AnyFieldDef]): Map[FieldName, ClassName] = {
     val builder = Map.newBuilder[FieldName, ClassName]
 
@@ -254,7 +261,7 @@ object Infos {
         case NullType | NothingType =>
           // Nothing to do
 
-        case VoidType | RecordType(_) =>
+        case VoidType | RecordType(_)  =>
           throw new IllegalArgumentException(
               s"Illegal receiver type: $receiverTpe")
       }
@@ -281,6 +288,11 @@ object Infos {
 
     def addJSNativeMemberUsed(cls: ClassName, member: MethodName): this.type = {
       forClass(cls).addJSNativeMemberUsed(member)
+      this
+    }
+
+    def addWasmComponentNativeMemberUsed(cls: ClassName, member: MethodName): this.type = {
+      forClass(cls).addWasmComponentNativeMemberUsed(member)
       this
     }
 
@@ -418,6 +430,7 @@ object Infos {
     private val methodsCalled = mutable.Set.empty[MethodName]
     private val methodsCalledStatically = mutable.Set.empty[NamespacedMethodName]
     private val jsNativeMembersUsed = mutable.Set.empty[MethodName]
+    private val wasmComponentNativeMembersUsed = mutable.Set.empty[MethodName]
     private var flags: ReachabilityInfoInClass.Flags = 0
 
     def addFieldRead(field: FieldName): this.type = {
@@ -474,6 +487,11 @@ object Infos {
       this
     }
 
+    def addWasmComponentNativeMemberUsed(member: MethodName): this.type = {
+      wasmComponentNativeMembersUsed += member
+      this
+    }
+
     private def setFlag(flag: ReachabilityInfoInClass.Flags): this.type = {
       flags |= flag
       this
@@ -500,7 +518,8 @@ object Infos {
           staticFieldsUsed.valuesIterator ++
           methodsCalled.iterator.map(MethodReachable(_)) ++
           methodsCalledStatically.iterator.map(MethodStaticallyReachable(_)) ++
-          jsNativeMembersUsed.iterator.map(JSNativeMemberReachable(_))
+          jsNativeMembersUsed.iterator.map(JSNativeMemberReachable(_)) ++
+          wasmComponentNativeMembersUsed.iterator.map(WasmComponentNativeMemberReachable(_))
       ).toArray
 
       val memberInfosOrNull =
@@ -550,8 +569,30 @@ object Infos {
         topLevelExportDef.topLevelExportName)
   }
 
+  def generateComponentNativeMember(member: ComponentNativeMemberDef): MethodInfo =
+    new GenInfoTraverser(Version.Unversioned).generateComponentNativeMember(member)
+
   private final class GenInfoTraverser(version: Version) extends Traverser {
     private val builder = new ReachabilityInfoBuilder(version)
+
+    def generateComponentNativeMember(member: ComponentNativeMemberDef): MethodInfo = {
+      val methodName = member.name.name
+      methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+      builder.maybeAddReferencedClass(methodName.resultTypeRef)
+      generateForWIT(member.signature)
+      val reachabilityInfo = builder.result()
+      // println(s"===${member.name}===")
+      // println(member.signature)
+      // if (reachabilityInfo.byClass != null) {
+      //   reachabilityInfo.byClass.foreach { c =>
+      //     println(s"*${c.className}")
+      //     if (c.memberInfos != null) {
+      //       c.memberInfos.foreach(m => println(m))
+      //     }
+      //   }
+      // }
+      MethodInfo(true, reachabilityInfo)
+    }
 
     def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
       val methodName = methodDef.methodName
@@ -605,9 +646,92 @@ object Infos {
           val field = topLevelFieldExport.field.name
           builder.addStaticFieldRead(field)
           builder.addStaticFieldWritten(field)
+
+        case wasmComponentExport: WasmComponentExportDef =>
+          assert(wasmComponentExport.methodDef.body.isDefined)
+          val methodName = wasmComponentExport.methodDef.name.name
+          generateForWIT(wasmComponentExport.signature)
+          builder.maybeAddReferencedClass(methodName.resultTypeRef)
+          methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+          traverse(wasmComponentExport.methodDef.body.get)
       }
 
-      builder.result()
+      val res = builder.result()
+      // res.byClass.toList.foreach { clazz =>
+      //   println(s"===${clazz.className}===")
+      //   if (clazz.memberInfos != null) {
+      //     clazz.memberInfos.toList.foreach { m =>
+      //       println(m)
+      //     }
+      //   }
+      // }
+      // println(s"=====end: ${topLevelExportDef.topLevelExportName}=====")
+      res
+    }
+
+    private def generateForWIT(tpe: wit.WasmInterfaceType): Unit = {
+      tpe match {
+        case wit.FuncType(paramTypes, resultType) =>
+          for (t <- paramTypes) generateForWIT(t)
+          resultType.foreach { t => generateForWIT(t) }
+
+        case wit.TupleType(fields) =>
+          val className = ClassName("scala.Tuple" + fields.size)
+          val ctorID = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(className, ctorID)
+          for (f <- fields) generateForWIT(f)
+
+        case wit.RecordType(className, fields) =>
+          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
+          builder.addInstantiatedClass(className, ctor)
+          for (f <- fields) {
+            // builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(f.tpe)
+          }
+
+        case wit.FlagsType(_) =>
+
+        case wit.OptionType(t) =>
+          builder.addInstantiatedClass(juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          // builder.addInstantiatedClass(juOptionalModuleClass, Method)
+          // builder.addMethodCalled(juOptionalClass, juOptionalClass_get)
+          // builder.addMethodCalled(juOptionalModuleClass, juOptionalModuleClass_of)
+          // builder.addMethodCalled(juOptionalModuleClass, juOptionalModuleClass_empty)
+          builder.addFieldRead(FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+          generateForWIT(t)
+
+        case wit.ResultType(ok, err) =>
+          val cases = List(
+            wit.CaseType(ComponentResultOkClass, ok),
+            wit.CaseType(ComponentResultErrClass, err),
+          )
+          for (c <- cases) {
+            val ctor = wit.makeCtorName(c.tpe)
+            builder.addInstantiatedClass(c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
+            // builder.maybeAddReferencedClass(ClassRef(c.className))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(c.tpe)
+          }
+
+        case wit.VariantType(className, cases) =>
+          // reference to all the children types so we can type test in interop
+          // and make field read so we can read those fields in interop
+          // builder.maybeAddReferencedClass(ClassRef(className)) // forClass
+          for (c <- cases) {
+            val ctor = wit.makeCtorName(c.tpe)
+            builder.addInstantiatedClass(c.className, ctor)
+            // builder.maybeAddReferencedClass(ClassRef(c.className)) // forClass
+            builder.addFieldRead(FieldName(c.className, ComponentVariantIndexFieldName))
+            builder.addFieldRead(FieldName(c.className, ComponentVariantValueFieldName))
+            generateForWIT(c.tpe)
+          }
+
+        case wit.ResourceType(className) =>
+
+        case _ =>
+      }
+
     }
 
     override def traverse(tree: Tree): Unit = {
@@ -647,6 +771,8 @@ object Infos {
               builder.addJSNativeMemberUsed(className, member.name)
 
             case Apply(flags, receiver, method, _) =>
+              // if (receiver.tpe.show.contains("NumValue"))
+              //   println(s"called $receiver.$method")
               builder.addMethodCalled(receiver.tpe, method.name)
             case ApplyStatically(flags, _, className, method, _) =>
               val namespace = MemberNamespace.forNonStaticCall(flags)
@@ -758,6 +884,9 @@ object Infos {
 
             case VarDef(_, _, vtpe, _, _) =>
               builder.maybeAddReferencedClass(vtpe)
+
+            case ComponentFunctionApply(_, className, method, _) =>
+              builder.addWasmComponentNativeMemberUsed(className, method.name)
 
             case linkTimeProperty: LinkTimeProperty =>
               builder.addReferencedLinkTimeProperty(linkTimeProperty)

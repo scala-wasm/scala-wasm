@@ -74,6 +74,10 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
           implicit val ctx = ErrorContext(methodDef)
           typecheckAny(methodDef.body, Env.empty)
 
+        case WasmComponentExportDef(_, _, methodDef, signature) =>
+          implicit val ctx = ErrorContext(methodDef)
+          // TODO: type check wasm component
+
         case _:TopLevelJSClassExportDef | _:TopLevelModuleExportDef |
             _:TopLevelFieldExportDef =>
       }
@@ -686,6 +690,11 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
 
       case JSTypeOfGlobalRef(_) =>
 
+      case ComponentFunctionApply(receiver, _, _, args) =>
+        receiver.foreach { r => typecheckExpr(r, env) } // TODO: typecheck WasmComponentResourceType
+        for (arg <- args)
+          typecheckExpr(arg, env)
+
       // Literals
 
       case _: Literal =>
@@ -773,6 +782,11 @@ private final class IRChecker(unit: LinkingUnit, reporter: ErrorReporter,
         if (kind.isJSType) {
           reportError(
               i"JS type $className is not a valid target type for " +
+              "Is/AsInstanceOf")
+        }
+        if (kind == ClassKind.NativeWasmComponentResourceClass) {
+          reportError(
+              i"Resource class $className is not a valid target type for " +
               "Is/AsInstanceOf")
         }
 

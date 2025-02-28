@@ -18,6 +18,8 @@ import org.scalajs.ir.Types._
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
 
 import VarGen._
+import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID.i16Array
+import org.scalajs.linker.backend.webassembly.component.Flatten
 
 object TypeTransformer {
 
@@ -87,6 +89,10 @@ object TypeTransformer {
     tpe match {
       case AnyType                        => watpe.RefType.anyref
       case AnyNotNullType                 => watpe.RefType.any
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        watpe.Int32
+
       case ClassType(className, nullable) => transformClassType(className, nullable)
       case tpe: PrimType                  => transformPrimType(tpe)
 
@@ -103,13 +109,18 @@ object TypeTransformer {
     val heapType: watpe.HeapType = ctx.getClassInfoOption(className) match {
       case Some(info) =>
         if (className == BoxedStringClass)
-          watpe.HeapType.Extern // for all the JS string builtin functions
+          if (true /*isWASI*/) // scalastyle:ignore
+            watpe.HeapType(i16Array)
+          else
+            watpe.HeapType.Extern // for all the JS string builtin functions
         else if (info.isAncestorOfHijackedClass)
           watpe.HeapType.Any
         else if (!info.hasInstances)
           watpe.HeapType.None
         else if (info.isInterface)
           watpe.HeapType(genTypeID.ObjectStruct)
+        else if (info.isWasmComponentResource)
+          ???
         else
           watpe.HeapType(genTypeID.forClass(className))
 
@@ -120,6 +131,7 @@ object TypeTransformer {
     watpe.RefType(nullable, heapType)
   }
 
+  private val WasmStringType = if (true /*isWASI*/) watpe.RefType(i16Array) else watpe.RefType.extern // scalastyle:ignore
   def transformPrimType(tpe: PrimType): watpe.Type = {
     tpe match {
       case UndefType   => watpe.RefType.any
@@ -131,7 +143,7 @@ object TypeTransformer {
       case LongType    => watpe.Int64
       case FloatType   => watpe.Float32
       case DoubleType  => watpe.Float64
-      case StringType  => watpe.RefType.extern
+      case StringType  => WasmStringType
       case NullType    => watpe.RefType.nullref
 
       case VoidType | NothingType =>

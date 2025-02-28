@@ -1,0 +1,8 @@
+package tanishiking:test@0.0.1;
+
+world socket {
+    import wasi:cli/stdout@0.2.0;
+    export wasi:cli/run@0.2.0;
+
+    include wasi:http/proxy@0.2.0;
+}

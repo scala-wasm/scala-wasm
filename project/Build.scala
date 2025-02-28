@@ -2017,8 +2017,26 @@ object Build {
   ).settings(
       exampleSettings,
       name := "Hello World - Scala.js example",
-      moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true
+      // moduleName := "helloworld",
+      // scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false)).withModuleKind(ModuleKind.ESModule)
+      },
+      // scalacOptions ++= Seq(
+      //   "-Ydebug",
+      // ),
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val testComponentModel: MultiScalaProject = MultiScalaProject(
+      id = "testComponentModel", base = file("examples") / "test-component-model"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "Testing module for component model",
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false)).withModuleKind(ModuleKind.ESModule)
+      },
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(

@@ -152,6 +152,9 @@ private[frontend] object BaseLinker {
     val jsNativeMembers = classDef.jsNativeMembers
       .filter(m => classInfo.jsNativeMembersUsed.contains(m.name.name))
 
+    val wasmComponentNativeMembers = classDef.componentNativeMembers
+      .filter(m => classInfo.wasmComponentNativeMembersUsed.contains(m.name.name))
+
     val allMethods = methods ++ syntheticMethodDefs
 
     val ancestors = classInfo.ancestors.map(_.className)
@@ -169,6 +172,7 @@ private[frontend] object BaseLinker {
         jsConstructor,
         jsMethodProps,
         jsNativeMembers,
+        wasmComponentNativeMembers,
         classDef.optimizerHints,
         classDef.pos,
         ancestors.toList,

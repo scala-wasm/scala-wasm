@@ -114,6 +114,9 @@ object Hashers {
     case TopLevelMethodExportDef(moduleID, methodDef) =>
       TopLevelMethodExportDef(moduleID, hashJSMethodDef(methodDef))(tle.pos)
 
+    case WasmComponentExportDef(moduleID, exportName, methodDef, signature) =>
+      WasmComponentExportDef(moduleID, exportName, hashMethodDef(methodDef), signature)(tle.pos)
+
     case _:TopLevelFieldExportDef | _:TopLevelModuleExportDef |
         _:TopLevelJSClassExportDef =>
       tle
@@ -131,7 +134,7 @@ object Hashers {
     val newTopLevelExportDefs = topLevelExportDefs.map(hashTopLevelExportDef(_))
     ClassDef(name, originalName, kind, jsClassCaptures, superClass, interfaces,
         jsSuperClass, jsNativeLoadSpec, fields, newMethods, newJSConstructorDef,
-        newExportedMembers, jsNativeMembers, newTopLevelExportDefs)(
+        newExportedMembers, jsNativeMembers, componentNativeMembers, newTopLevelExportDefs)(
         optimizerHints)
   }
 
@@ -523,6 +526,14 @@ object Hashers {
         case LinkTimeProperty(name) =>
           mixTag(TagLinkTimeProperty)
           mixString(name)
+          mixType(tree.tpe)
+
+        case ComponentFunctionApply(receiver, className, method, args) =>
+          mixTag(TagComponentFunctionApply)
+          mixOptTree(receiver)
+          mixName(className)
+          mixMethodIdent(method)
+          mixTrees(args)
           mixType(tree.tpe)
 
         case Transient(value) =>

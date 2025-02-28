@@ -74,6 +74,26 @@ trait JSDefinitions {
     lazy val JSGlobalScopeAnnotation   = getRequiredClass("scala.scalajs.js.annotation.JSGlobalScope")
     lazy val JSOperatorAnnotation      = getRequiredClass("scala.scalajs.js.annotation.JSOperator")
 
+    lazy val ScalaJSComponentPackageModule = getPackageObject("scala.scalajs.component")
+      lazy val ComponentPackage_native = getMemberMethod(ScalaJSComponentPackageModule, newTermName("native"))
+    lazy val ComponentNativeAnnotation = getRequiredClass("scala.scalajs.component.native")
+    lazy val ComponentImportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentImport")
+    lazy val ComponentExportAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentExport")
+    lazy val ComponentRecordAnnotation = getRequiredClass("scala.scalajs.component.annotation.ComponentRecord")
+    lazy val ComponentFlagsAnnotation  = getRequiredClass("scala.scalajs.component.annotation.ComponentFlags")
+    lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.component.Result")
+    lazy val ComponentResultOkClass    = getRequiredClass("scala.scalajs.component.Ok")
+    lazy val ComponentResultErrClass   = getRequiredClass("scala.scalajs.component.Err")
+    lazy val ComponentVariantClass     = getRequiredClass("scala.scalajs.component.Variant")
+    lazy val ComponentResourceClass    = getRequiredClass("scala.scalajs.component.Resource")
+    lazy val ComponentInterfaceClass   = getRequiredClass("scala.scalajs.component.Interface")
+
+    lazy val ScalaJSComponentUnsignedPackageModule = getPackageObject("scala.scalajs.component.unsigned")
+      lazy val ComponentUnsigned_UByte = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UByte"))
+      lazy val ComponentUnsigned_UShort = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UShort"))
+      lazy val ComponentUnsigned_UInt = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("UInt"))
+      lazy val ComponentUnsigned_ULong = getTypeMember(ScalaJSComponentUnsignedPackageModule, newTermName("ULong"))
+
     lazy val JSImportNamespaceObject = getRequiredModule("scala.scalajs.js.annotation.JSImport.Namespace")
 
     lazy val ExposedJSMemberAnnot = getRequiredClass("scala.scalajs.js.annotation.internal.ExposedJSMember")

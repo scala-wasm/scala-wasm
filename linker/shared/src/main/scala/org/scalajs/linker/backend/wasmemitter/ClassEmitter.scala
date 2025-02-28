@@ -31,12 +31,15 @@ import org.scalajs.linker.backend.webassembly.{Instructions => wa}
 import org.scalajs.linker.backend.webassembly.{Modules => wamod}
 import org.scalajs.linker.backend.webassembly.{Identitities => wanme}
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
+import org.scalajs.linker.backend.webassembly.component.Flatten
 
+import canonicalabi.ScalaJSToCABI
 import EmbeddedConstants._
 import SWasmGen._
 import VarGen._
 import TypeTransformer._
 import WasmContext._
+import _root_.org.scalajs.linker.backend.wasmemitter.canonicalabi.CABIToScalaJS
 
 class ClassEmitter(coreSpec: CoreSpec) {
   import ClassEmitter._
@@ -73,6 +76,12 @@ class ClassEmitter(coreSpec: CoreSpec) {
         genMethod(clazz, method)
     }
 
+    for (member <- clazz.componentNativeMembers) {
+      canonicalabi.InteropEmitter.genComponentNativeInterop(clazz, member)
+    }
+
+    // maybe better to Component Interface to be an another ClassKind?
+
     clazz.kind match {
       case ClassKind.Class | ClassKind.ModuleClass =>
         genScalaClass(clazz)
@@ -81,10 +90,12 @@ class ClassEmitter(coreSpec: CoreSpec) {
       case ClassKind.JSClass | ClassKind.JSModuleClass =>
         genJSClass(clazz)
       case ClassKind.HijackedClass | ClassKind.AbstractJSType | ClassKind.NativeJSClass |
-          ClassKind.NativeJSModuleClass =>
+          ClassKind.NativeJSModuleClass | ClassKind.NativeWasmComponentResourceClass |
+          ClassKind.NativeWasmComponentInterfaceClass =>
         () // nothing to do
     }
   }
+
 
   /** Generates code for a top-level export.
    *
@@ -130,10 +141,14 @@ class ClassEmitter(coreSpec: CoreSpec) {
    */
   def genTopLevelExport(topLevelExport: LinkedTopLevelExport)(
       implicit ctx: WasmContext): Unit = {
-    genTopLevelExportSetter(topLevelExport.exportName)
     topLevelExport.tree match {
-      case d: TopLevelMethodExportDef => genTopLevelMethodExportDef(d)
-      case _                          => ()
+      case d: WasmComponentExportDef =>
+        canonicalabi.InteropEmitter.genWasmComponentExportDef(d)
+      case d: TopLevelMethodExportDef =>
+        genTopLevelExportSetter(topLevelExport.exportName)
+        genTopLevelMethodExportDef(d)
+      case _ =>
+        genTopLevelExportSetter(topLevelExport.exportName)
     }
   }
 
@@ -235,6 +250,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
             KindClass
           case Interface =>
             KindInterface
+          case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
+            KindClass // TODO
           case JSClass | JSModuleClass | AbstractJSType | NativeJSClass | NativeJSModuleClass =>
             if (clazz.superClass.isDefined)
               KindJSTypeWithSuperClass
@@ -312,7 +329,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         // componentType - always `null` since this method is not used for array types
         wa.RefNull(watpe.HeapType(genTypeID.typeData)),
         // name - initially `null`; filled in by the `typeDataName` helper
-        wa.RefNull(watpe.HeapType.NoExtern),
+        wa.RefNull(if (true/*isWASI*/) watpe.HeapType(genTypeID.i16Array) else watpe.HeapType.NoExtern), // scalastyle:ignore
         // the classOf instance - initially `null`; filled in by the `createClassOf` helper
         wa.RefNull(watpe.HeapType(genTypeID.ClassStruct)),
         // arrayOf, the typeData of an array of this type - initially `null`; filled in by the `arrayTypeData` helper

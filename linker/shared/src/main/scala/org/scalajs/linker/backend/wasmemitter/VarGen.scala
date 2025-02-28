@@ -42,10 +42,17 @@ object VarGen {
 
     case object bZeroChar extends GlobalID
     case object bZeroLong extends GlobalID
+    case object bZeroBoolean extends GlobalID
+    case object bZeroInteger extends GlobalID
+    case object bZeroFloat extends GlobalID
+    case object bZeroDouble extends GlobalID
     case object stringLiteralCache extends GlobalID
     case object emptyITable extends GlobalID
     case object arrayClassITable extends GlobalID
     case object lastIDHashCode extends GlobalID
+    case object emptyStringArray extends GlobalID
+    case object stackPointer extends GlobalID
+    case object savedStackPointer extends GlobalID
 
     /** A `GlobalID` for a JS helper global.
      *
@@ -58,6 +65,7 @@ object VarGen {
     case object bTrue extends JSHelperGlobalID
     case object emptyString extends JSHelperGlobalID
     case object idHashCodeMap extends JSHelperGlobalID
+
   }
 
   object genFunctionID {
@@ -101,6 +109,24 @@ object VarGen {
     final case class postSuperStats(className: ClassName) extends FunctionID
 
     case object start extends FunctionID
+
+    final case class forComponentFunction(module: String, name: String) extends FunctionID
+
+    // WASI
+    final case object f32Fmod extends FunctionID
+    final case object f64Fmod extends FunctionID
+
+    final case object malloc extends FunctionID
+    final case object realloc extends FunctionID
+    // CanonicalABI
+    final case object cabiLoadString extends FunctionID
+    final case object cabiStoreString extends FunctionID
+    // print
+    final case object wasiCliGetStdout extends FunctionID
+    final case object blockingWriteAndFlush extends FunctionID
+    final case object dropOutputStream extends FunctionID
+    final case object printlnInt extends FunctionID
+    final case object dumpMemory extends FunctionID
 
     // JS helpers
 
@@ -221,6 +247,13 @@ object VarGen {
       case object concat extends JSHelperFunctionID
       case object substring extends JSHelperFunctionID
       case object equals extends JSHelperFunctionID
+    }
+
+    object string {
+      case object stringFromCharCode extends FunctionID
+      case object stringConcat extends FunctionID
+      case object stringEquals extends FunctionID
+
     }
   }
 
@@ -406,6 +439,7 @@ object VarGen {
     case object typeDataArray extends TypeID
     case object itables extends TypeID
     case object reflectiveProxies extends TypeID
+    case object undefined extends TypeID // WASI
 
     // primitive array types, underlying the Array[T] classes
     case object i8Array extends TypeID
@@ -449,4 +483,7 @@ object VarGen {
     case object string extends DataID
   }
 
+  object genMemoryID {
+    case object memory extends MemoryID
+  }
 }
