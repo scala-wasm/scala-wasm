@@ -31,11 +31,18 @@ object SWasmGen {
       case LongType   => I64Const(0L)
       case FloatType  => F32Const(0.0f)
       case DoubleType => F64Const(0.0)
-      case StringType => GlobalGet(genGlobalID.emptyString)
+      case StringType =>
+        if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+          GlobalGet(genGlobalID.emptyStringArray)
+        else
+          GlobalGet(genGlobalID.emptyString)
       case UndefType  => GlobalGet(genGlobalID.undef)
 
       case ClassType(BoxedStringClass, true) =>
-        RefNull(Types.HeapType.NoExtern)
+        if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+          RefNull(Types.HeapType(genTypeID.i16Array))
+        else
+          RefNull(Types.HeapType.NoExtern)
 
       case AnyType | ClassType(_, true) | ArrayType(_, true) | ClosureType(_, _, true) | NullType =>
         RefNull(Types.HeapType.None)

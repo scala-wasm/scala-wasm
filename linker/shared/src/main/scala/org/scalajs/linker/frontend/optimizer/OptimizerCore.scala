@@ -54,6 +54,8 @@ private[optimizer] abstract class OptimizerCore(
 
   private val isWasm: Boolean = config.coreSpec.targetIsWebAssembly
 
+  private val targetPureWasm: Boolean = config.coreSpec.wasmFeatures.targetPureWasm
+
   // Uncomment and adapt to print debug messages only during one method
   //lazy val debugThisMethod: Boolean =
   //  debugID == "java.lang.FloatingPointBits$.numberHashCode;D;I"
@@ -156,7 +158,7 @@ private[optimizer] abstract class OptimizerCore(
     inlinedRTLongStructure.recordType.fields(1).name
 
   private val intrinsics =
-    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm)
+    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm, targetPureWasm)
 
   def optimize(thisType: Type, params: List[ParamDef],
       jsClassCaptures: List[ParamDef], resultType: Type, body: Tree,
@@ -6607,6 +6609,13 @@ private[optimizer] object OptimizerCore {
         )
     )
 
+    private val wasmJSStringIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
+        ClassName("java.lang.String") -> List(
+            m("substring", List(I), StringClassRef) -> StringSubstringStart,
+            m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+        )
+    )
+
     private val wasmIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
         ClassName("java.lang.Integer$") -> List(
             // note: numberOfLeadingZeros in already in the commonIntrinsics
@@ -6638,9 +6647,7 @@ private[optimizer] object OptimizerCore {
             m("toString", List(I), StringClassRef) -> CharacterCodePointToString
         ),
         ClassName("java.lang.String") -> List(
-            m("codePointAt", List(I), I) -> StringCodePointAt,
-            m("substring", List(I), StringClassRef) -> StringSubstringStart,
-            m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+            m("codePointAt", List(I), I) -> StringCodePointAt
         ),
         ClassName("java.lang.Math$") -> List(
             m("abs", List(F), F) -> MathAbsFloat,
@@ -6657,9 +6664,10 @@ private[optimizer] object OptimizerCore {
     )
     // scalastyle:on line.size.limit
 
-    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean): Intrinsics = {
+    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean, targetPureWasm: Boolean): Intrinsics = {
       val allIntrinsics = if (isWasm) {
-        commonIntrinsics ::: wasmIntrinsics
+        commonIntrinsics ::: wasmIntrinsics :::
+            (if (targetPureWasm) Nil else wasmJSStringIntrinsics)
       } else {
         val baseIntrinsics = commonIntrinsics ::: baseJSIntrinsics
         if (esFeatures.allowBigIntsForLongs) baseIntrinsics

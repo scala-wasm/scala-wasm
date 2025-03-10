@@ -348,7 +348,8 @@ final class _String private () // scalastyle:ignore
     if (beginIndex < 0 || beginIndex > length())
       charAt(beginIndex)
 
-    thisString.jsSubstring(beginIndex)
+    if (LinkingInfo.targetPureWasm) this.substring(beginIndex, thisString.length)
+    else thisString.jsSubstring(beginIndex)
   }
 
   // Wasm intrinsic
@@ -362,7 +363,18 @@ final class _String private () // scalastyle:ignore
     if (endIndex < beginIndex)
       charAt(-1)
 
-    thisString.jsSubstring(beginIndex, endIndex)
+    if (LinkingInfo.targetPureWasm) {
+      val length = thisString.length
+      val builder = new StringBuilder(endIndex - beginIndex)
+      var i = beginIndex
+      while (i < endIndex) {
+        builder.append(thisString.charAt(i))
+        i += 1
+      }
+      builder.toString
+    } else {
+      thisString.jsSubstring(beginIndex, endIndex)
+    }
   }
 
   def toCharArray(): Array[Char] = {
