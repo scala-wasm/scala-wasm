@@ -4,26 +4,25 @@ import Fingerprint.FingerprintBuilder
 
 final class WasmFeatures private (
   _exceptionHandling: Boolean,
-  _useJavaScript: Boolean
+  _targetPureWasm: Boolean
 ) {
   import WasmFeatures._
 
   private def this() = {
     this(
       _exceptionHandling = true,
-      _useJavaScript = true
+      _targetPureWasm = false
     )
   }
 
   val exceptionHandling = _exceptionHandling
-  val useJavaScript = _useJavaScript
-  val targetPureWasm = !useJavaScript
+  val targetPureWasm = _targetPureWasm
 
   def withExceptionHandling(exceptionHandling: Boolean): WasmFeatures =
     copy(exceptionHandling = exceptionHandling)
 
-  def withUseJavaScript(useJavaScript: Boolean): WasmFeatures =
-    copy(useJavaScript = useJavaScript)
+  def withTargetPureWasm(targetPureWasm: Boolean): WasmFeatures =
+    copy(targetPureWasm = targetPureWasm)
 
   override def equals(that: Any): Boolean = that match {
     case that: WasmFeatures =>
@@ -36,24 +35,24 @@ final class WasmFeatures private (
     import scala.util.hashing.MurmurHash3._
     var acc = HashSeed
     acc = mix(acc, exceptionHandling.##)
-    acc = mixLast(acc, useJavaScript.##)
+    acc = mixLast(acc, targetPureWasm.##)
     finalizeHash(acc, 2)
   }
 
   override def toString(): String = {
     s"""WasmFeatures(
        |  exceptionHandling = $exceptionHandling,
-       |  useJavaScript = $useJavaScript
+       |  targetPureWasm = $targetPureWasm
        |)""".stripMargin
   }
 
   private def copy(
       exceptionHandling: Boolean = this.exceptionHandling,
-      useJavaScript: Boolean = this.useJavaScript
+      targetPureWasm: Boolean = this.targetPureWasm
   ): WasmFeatures = {
     new WasmFeatures(
         _exceptionHandling = exceptionHandling,
-        _useJavaScript = useJavaScript
+        _targetPureWasm = targetPureWasm
     )
   }
 }

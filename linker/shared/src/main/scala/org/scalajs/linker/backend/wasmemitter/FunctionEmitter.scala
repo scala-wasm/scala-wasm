@@ -1578,7 +1578,7 @@ private class FunctionEmitter private (
 
       case Throw =>
         if (ctx.coreSpec.wasmFeatures.exceptionHandling) {
-          fb += wa.ExternConvertAny
+          if (!targetPureWasm) fb += wa.ExternConvertAny
           fb += wa.Throw(genTagID.exception)
         } else {
           fb += wa.Drop

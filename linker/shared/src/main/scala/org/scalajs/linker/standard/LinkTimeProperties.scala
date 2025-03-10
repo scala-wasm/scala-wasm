@@ -37,8 +37,8 @@ private[linker] final class LinkTimeProperties (
       LinkTimeBoolean(semantics.productionMode),
     LinkerVersion ->
       LinkTimeString(ScalaJSVersions.current),
-    WasmUseJavaScript ->
-      LinkTimeBoolean(wasmFeatures.useJavaScript)
+    TargetPureWasm ->
+      LinkTimeBoolean(wasmFeatures.targetPureWasm)
   )
 
   def validate(name: String, tpe: jstpe.Type): Boolean = {

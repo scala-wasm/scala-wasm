@@ -258,7 +258,7 @@ object LinkingInfo {
 
   @inline
   def targetPureWasm: Boolean =
-    !linkTimePropertyBoolean("core/wasmUseJavaScript")
+    linkTimePropertyBoolean("core/targetPureWasm")
 
   /** Version of the linker. */
   @inline

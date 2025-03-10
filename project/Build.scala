@@ -2020,7 +2020,7 @@ object Build {
       moduleName := "helloworld",
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
-        _.withPrettyPrint(true).withWasmFeatures(_.withExceptionHandling(false))
+        _.withPrettyPrint(true)
       },
   ).withScalaJSCompiler.dependsOnLibrary
 
@@ -2035,7 +2035,7 @@ object Build {
         Set("-deprecation") contains _)),
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
-        _.withWasmFeatures(_.withExceptionHandling(false).withUseJavaScript(false))
+        _.withWasmFeatures(_.withExceptionHandling(false).withTargetPureWasm(true))
          .withModuleKind(ModuleKind.ESModule)
       },
   ).withScalaJSCompiler.dependsOnLibrary

@@ -45,7 +45,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
   private implicit val noPos: Position = Position.NoPosition
 
   private def genMaybeExternConvertAny(fb: FunctionBuilder): Unit = {
-    if (targetPureWasm) fb += ExternConvertAny
+    if (!targetPureWasm) fb += ExternConvertAny
   }
 
   private val primRefsWithKinds = List(
@@ -139,7 +139,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             typeID
           )
         )
-        }
+      }
       genStubJSValueType()
       genBoxUnboxEquals()
     }
@@ -413,7 +413,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     }
 
     locally {
-      // Handle UnitBoxClass, IntegerBoxClass, FloatBoxClass, and i16array (string), otherwise ref.eq
+      // Handle IntegerBoxClass, FloatBoxClass, and i16array (string), otherwise ref.eq
       // Double, Long, Char should be handled by BoxedRuntime
       // Boolean, Byte, Short (and 31bit int) should be i31ref and handled by ref.eq.
       val fb = newFunctionBuilder(genFunctionID.is)
@@ -454,48 +454,43 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += I31GetS
         fb += I32Eq
       } {
-        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.UnitBoxClass)))
+        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
         fb.ifThenElse(Int32) {
-          fb += I32Const(1)
+          genGetValueBoth(SpecialNames.IntegerBoxClass)
+          fb += I32Eq
           fb += Return
         } {
-          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
           fb.ifThenElse(Int32) {
-            genGetValueBoth(SpecialNames.IntegerBoxClass)
-            fb += I32Eq
+            genGetValueBoth(SpecialNames.FloatBoxClass)
+            fb += F32Eq
             fb += Return
           } {
-            genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+            genRefTestBoth(RefType(genTypeID.i16Array))
             fb.ifThenElse(Int32) {
-              genGetValueBoth(SpecialNames.FloatBoxClass)
-              fb += F32Eq
+              fb += LocalGet(a)
+              fb += RefCast(RefType(genTypeID.i16Array))
+              fb += LocalGet(b)
+              fb += RefCast(RefType(genTypeID.i16Array))
+              fb += Call(genFunctionID.string.stringEquals)
               fb += Return
             } {
-              genRefTestBoth(RefType(genTypeID.i16Array))
+              genRefTestBoth(RefType.eqref)
               fb.ifThenElse(Int32) {
                 fb += LocalGet(a)
-                fb += RefCast(RefType(genTypeID.i16Array))
+                fb += RefCast(RefType.eqref)
                 fb += LocalGet(b)
-                fb += RefCast(RefType(genTypeID.i16Array))
-                fb += Call(genFunctionID.string.stringEquals)
+                fb += RefCast(RefType.eqref)
+                fb += RefEq
                 fb += Return
               } {
-                genRefTestBoth(RefType.eqref)
-                fb.ifThenElse(Int32) {
-                  fb += LocalGet(a)
-                  fb += RefCast(RefType.eqref)
-                  fb += LocalGet(b)
-                  fb += RefCast(RefType.eqref)
-                  fb += RefEq
-                  fb += Return
-                } {
-                  fb += I32Const(0)
-                  fb += Return
-                }
+                fb += I32Const(0)
+                fb += Return
               }
             }
           }
         }
+
       }
       fb.buildAndAddToModule()
     }
@@ -615,7 +610,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       // componentType
       RefNull(HeapType.None),
       // name - initially `null`; filled in by the `typeDataName` helper
-      if (true /*isWASI*/) RefNull(HeapType(genTypeID.i16Array)) else RefNull(HeapType.NoExtern), // scalastyle:ignore
+      if (targetPureWasm) RefNull(HeapType(genTypeID.i16Array)) else RefNull(HeapType.NoExtern), // scalastyle:ignore
       // the classOf instance - initially `null`; filled in by the `createClassOf` helper
       RefNull(HeapType.None),
       // arrayOf, the typeData of an array of this type - initially `null`; filled in by the `arrayTypeData` helper
@@ -1521,7 +1516,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.setResultType(resultType)
 
     def genCastDerivedClass(objIsNullLabel: LabelID): Unit = {
-      assert(targetPureWasm)
       val boxClass =
         if (primType == CharType) SpecialNames.CharBoxClass
         else if (primType == LongType) SpecialNames.LongBoxClass
@@ -3533,7 +3527,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       maybeWrapInUBE(fb, semantics.arrayIndexOutOfBounds) {
         genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
             SpecialNames.StringArgConstructorName) {
-          if (true /*isWASI*/) // scalastyle:ignore
+          if (targetPureWasm)
             fb += RefNull(HeapType(genTypeID.i16Array))
           else
             fb += RefNull(HeapType.NoExtern)
@@ -3719,7 +3713,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       maybeWrapInUBE(fb, semantics.arrayStores) {
         genNewScalaClass(fb, ArrayStoreExceptionClass,
             SpecialNames.StringArgConstructorName) {
-          if (true /*isWASI*/) // scalastyle:ignore
+          if (targetPureWasm)
             fb += RefNull(HeapType(genTypeID.i16Array))
           else
             fb += RefNull(HeapType.NoExtern)

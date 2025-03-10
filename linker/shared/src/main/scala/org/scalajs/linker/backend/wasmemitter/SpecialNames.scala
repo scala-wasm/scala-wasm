@@ -30,7 +30,6 @@ object SpecialNames {
   val IntegerBoxClass = BoxedIntegerClass.withSuffix("Box")
   val FloatBoxClass = BoxedFloatClass.withSuffix("Box")
   val DoubleBoxClass = BoxedDoubleClass.withSuffix("Box")
-  val UnitBoxClass = BoxedUnitClass.withSuffix("Box")
   val BooleanBoxCtor = MethodName.constructor(List(BooleanRef))
 
   val CharBoxCtor = MethodName.constructor(List(CharRef))

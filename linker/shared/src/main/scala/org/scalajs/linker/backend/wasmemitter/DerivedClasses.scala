@@ -39,8 +39,7 @@ object DerivedClasses {
             clazz.className == BoxedLongClass ||
             clazz.className == BoxedIntegerClass ||
             clazz.className == BoxedFloatClass ||
-            clazz.className == BoxedDoubleClass ||
-            clazz.className == BoxedUnitClass =>
+            clazz.className == BoxedDoubleClass =>
           deriveBoxClass(clazz)
       }
     } else {
@@ -97,10 +96,6 @@ object DerivedClasses {
     val className = clazz.className
     val derivedClassName = className.withSuffix("Box")
     val primType = BoxedClassToPrimType(className).asInstanceOf[PrimTypeWithRef]
-    // val primType = BoxedClassToPrimType(className)
-    // val primRef =
-    //   if (clazz.className == BoxedUnitClass) None
-    //   else Some(primType.asInstanceOf[PrimTypeWithRef].primRef)
     val derivedThisType = ClassType(derivedClassName, nullable = false)
 
     val fieldName = FieldName(derivedClassName, valueFieldSimpleName)

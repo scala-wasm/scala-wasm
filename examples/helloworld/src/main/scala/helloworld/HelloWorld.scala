@@ -12,6 +12,17 @@ object HelloWorld {
   def main(args: Array[String]): Unit = {
     import js.DynamicImplicits.truthValue
 
+    trait Hello {
+      def foo(): Int = 3
+    }
+
+    try {
+      val x: Hello = null.asInstanceOf[Hello]
+      println(x.foo())
+    } catch {
+      case _: NullPointerException => println("foo")
+    }
+
     if (js.typeOf(js.Dynamic.global.document) != "undefined" &&
         js.Dynamic.global.document &&
         js.Dynamic.global.document.getElementById("playground")) {

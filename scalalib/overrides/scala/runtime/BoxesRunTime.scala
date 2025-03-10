@@ -49,11 +49,11 @@ object BoxesRunTime {
   def unboxToDouble(d: Any): Double = d.asInstanceOf[Double]
 
   def equals(x: Object, y: Object): Boolean =
-    if (LinkingInfo.targetPureWasm) {
+    if (scala.scalajs.LinkingInfo.targetPureWasm) {
+      equals2(x, y)
+    } else {
       if (scala.scalajs.js.special.strictEquals(x, y)) true
       else equals2(x, y)
-    } else {
-      equals2(x, y)
     }
 
   @inline // only called by equals(), not by codegen

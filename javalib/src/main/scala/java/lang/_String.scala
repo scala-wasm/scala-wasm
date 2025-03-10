@@ -165,7 +165,7 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def endsWith(suffix: String): scala.Boolean = {
-    if (true) { // isWASI
+    if (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       val suffixLen = suffix.length()
 
@@ -225,7 +225,7 @@ final class _String private () // scalastyle:ignore
     indexOf(Character.toString(ch), fromIndex)
 
   def indexOf(str: String): Int = {
-    if (true) { // isWASI
+    if (LinkingInfo.targetPureWasm) {
       indexOf(str, 0)
     } else {
       thisString.jsIndexOf(str)
@@ -233,7 +233,7 @@ final class _String private () // scalastyle:ignore
   }
 
   def indexOf(str: String, fromIndex: Int): Int = {
-    if (true) { // isWASI
+    if (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       val strLen = str.length()
 
@@ -282,7 +282,7 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def lastIndexOf(str: String): Int = {
-    if (true) { // isWASI
+    if (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       lastIndexOf(str, thisLen)
     } else {
@@ -294,7 +294,7 @@ final class _String private () // scalastyle:ignore
   @inline
   def lastIndexOf(str: String, fromIndex: Int): Int =
     if (fromIndex < 0) -1
-    else if (true) { // isWASI
+    else if (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       val strLen = str.length()
 
