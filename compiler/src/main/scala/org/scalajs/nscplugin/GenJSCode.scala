@@ -1228,6 +1228,16 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         }
       }
 
+      val resourceName = sym.rawname.encoded.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+      componentNativeMembersBuilder +=
+        js.ComponentNativeMemberDef(
+          js.MemberFlags.empty.withNamespace(js.MemberNamespace.Public),
+          js.MethodIdent(MethodName("close", Nil, jstpe.VoidRef)),
+          module,
+          s"[resource-drop]$resourceName",
+          wit.FuncType(List(wit.ResourceType(classIdent.name)), None)
+        )(ir.Position.NoPosition)
+
       js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass= None,
           genClassInterfaces(sym, false), None, None,
           Nil, Nil, None, Nil, Nil, componentNativeMembersBuilder.result(), Nil)(
@@ -2394,20 +2404,20 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     def toWIT(tpe: Type): wit.ValType = {
       def toFlagTypeOpt(tpe: Type): Option[wit.FlagsType] = {
         for {
-          ann <- tpe.typeSymbolDirect.annotations.find(_.symbol == ComponentFlagsAnnotation)
+          ann <- tpe.typeSymbolDirect.getAnnotation(ComponentFlagsAnnotation)
           numFlags <- ann.intArg(0)
           if toIRType(tpe) == jstpe.IntType
         } yield wit.FlagsType(numFlags)
       }
 
       toFlagTypeOpt(tpe).orElse {
-        toWITMaybeArray(tpe)
-      }.orElse {
         unsigned2WIT.get(tpe.typeSymbolDirect)
       }.orElse {
-        primitiveIRWIT.get(toIRType(tpe))
+        toWITMaybeArray(tpe.dealiasWiden)
+      }.orElse {
+        primitiveIRWIT.get(toIRType(tpe.dealiasWiden))
       }.getOrElse {
-        tpe.typeSymbol match {
+        tpe.dealiasWiden.typeSymbol match {
           case tsym if tsym.fullName.startsWith("scala.Tuple") =>
             wit.TupleType(tpe.typeArgs.map(toWIT(_)))
 
@@ -2417,7 +2427,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             val fields: List[wit.FieldType] = tsym.info.decls.collect {
               case f if f.isField =>
                 val label = encodeFieldSym(f)(f.pos).name
-                val valueType = toWIT(f.tpe)
+                val fieldType = jsInterop.componentVariantValueTypeOf(f)
+                val valueType = toWIT(fieldType)
                 wit.FieldType(label, valueType)
             }.toList
             wit.RecordType(className, fields)
@@ -2430,7 +2441,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             wit.ResultType(toWIT(ok), toWIT(err))
 
           case tsym if tsym.fullName == "java.util.Optional" =>
-            val List(t) = tpe.typeArgs
+            val List(t) = tpe.dealiasWiden.typeArgs
             wit.OptionType(toWIT(t))
 
           case tsym if tsym.isSubClass(ComponentVariantClass) && tsym.isSealed =>
@@ -5772,13 +5783,17 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
     private def genComponentNativeMemberCall(method: Symbol, tree: Apply,
         receiver: Option[Tree], isStat: Boolean): js.Tree = {
       val sym = tree.symbol
-      val Apply(fun, args) = tree
-      // val funcType = jsInterop.wasmComponentExportOf(fun.symbol)
+      val Apply(Select(qual, _), args) = tree
 
       implicit val pos = tree.pos
 
       val methodIdent = encodeMethodSym(method)
-      val className = encodeClassName(method.owner)
+
+      // Not using encodeClassName(method.owner)
+      // The method.owner of `close` methods will be `component.Resource` instead of the specific resource class that extends the Resource trait.
+      // `component.Resource` defines a `final def close`, preventing users from overriding the close implementation.
+      // However, the actual `close` methods to be called are automatically generated for all resource classes.
+      val className = encodeClassName(qual.symbol.tpe.typeSymbol)
       js.ComponentFunctionApply(
         receiver.map(genExpr(_)),
         className,

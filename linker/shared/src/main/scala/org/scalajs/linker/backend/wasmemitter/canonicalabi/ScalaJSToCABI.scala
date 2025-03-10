@@ -504,10 +504,10 @@ object ScalaJSToCABI {
         case (watpe.Float32, watpe.Int32) =>
           fb += wa.I32ReinterpretF32
         case (watpe.Int32, watpe.Int64) =>
-          fb += wa.I64Extend32S
+          fb += wa.I64ExtendI32S
         case (watpe.Float32, watpe.Int64) =>
           fb += wa.I32ReinterpretF32
-          fb += wa.I64Extend32S
+          fb += wa.I64ExtendI32S
         case (watpe.Float64, watpe.Int64) =>
           fb += wa.I64ReinterpretF64
         case _ => assert(have == want)

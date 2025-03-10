@@ -1,5 +1,5 @@
 package scala.scalajs.component
 
-trait Resource {
-  def close(): Unit = native
+trait Resource extends java.io.Closeable {
+  final override def close(): Unit = native
 }

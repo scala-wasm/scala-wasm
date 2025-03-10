@@ -160,6 +160,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       val isComponentNative = sym.hasAnnotation(ComponentNativeAnnotation) // TODO
       if (isComponentVariantCase)
         checkComponentVariant(sym)
+      if (sym.hasAnnotation(ComponentRecordAnnotation))
+        checkComponentRecord(sym)
 
       /* Checks related to @js.native:
        * - if @js.native, verify that it is allowed in this context, and if
@@ -794,6 +796,15 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       val valueTypeMember = sym.info.memberBasedOnName(newTypeName("T"), 0)
       if (valueTypeMember.exists)
         jsInterop.storeComponentVariantValueType(sym, valueTypeMember.info)
+    }
+
+    private def checkComponentRecord(sym: Symbol): Unit = {
+      for {
+        f <- sym.info.decls
+        if !f.isMethod && f.isTerm && !f.isModule
+      } {
+        jsInterop.storeComponentVariantValueType(f, f.tpe)
+      }
     }
 
     private def checkJSNativeDefinition(pos: Position, sym: Symbol): Unit = {
