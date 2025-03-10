@@ -26,16 +26,28 @@ import org.scalajs.ir.{EntryPointsInfo, Version}
 import org.scalajs.linker.interface.IRFile
 import org.scalajs.linker.interface.unstable.IRFileImpl
 
-import org.scalajs.linker.standard.LinkedClass
+import org.scalajs.linker.standard.{LinkedClass, CoreSpec}
 
 import SpecialNames._
 
 /** Derives `CharacterBox` and `LongBox` from `jl.Character` and `jl.Long`. */
 object DerivedClasses {
-  def deriveClasses(classes: List[LinkedClass]): List[LinkedClass] = {
-    classes.collect {
-      case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass =>
-        deriveBoxClass(clazz)
+  def deriveClasses(classes: List[LinkedClass], coreSpec: CoreSpec): List[LinkedClass] = {
+    if (coreSpec.wasmFeatures.targetPureWasm) {
+      classes.collect {
+        case clazz if clazz.className == BoxedCharacterClass ||
+            clazz.className == BoxedLongClass ||
+            clazz.className == BoxedIntegerClass ||
+            clazz.className == BoxedFloatClass ||
+            clazz.className == BoxedDoubleClass ||
+            clazz.className == BoxedUnitClass =>
+          deriveBoxClass(clazz)
+      }
+    } else {
+      classes.collect {
+        case clazz if clazz.className == BoxedCharacterClass || clazz.className == BoxedLongClass =>
+          deriveBoxClass(clazz)
+      }
     }
   }
 
@@ -85,6 +97,10 @@ object DerivedClasses {
     val className = clazz.className
     val derivedClassName = className.withSuffix("Box")
     val primType = BoxedClassToPrimType(className).asInstanceOf[PrimTypeWithRef]
+    // val primType = BoxedClassToPrimType(className)
+    // val primRef =
+    //   if (clazz.className == BoxedUnitClass) None
+    //   else Some(primType.asInstanceOf[PrimTypeWithRef].primRef)
     val derivedThisType = ClassType(derivedClassName, nullable = false)
 
     val fieldName = FieldName(derivedClassName, valueFieldSimpleName)

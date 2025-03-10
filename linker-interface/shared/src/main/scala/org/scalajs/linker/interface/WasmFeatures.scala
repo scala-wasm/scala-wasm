@@ -17,6 +17,7 @@ final class WasmFeatures private (
 
   val exceptionHandling = _exceptionHandling
   val useJavaScript = _useJavaScript
+  val targetPureWasm = !useJavaScript
 
   def withExceptionHandling(exceptionHandling: Boolean): WasmFeatures =
     copy(exceptionHandling = exceptionHandling)
