@@ -112,6 +112,7 @@ object VarGen {
     // targetPureWasm
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
+    final case object itoa extends FunctionID
 
     // JS helpers
 

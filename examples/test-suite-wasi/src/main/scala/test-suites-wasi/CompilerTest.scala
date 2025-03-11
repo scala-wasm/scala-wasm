@@ -46,16 +46,14 @@ object CompilerTest {
 
     locally {
       val test = new MatchTest
-      // TODO: itoa
-      // test.switchWithGuardsStat()
-      // test.switchWithGuardsExpr()
+      test.switchWithGuardsStat()
+      test.switchWithGuardsExpr()
 
       // Closure
       // scala/collection/immutable/WrappedString.scala,63
       // test.matchWithNonIdentityMatchEndScalaLib()
 
-      // TODO: itoa
-      // test.matchWithNonIdentityMatchEndIndependent()
+      test.matchWithNonIdentityMatchEndIndependent()
     }
 
     locally {
@@ -98,7 +96,8 @@ object CompilerTest {
       // TODO: expected (ref i31), found (ref any)
       // test.compareToForPrimitives()
 
-      // TODO: itoa (+ float to string?)
+      // TODO: float to string
+      // reflective call with string concat doesn't work as expected...
       // test.concatForPrimitives()
 
       test.arrays()
