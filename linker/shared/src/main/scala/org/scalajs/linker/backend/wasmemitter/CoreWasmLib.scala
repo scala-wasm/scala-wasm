@@ -165,6 +165,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     if (targetPureWasm) {
       genUndefinedAndIsUndef()
       genNaiveFmod()
+      genItoa()
     }
   }
 
@@ -1809,9 +1810,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       maybeWrapInUBE(fb, semantics.arrayIndexOutOfBounds) {
         genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
             SpecialNames.StringArgConstructorName) {
-          // TODO: support wasm native itoa
           if (targetPureWasm) {
-            fb ++= ctx.stringPool.getConstantStringInstr("0")
+            fb += LocalGet(indexParam)
+            fb += Call(genFunctionID.itoa)
           } else {
             fb += LocalGet(indexParam)
             fb += Call(genFunctionID.intToString)
@@ -1840,9 +1841,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       maybeWrapInUBE(fb, semantics.negativeArraySizes) {
         genNewScalaClass(fb, NegativeArraySizeExceptionClass,
             SpecialNames.StringArgConstructorName) {
-          // TODO: support wasm native itoa
           if (targetPureWasm) {
-            fb ++= ctx.stringPool.getConstantStringInstr("0")
+            fb += LocalGet(sizeParam)
+            fb += Call(genFunctionID.itoa)
           } else {
             fb += LocalGet(sizeParam)
             fb += Call(genFunctionID.intToString)
@@ -3939,6 +3940,126 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
       fb.buildAndAddToModule()
     }
+  }
+
+  private def genItoa()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.itoa)
+    val value = fb.addParam("value", Int32)
+    fb.setResultType(stringType)
+
+    val isNegative = fb.addLocal("isNegative", Int32)
+    val arrayLen = fb.addLocal("arrayLen", Int32)
+    val tmp = fb.addLocal("tmp", Int32)
+    val iLocal = fb.addLocal("i", Int32)
+    val result = fb.addLocal("result", stringType)
+
+    fb += LocalGet(value)
+    fb += I32Eqz
+    fb.ifThen() {
+      fb += I32Const(48) // '0'
+      fb += ArrayNewFixed(genTypeID.i16Array, 1)
+      fb += Return
+    }
+
+    fb += LocalGet(value)
+    fb += I32Const(0)
+    fb += I32LtS
+    fb.ifThenElse(Int32) { // length
+      fb += LocalGet(value)
+      fb += I32Const(-1)
+      fb += I32Mul
+      fb += LocalSet(value)
+
+      fb += I32Const(1)
+      fb += LocalSet(isNegative)
+
+      fb += I32Const(1) // for '-'
+    } {
+      fb += I32Const(0)
+      fb += LocalSet(isNegative)
+
+      fb += I32Const(0)
+    }
+    fb += LocalSet(arrayLen)
+
+    // calculate the resulting array length
+    fb += LocalGet(value)
+    fb += LocalSet(tmp)
+    fb.loop() { loop =>
+      fb += LocalGet(tmp)
+      fb += I32Eqz
+      fb.ifThenElse() {
+        // break
+      } {
+        // tmp = tmp / 10
+        fb += LocalGet(tmp)
+        fb += I32Const(10)
+        fb += I32DivS
+        fb += LocalSet(tmp)
+
+        fb += LocalGet(arrayLen)
+        fb += I32Const(1)
+        fb += I32Add
+        fb += LocalSet(arrayLen)
+        fb += Br(loop)
+      }
+    }
+
+    fb += LocalGet(arrayLen)
+    fb += ArrayNewDefault(genTypeID.i16Array)
+    fb += LocalSet(result)
+
+    // now, fill the array from the last index
+    fb += LocalGet(value)
+    fb += LocalSet(tmp)
+
+    fb += LocalGet(arrayLen)
+    fb += I32Const(1)
+    fb += I32Sub
+    fb += LocalSet(iLocal)
+
+    fb.loop() { loop =>
+      fb += LocalGet(tmp)
+      fb += I32Eqz
+      fb.ifThenElse() {
+      } {
+        // array store
+        fb += LocalGet(result)
+        fb += LocalGet(iLocal)
+
+        fb += LocalGet(tmp)
+        fb += I32Const(10)
+        fb += I32RemS
+        fb += I32Const(48)
+        fb += I32Add
+        fb += ArraySet(genTypeID.i16Array)
+        // iLocal = iLocal - 1
+        fb += LocalGet(iLocal)
+        fb += I32Const(1)
+        fb += I32Sub
+        fb += LocalSet(iLocal)
+        // tmp = tmp / 10
+        fb += LocalGet(tmp)
+        fb += I32Const(10)
+        fb += I32DivS
+        fb += LocalSet(tmp)
+
+        fb += Br(loop)
+      }
+    }
+
+    // If the number was negative, add the '-' sign
+    fb += LocalGet(isNegative)
+    fb.ifThen() {
+      // Store '-' at the start of the array
+      fb += LocalGet(result)
+      fb += I32Const(0)
+      fb += I32Const(45) // '-'
+      fb += ArraySet(genTypeID.i16Array)
+    }
+    fb += LocalGet(result)
+
+    fb.buildAndAddToModule
   }
 
   private def genStubJSValueType()(implicit ctx: WasmContext): Unit = {

@@ -2099,10 +2099,8 @@ private class FunctionEmitter private (
           case CharType =>
             fb += wa.Call(genFunctionID.string.stringFromCharCode)
           case ByteType | ShortType | IntType =>
-            if (targetPureWasm) { // scalastyle:ignore
-              // TODO
-              fb += wa.Drop
-              fb ++= ctx.stringPool.getConstantStringInstr("0")
+            if (targetPureWasm) {
+              fb += wa.Call(genFunctionID.itoa)
             } else {
               fb += wa.Call(genFunctionID.intToString)
             }

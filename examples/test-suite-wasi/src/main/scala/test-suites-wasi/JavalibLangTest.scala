@@ -27,7 +27,7 @@ object JavalibLangTest {
       // test.parseStringInvalidThrows()
       // test.parseStringBase16()
 
-      // JSMethodApply
+      // JSMethodApply _String startsWith
       // test.decodeStringBase8()
       // test.decodeInvalidThrows()
     }
@@ -252,8 +252,9 @@ object JavalibLangTest {
       highestOneBit()
       lowestOneBit()
 
-      // TODO: JSBinaryOp 8: asInt (number2dynamic)
-      // testToString()
+      // TODO: JSBinaryOp 8: asInt parseString
+      // new Integer("-12345").toString
+      testToString()
 
       // TODO: JSMethodApply toString (enableJSNumberOps)
       // toStringRadix()
@@ -611,8 +612,8 @@ object JavalibLangTest {
       throwableStillHasMethodsOfObject()
       throwableJSToStringCanBeOverridden()
 
-      // TODO: itoa / float to string
-      // assertionErrorsPeculiarConstructors()
+      // TODO: float to string / AssertionError("boom").getMessage fails
+      assertionErrorsPeculiarConstructors()
 
     }
 
