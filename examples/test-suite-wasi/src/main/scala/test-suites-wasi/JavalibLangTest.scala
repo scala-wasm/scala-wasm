@@ -88,6 +88,7 @@ object JavalibLangTest {
       // toLowerCaseCodePointSpecialCases()
       // toLowerCaseCodePointStringLowerCaseDiffCharacterLowerCase()
       // toUpperCaseCompareCharAndCodepoint()
+
       // toUpperCaseInt()
       // toUpperCaseCodePointSpecialCases()
       // toUpperCaseCodePointStringUpperCaseDiffCharacterUpperCase()
@@ -523,7 +524,7 @@ object JavalibLangTest {
       // lastIndexOfInt()
 
       // TODO: toUpperCase, LowerCase
-      // toUpperCase()
+      toUpperCase()
       // toLowerCase()
 
       charAt()
@@ -544,6 +545,8 @@ object JavalibLangTest {
 
       // TODO: Regex
       // matches()
+
+      // TODO: toLowerCase
       // regionMatches()
 
       // TODO Closure
@@ -551,7 +554,7 @@ object JavalibLangTest {
       // createFromLargeCharArray_Issue2553()
       // createFromLargeCodePointArray_Issue2553()
 
-      // TODO: toUpperCase
+      // TODO: toLowerCase
       // stringCaseInsensitiveOrdering()
     }
 
