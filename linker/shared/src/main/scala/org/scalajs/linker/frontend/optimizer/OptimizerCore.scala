@@ -6561,7 +6561,11 @@ private[optimizer] object OptimizerCore {
         ClassName("java.lang.String") -> List(
             m("substring", List(I), StringClassRef) -> StringSubstringStart,
             m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
-        )
+        ),
+        // string.builtins.fromCodePoint
+        ClassName("java.lang.Character$") -> List(
+            m("toString", List(I), StringClassRef) -> CharacterCodePointToString
+        ),
     )
 
     private val wasmIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
@@ -6590,9 +6594,6 @@ private[optimizer] object OptimizerCore {
         ClassName("java.lang.Double$") -> List(
             m("doubleToLongBits", List(D), J) -> DoubleToLongBits,
             m("longBitsToDouble", List(J), D) -> LongBitsToDouble
-        ),
-        ClassName("java.lang.Character$") -> List(
-            m("toString", List(I), StringClassRef) -> CharacterCodePointToString
         ),
         ClassName("java.lang.String") -> List(
             m("codePointAt", List(I), I) -> StringCodePointAt

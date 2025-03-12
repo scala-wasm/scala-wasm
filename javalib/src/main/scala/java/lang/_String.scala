@@ -731,7 +731,52 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
 
   @inline
   def toUpperCase(): String =
-    this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
+    if (LinkingInfo.targetPureWasm) {
+      replaceCharsAtIndex { i =>
+        val c = this.charAt(i)
+        if (c < 0x80) null // fast-forward ASCII characters
+        else StringSpecialCasing.toUpperCase.get(c)
+      }.asInstanceOf[_String].toCase(true)
+    } else {
+      this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
+    }
+
+  private def toCase(toUpper: scala.Boolean): String = {
+    def convert(ch: scala.Char): scala.Char =
+      if (toUpper) Character.toUpperCase(ch)
+      else ch // Character.toLowerCase(ch)
+
+    val length = this.length()
+    if (length == 0) return this.thisString
+    val buf = new StringBuilder(length)
+    var i = 0
+    while (i < length) {
+      val high = charAt(i)
+      i += 1
+      if (Character.isHighSurrogate(high)) {
+        if (i < length) {
+          val low = charAt(i)
+          i += 1
+          if (Character.isLowSurrogate(low)) {
+            val cp = Character.toCodePoint(high, low)
+            val cased = convert(cp.toChar)
+            buf.append(Character.toChars(cased))
+          } else {
+            buf.append(convert(high))
+            buf.append(convert(low))
+          }
+        } else {
+          // one high surrogate
+          buf.append(convert(high))
+        }
+      } else {
+        // normal case
+        buf.append(convert(high))
+      }
+    }
+    buf.toString
+  }
+
 
   /** Replaces special characters in this string (possibly in special contexts)
    *  by dedicated strings.
@@ -1123,5 +1168,4 @@ object _String { // scalastyle:ignore
 
   def format(l: Locale, format: String, args: Array[AnyRef]): String =
     new java.util.Formatter(l).format(format, args).toString()
-
 }
