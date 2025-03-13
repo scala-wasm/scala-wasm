@@ -83,22 +83,22 @@ object JavalibLangTest {
       // TODO: Closure
       // toLowerCaseCompareCharAndCodepoint()
 
-      // TODO: JSMethodApply
-      // toLowerCaseInt()
-      // toLowerCaseCodePointSpecialCases()
-      // toLowerCaseCodePointStringLowerCaseDiffCharacterLowerCase()
+      toLowerCaseInt()
+      toLowerCaseCodePointSpecialCases()
+      toLowerCaseCodePointStringLowerCaseDiffCharacterLowerCase()
+
+      // TODO: Closure
       // toUpperCaseCompareCharAndCodepoint()
 
-      // toUpperCaseInt()
-      // toUpperCaseCodePointSpecialCases()
-      // toUpperCaseCodePointStringUpperCaseDiffCharacterUpperCase()
+      toUpperCaseInt()
+      toUpperCaseCodePointSpecialCases()
+      toUpperCaseCodePointStringUpperCaseDiffCharacterUpperCase()
 
       // TODO: Closure
       // toTitleCaseCompareCharAndCodepoint()
 
-      // TODO: JSMethodApply (in toUpperCase)
-      // toTitleCaseCodePointSpecialCases()
-      // toTitleCaseCodePointStringUpperCaseDiffCharacterTitleCase()
+      toTitleCaseCodePointSpecialCases()
+      toTitleCaseCodePointStringUpperCaseDiffCharacterTitleCase()
 
       codePointCountString()
       codePointCountCharSequence()
@@ -133,14 +133,14 @@ object JavalibLangTest {
     locally {
       val test = new CharacterUnicodeBlockTest
       import test._
-      // TODO: JSMethodApply: _String.toLowerCase
+      // TODO: _String.replace
       // forNameNormalizations()
       // forNameHistorical()
 
       ofIntOutOfRangeThrowsIllegalArgumentException()
       forNameNotFoundThrowsIllegalArgumentException()
 
-      // TODO: JSMethodApply: _String.toLowerCase
+      // TODO: JSMethodApply: _String.replace
       // ofChar()
       // ofCodePoint()
       // forNameString()
@@ -505,9 +505,8 @@ object JavalibLangTest {
       intern()
       equalsTest()
       compareTo()
-      // TODO: _String toUpperCase
-      // equalsIgnoreCase()
-      // compareToIgnoreCase()
+      equalsIgnoreCase()
+      compareToIgnoreCase()
 
       isEmpty()
       contains()
@@ -519,13 +518,11 @@ object JavalibLangTest {
       indexOfString()
       lastIndexOfString()
 
-      // TODO: key not found: fromCodePoint
-      // indexOfInt()
-      // lastIndexOfInt()
+      indexOfInt()
+      lastIndexOfInt()
 
-      // TODO: toUpperCase, LowerCase
       toUpperCase()
-      // toLowerCase()
+      toLowerCase()
 
       charAt()
       codePointBefore()
@@ -546,16 +543,14 @@ object JavalibLangTest {
       // TODO: Regex
       // matches()
 
-      // TODO: toLowerCase
-      // regionMatches()
+      regionMatches()
 
       // TODO Closure
       // trim()
       // createFromLargeCharArray_Issue2553()
       // createFromLargeCodePointArray_Issue2553()
 
-      // TODO: toLowerCase
-      // stringCaseInsensitiveOrdering()
+      stringCaseInsensitiveOrdering()
     }
 
     // TODO: SystemArrayCopyTest (assertArrayEquals)

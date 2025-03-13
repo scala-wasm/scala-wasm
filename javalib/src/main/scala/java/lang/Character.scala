@@ -735,19 +735,26 @@ object Character {
       case 0x0130 =>
         0x0069 // İ => i
       case _ =>
-        val lowerChars = toString(codePoint).toLowerCase()
-        lowerChars.length match {
-          case 1 =>
-            lowerChars.charAt(0).toInt
-          case 2 =>
-            val high = lowerChars.charAt(0)
-            val low = lowerChars.charAt(1)
-            if (isSurrogatePair(high, low))
-              toCodePoint(high, low)
-            else
+        if (LinkingInfo.targetPureWasm) {
+          // in pure Wasm implementation, we cannot use String#toLowerCase
+          // since it uses Character$toLowerCase
+          import CaseUtil._
+          toCase(codePoint, A, Z, upperMu, upperRanges, upperDeltas, upperSteps)
+        } else {
+          val lowerChars = toString(codePoint).toLowerCase()
+          lowerChars.length match {
+            case 1 =>
+              lowerChars.charAt(0).toInt
+            case 2 =>
+              val high = lowerChars.charAt(0)
+              val low = lowerChars.charAt(1)
+              if (isSurrogatePair(high, low))
+                toCodePoint(high, low)
+              else
+                codePoint
+            case _ =>
               codePoint
-          case _ =>
-            codePoint
+          }
         }
     }
   }

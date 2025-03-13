@@ -29,6 +29,8 @@ import java.util.Locale
 import java.util.function._
 import java.util.regex._
 
+import java.util.ScalaOps._
+
 /* This is the implementation of java.lang.String, which is a hijacked class.
  * Its instances are primitive strings. Constructors are not emitted.
  *
@@ -648,7 +650,22 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def toLowerCase(): String =
-    this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
+    if (LinkingInfo.targetPureWasm)
+      this.asInstanceOf[_String].toLowerCaseImpl()
+    else
+      this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
+
+  private def toLowerCaseImpl(): String = {
+    replaceCharsAtIndex { i =>
+      (charAt(i): @switch) match {
+        // TODO: final sigma
+        case '\u03A3' => "\u03C2"
+        case '\u0130' => "\u0069\u0307"
+        case _                           => null
+      }
+    }.asInstanceOf[_String]
+      .toCase(false)
+  }
 
   def toUpperCase(locale: Locale): String = {
     locale.getLanguage() match {
@@ -744,7 +761,7 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
   private def toCase(toUpper: scala.Boolean): String = {
     def convert(ch: scala.Char): scala.Char =
       if (toUpper) Character.toUpperCase(ch)
-      else ch // Character.toLowerCase(ch)
+      else Character.toLowerCase(ch)
 
     val length = this.length()
     if (length == 0) return this.thisString
