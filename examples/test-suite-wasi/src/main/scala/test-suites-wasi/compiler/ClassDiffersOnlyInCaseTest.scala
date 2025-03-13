@@ -12,7 +12,7 @@
 
 package testSuiteWASI.compiler
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 object ClassDiffersOnlyInCaseTest {
   def testClassesThatDifferOnlyInCase_Issue4855(): Unit = {

@@ -397,11 +397,10 @@ object JavalibLangTest {
       // TODO: toString primitive
       // appendPrimitive()
 
-      // TODO: key not found fromCodePoint
-      // appendCodePoint()
+      appendCodePoint()
 
-      // TODO: assertArrayEquals
-      // getChars
+      // TODO: Closure in WrappedString
+      // getChars()
 
       delete()
       deleteCharAt()
@@ -491,6 +490,8 @@ object JavalibLangTest {
       codePointCount()
       offsetByCodePoints()
       offsetByCodePointsBackwards()
+      // TODO: Closure: WrappedString
+      // getChars()
       setCharAt()
       substringStart()
       subSequence()
@@ -541,7 +542,18 @@ object JavalibLangTest {
 
       // TODO: Regex
       // matches()
+      // split()
+      // splitWithCharAsArguments
+      startsWithPrefixToffset_Issue1603()
+      toCharArray()
+      hashCodeTest()
 
+      // TODO: Closure in WrappedString
+      // getChars()
+      concat()
+      constructors()
+      // format()
+      // getBytes()
       regionMatches()
 
       // TODO Closure

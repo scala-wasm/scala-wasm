@@ -12,7 +12,7 @@
 
 package testSuiteWASI.compiler
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 // import org.scalajs.testsuite.utils.Platform
 // import org.scalajs.testsuite.utils.AssertThrows.assertThrows

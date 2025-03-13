@@ -12,7 +12,7 @@
 
 package testSuiteWASI.compiler
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 class UnitTest {
   def testHashCode(): Unit = {

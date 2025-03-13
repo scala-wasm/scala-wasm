@@ -12,7 +12,7 @@
 
 package testSuiteWASI.compiler
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 /* Issue: https://github.com/scala/bug/issues/10512
  * Test cases taken from: https://github.com/scala/scala/pull/6087

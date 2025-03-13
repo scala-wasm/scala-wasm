@@ -14,7 +14,7 @@ package testSuiteWASI.compiler
 
 import language.reflectiveCalls
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 import java.lang.{Float => JFloat, Double => JDouble}
 

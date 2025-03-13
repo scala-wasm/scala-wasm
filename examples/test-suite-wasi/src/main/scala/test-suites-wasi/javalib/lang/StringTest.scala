@@ -14,7 +14,7 @@ package testSuiteWASI.javalib.lang
 
 import java.nio.charset.Charset
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
 
 class StringTest {
@@ -406,8 +406,6 @@ class StringTest {
     assertFalse("Scala.js".matches(".*JS"))
   }
 
-  // TODO: assertArrayEquals
-  /*
   def split(): Unit = {
     assertArrayEquals(Array[AnyRef]("Sc", "l", ".js"), erased("Scala.js".split("a")))
     assertArrayEquals(Array[AnyRef]("a", "s", "d", "f"), erased("asdf".split("")))
@@ -422,7 +420,6 @@ class StringTest {
           erased(s"blah${c}blah${c}blah${c}blah".split(c)))
     }
   }
-  */
 
   def startsWithPrefixToffset_Issue1603(): Unit = {
     assertTrue("Scala.js".startsWith("ala", 2))
@@ -496,8 +493,6 @@ class StringTest {
       assertEquals("fffffffc", String.format("%x", new java.lang.Byte(-4.toByte)))
   }
 
-  // TODO: assertArrayEquals
-  /*
   def getBytes(): Unit = {
 
     assertArrayEquals("hello-world".getBytes(Charset.forName("UTF-8")),
@@ -509,7 +504,6 @@ class StringTest {
             -73, 22, -42, 22, -69, 22, -71, 22, -26, 22, -38, 22, -77, 22,
             -94, 22, -41))
   }
-  */
 
   def regionMatches(): Unit = {
     /* Ported from
