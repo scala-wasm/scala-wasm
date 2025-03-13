@@ -18,7 +18,7 @@ import java.util.function.Consumer
 
 import scala.reflect.ClassTag
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
 
 /** Tests the implementation of the java standard library Iterable

@@ -12,7 +12,7 @@
 
 package testSuiteWASI.javalib.lang
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
 
 import WrappedStringCharSequence.charSequence
@@ -551,12 +551,11 @@ class StringBufferTest {
     assertThrows(classOf[IndexOutOfBoundsException], sb.offsetByCodePoints(30, 2))
   }
 
-  // TODO: assertArrayEquals
-  // def getChars(): Unit = {
-  //   val dst = new Array[Char](10)
-  //   initBuffer("asdf_foo").getChars(2, 6, dst, 3)
-  //   assertArrayEquals(Array[Char](0, 0, 0, 'd', 'f', '_', 'f', 0, 0, 0), dst)
-  // }
+  def getChars(): Unit = {
+    val dst = new Array[Char](10)
+    initBuffer("asdf_foo").getChars(2, 6, dst, 3)
+    assertArrayEquals(Array[Char](0, 0, 0, 'd', 'f', '_', 'f', 0, 0, 0), dst)
+  }
 
   def setCharAt(): Unit = {
     def resultFor(input: String, index: Int, ch: Char): String = {

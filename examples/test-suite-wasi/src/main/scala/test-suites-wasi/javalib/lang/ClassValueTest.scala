@@ -12,7 +12,7 @@
 
 package testSuiteWASI.javalib.lang
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 class ClassValueTest {
   def testClassValue(): Unit = {

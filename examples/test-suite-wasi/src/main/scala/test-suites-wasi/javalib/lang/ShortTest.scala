@@ -14,7 +14,7 @@ package testSuiteWASI.javalib.lang
 
 import java.lang.{Short => JShort}
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
 
 /** Tests the implementation of the java standard library Short

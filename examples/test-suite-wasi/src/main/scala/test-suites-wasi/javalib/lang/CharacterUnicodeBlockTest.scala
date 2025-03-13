@@ -17,7 +17,7 @@ import java.lang.Character.UnicodeBlock
 // import org.junit.Assert._
 // import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 
-import testSuiteWASI.Assertions._
+import testSuiteWASI.junit.Assert._
 
 class CharacterUnicodeBlockTest {
 
