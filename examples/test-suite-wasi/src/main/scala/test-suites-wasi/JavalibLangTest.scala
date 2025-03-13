@@ -461,8 +461,7 @@ object JavalibLangTest {
       // TODO: toString
       // appendPrimitive()
 
-      // TODO: key not found fromCodePoint
-      // appendCodePoint()
+      appendCodePoint()
 
       delete()
       deleteCharAt()
@@ -564,7 +563,33 @@ object JavalibLangTest {
       stringCaseInsensitiveOrdering()
     }
 
-    // TODO: SystemArrayCopyTest (assertArrayEquals)
+    locally {
+      val test = new SystemArraycopyTest
+      import test._
+      // TODO: Closure in WrappedString
+      // simpleTests()
+      arraycopyWithRangeOverlapsForTheSameArrayInt()
+      arraycopyWithRangeOverlapsForTheSameArrayBoolean()
+      arraycopyWithRangeOverlapsForTheSameArrayObject()
+      // TODO: type mismatch: expected subtype of externref, found (ref (id 1))
+      // arraycopyWithRangeOverlapsForTheSameArrayString()
+
+      // TODO: JSArrayConstr in SystemArraycopyTest
+      // new Array[Int](10) translates to JSArrayConstr?
+      // arraycopyNulls()
+      // arraycopyNullsShortcircuited()
+
+      // TODO: exception handling
+      // arraycopyIndexOutOfBoundsInt()
+      // arraycopyIndexOutOfBoundsBoolean()
+      // arraycopyIndexOutOfBoundsObject()
+      // arraycopyIndexOutOfBoundsString()
+
+      // TODO: JSArrayConstr
+      // earlyArrayStoreException()
+      // lateArrayStoreException()
+
+    }
 
     // TODO: System.scala (JSObjectConstr)
     locally {
