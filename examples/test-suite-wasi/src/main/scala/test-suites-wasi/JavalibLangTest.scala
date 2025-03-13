@@ -27,7 +27,7 @@ object JavalibLangTest {
       // test.parseStringInvalidThrows()
       // test.parseStringBase16()
 
-      // JSMethodApply _String startsWith
+      // Integer asInt
       // test.decodeStringBase8()
       // test.decodeInvalidThrows()
     }
@@ -511,9 +511,8 @@ object JavalibLangTest {
       isEmpty()
       contains()
 
-      // TODO: _String startWith endsWith
-      // startWith()
-      // endsWith()
+      startWith()
+      endsWith()
 
       indexOfString()
       lastIndexOfString()

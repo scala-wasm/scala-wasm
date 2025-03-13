@@ -168,24 +168,7 @@ final class _String private () // scalastyle:ignore
   @inline
   def endsWith(suffix: String): scala.Boolean = {
     if (LinkingInfo.targetPureWasm) {
-      val thisLen = thisString.length()
-      val suffixLen = suffix.length()
-
-      if (suffixLen > thisLen) {
-        false
-      } else {
-        var i = thisLen - 1
-        var j = suffixLen - 1
-        var matches = true
-        while (j >= 0 && matches) {
-          if (this.charAt(i) != suffix.charAt(j)) {
-            matches = false
-          }
-          i -= 1
-          j -= 1
-        }
-        matches
-      }
+      regionMatches(thisString.length() - suffix.length, suffix, 0, suffix.length)
     } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
       suffix.getClass() // null check
       thisString.asInstanceOf[js.Dynamic].endsWith(suffix).asInstanceOf[scala.Boolean]
@@ -412,7 +395,9 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def startsWith(prefix: String): scala.Boolean = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+    if (LinkingInfo.targetPureWasm) {
+      regionMatches(0, prefix, 0, prefix.length())
+    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
       prefix.getClass() // null check
       thisString.asInstanceOf[js.Dynamic].startsWith(prefix).asInstanceOf[scala.Boolean]
     } else {
@@ -422,7 +407,9 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def startsWith(prefix: String, toffset: Int): scala.Boolean = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+    if (LinkingInfo.targetPureWasm) {
+      regionMatches(toffset, prefix, 0, prefix.length())
+    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
       prefix.getClass() // null check
       (toffset <= length() && toffset >= 0 &&
           thisString.asInstanceOf[js.Dynamic].startsWith(prefix, toffset).asInstanceOf[scala.Boolean])
