@@ -12,9 +12,9 @@ object JavalibUtilTest {
       // Arrays.sort
 
       // Arrays.fill
-      // TODO: Closure in WrappedString
       fillBoolean()
       fillBooleanWithStartAndEndIndex()
+      // TODO: JSArrayConstr (Array[Short](...))
       // fillByte()
       // fillByteWithStartAndEndIndex()
       // fillShort()
@@ -35,7 +35,7 @@ object JavalibUtilTest {
       binarySearchOnLong()
       binarySearchWithStartAndEndIndexOnInt()
       binarySearchOnInt()
-      // TODO: Closure
+      // TODO: JSArrayConstr
       // binarySearchWithStartAndEndIndexOnShort()
       // binarySearchOnShort()
 
@@ -62,11 +62,11 @@ object JavalibUtilTest {
 
       asList()
 
-      // TODO: Closure in WrappedString
+      // TODO: JSArrayConstr
       // hashCode tests
 
       equalsBooleans()
-      // TODO: Closure in WrappedString
+      // TODO: JSArrayConstr
       // equalsBytes()
       // equalsChars()
 
@@ -76,7 +76,7 @@ object JavalibUtilTest {
       // equalsFloats()
       // equalsDoubles()
 
-      // TODO: Closure in WrappedString
+      // TODO: JSArrayConstr
       deepEquals()
 
       toStringAnyRef()

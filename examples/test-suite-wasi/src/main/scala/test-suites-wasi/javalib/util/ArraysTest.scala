@@ -1010,7 +1010,7 @@ class ArraysTest {
         Array[AnyRef](Array[AnyRef](Array[Double]())),
         Array[AnyRef](Array[AnyRef](Array[Double]()))))
 
-    // TODO: Closure in WrappedString
+    // TODO: JSArrayConstr
     /*
     assertTrue(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[Int](1))),

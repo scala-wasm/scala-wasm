@@ -50,10 +50,10 @@ object JavalibLangTest {
       // highSurrogate()
       // lowSurrogate()
 
-      // TODO: Closure
+      // TODO: Math.random
       // isISOControl()
 
-      // TODO: Closure
+      // TODO: JSArrayConstr
       // digit()
 
       forDigit()
@@ -80,22 +80,20 @@ object JavalibLangTest {
       offsetByCodePointsArrayBackwards()
       isDigit()
 
-      // TODO: Closure
+      // TODO: JSArrayConstr in NumericRange
       // toLowerCaseCompareCharAndCodepoint()
+      // toUpperCaseCompareCharAndCodepoint()
+      // toTitleCaseCompareCharAndCodepoint()
+      // isIdentifierIgnorable()
+      // isUpperCase()
 
       toLowerCaseInt()
       toLowerCaseCodePointSpecialCases()
       toLowerCaseCodePointStringLowerCaseDiffCharacterLowerCase()
 
-      // TODO: Closure
-      // toUpperCaseCompareCharAndCodepoint()
-
       toUpperCaseInt()
       toUpperCaseCodePointSpecialCases()
       toUpperCaseCodePointStringUpperCaseDiffCharacterUpperCase()
-
-      // TODO: Closure
-      // toTitleCaseCompareCharAndCodepoint()
 
       toTitleCaseCodePointSpecialCases()
       toTitleCaseCodePointStringUpperCaseDiffCharacterTitleCase()
@@ -107,14 +105,8 @@ object JavalibLangTest {
       compareTo()
       compareToAnyAny()
 
-      // TODO: Closure
-      // isIdentifierIgnorable()
-
       isUnicodeIdentifierStart()
       isUnicodeIdentifierPart()
-
-      // TODO: Closure
-      // isUpperCase()
 
       isAlphabetic()
       isIdeographic()
@@ -146,10 +138,10 @@ object JavalibLangTest {
       // forNameString()
     }
 
+    // TODO:  JSArrayConstr (Seq(...))
     locally {
       // val test = new ClassTest
       // import test._
-      // TODO: Closure
       // hierarchy()
       // getPrimitiveTypeName()
       // getClassGetName()
@@ -159,7 +151,6 @@ object JavalibLangTest {
       // JSSelect: hasOwnProperty: Utils.scala
       // getSimpleName()
 
-      // Closure
       // isAssignableFrom()
       // getComponentType()
     }
@@ -286,7 +277,7 @@ object JavalibLangTest {
       val test = new IterableDefaultTest
       import test._
       empty()
-      // TODO: Closure (WrappedString 63)
+      // TODO: JSArrayConstr
       // simpleSum()
       // iteratorThrowsNoSuchElementException()
     }
@@ -399,16 +390,18 @@ object JavalibLangTest {
 
       appendCodePoint()
 
-      // TODO: Closure in WrappedString
+      // TODO: JSArrayConstr
       // getChars()
 
       delete()
       deleteCharAt()
       replace()
       insertCharArrayOffsetLen()
-      // insertAnyRef()
       insertString()
       insertCharArray()
+
+      // TODO: asesertion fail
+      // insertAnyRef()
       // insertCharSequence()
       // insertCharSequenceStartEnd()
       // insertPrimitive()
@@ -426,7 +419,7 @@ object JavalibLangTest {
       setLength()
       charAt()
 
-      // TODO
+      // TODO: codePointAt
       // codePointAt()
 
       codePointBefore()
@@ -489,7 +482,7 @@ object JavalibLangTest {
       codePointCount()
       offsetByCodePoints()
       offsetByCodePointsBackwards()
-      // TODO: Closure: WrappedString
+      // TODO: JSArrayConstr
       // getChars()
       setCharAt()
       substringStart()
@@ -547,15 +540,18 @@ object JavalibLangTest {
       toCharArray()
       hashCodeTest()
 
-      // TODO: Closure in WrappedString
-      // getChars()
+      getChars()
       concat()
       constructors()
+
+      // TODO: JSFunctionApply
       // format()
+      // TODO: hasOwnProperty
       // getBytes()
+
       regionMatches()
 
-      // TODO Closure
+      // TODO JSArrayConstr (NumRanges)
       // trim()
       // createFromLargeCharArray_Issue2553()
       // createFromLargeCodePointArray_Issue2553()
@@ -566,7 +562,7 @@ object JavalibLangTest {
     locally {
       val test = new SystemArraycopyTest
       import test._
-      // TODO: Closure in WrappedString
+      // TODO: JSArrayConstr in SystemArrayCopyTest
       // simpleTests()
       arraycopyWithRangeOverlapsForTheSameArrayInt()
       arraycopyWithRangeOverlapsForTheSameArrayBoolean()
@@ -634,13 +630,12 @@ object JavalibLangTest {
       import test._
 
       allJavaLangErrorsAndExceptions()
-      // TODO: Closure
-      // throwableMessage_Issue2559()
+      throwableMessage_Issue2559()
 
       // TODO: test fail (why?)
       // noWritableStackTrace()
 
-      // TODO: Closure
+      // TODO: JSArrayConstr
       // suppression()
       noSuppression()
       throwableStillHasMethodsOfObject()

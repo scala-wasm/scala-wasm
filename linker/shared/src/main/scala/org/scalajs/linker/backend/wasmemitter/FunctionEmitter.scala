@@ -613,7 +613,7 @@ private class FunctionEmitter private (
       case t: JSObjectConstr       if !targetPureWasm => genJSObjectConstr(t)
       case t: JSGlobalRef          if !targetPureWasm => genJSGlobalRef(t)
       case t: JSTypeOfGlobalRef    if !targetPureWasm => genJSTypeOfGlobalRef(t)
-      case t: Closure              if !targetPureWasm => genClosure(t)
+      case t: Closure              => genClosure(t)
 
       // array
       case t: NewArray    => genNewArray(t)
@@ -3240,8 +3240,10 @@ private class FunctionEmitter private (
   private def genClosure(tree: Closure): Type = {
     if (tree.flags.typed)
       genTypedClosure(tree)
-    else
+    else if (!targetPureWasm)
       genJSClosure(tree)
+    else
+      throw new AssertionError(s"JavaScript closure isn't supported when targetPureWasm = true.")
   }
 
   private def genTypedClosure(tree: Closure): Type = {

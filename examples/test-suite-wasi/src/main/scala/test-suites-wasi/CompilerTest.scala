@@ -49,8 +49,7 @@ object CompilerTest {
       test.switchWithGuardsStat()
       test.switchWithGuardsExpr()
 
-      // Closure
-      // scala/collection/immutable/WrappedString.scala,63
+      // TODO: JSArrayConstr in HashSet
       // test.matchWithNonIdentityMatchEndScalaLib()
 
       test.matchWithNonIdentityMatchEndIndependent()
@@ -123,20 +122,28 @@ object CompilerTest {
 
     }
 
-    // Closure
     locally {
       val test = new RuntimeTypeTestsTest
-      // test.objectType()
-      // test.regularClass()
-      // test.regularInterface()
-      // test.serializableAndCloneable()
-      // test.javaLangNumber()
-      // test.primitiveTypes()
-      // test.unit()
-      // test.string()
-      // test.arrayTypes()
-      // test.nothingType()
-      // test.nullType()
+      import test._
+      objectType()
+
+      // TODO: JSArrayConstr (List(...))
+      regularClass()
+      regularInterface()
+
+      // TODO: hit jsValueType
+      // serializableAndCloneable()
+      // javaLangNumber()
+      // primitiveTypes()
+
+      unit()
+
+      // TODO: JSArrayConstr (List(...))
+      string()
+      arrayTypes()
+
+      nothingType()
+      nullType() // TODO: JSArrayConstr (List(...))
     }
 
     locally {
@@ -144,7 +151,7 @@ object CompilerTest {
       test.javaCallable()
       test.specialResultTypes()
       test.javaComparator()
-      // TODO: Closure
+      // TODO: expected (ref $type), found (ref extern)
       // test.samHasDefaultMethod()
       test.specialParamTypes()
       test.nonLFMCapableSAM()
@@ -152,9 +159,9 @@ object CompilerTest {
 
     locally {
       val test = new SAMWithOverridingBridgesTest
-      // TOOD: Closure
-      // test.testVariantA()
-      // test.testVariantB()
+      import test._
+      testVariantA()
+      testVariantB()
     }
 
     locally {
