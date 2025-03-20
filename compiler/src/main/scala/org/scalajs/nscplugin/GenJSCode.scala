@@ -5755,34 +5755,40 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
      */
     private def genActualArgs(sym: Symbol, args: List[Tree])(
         implicit pos: Position): List[js.Tree] = {
-      val wereRepeated = exitingPhase(currentRun.typerPhase) {
-        /* Do NOT use `params` instead of `paramss.flatten` here! Exiting
-         * typer, `params` only contains the *first* parameter list.
-         * This was causing #2265 and #2741.
-         */
-        sym.tpe.paramss.flatten.map(p => isScalaRepeatedParamType(p.tpe))
-      }
+      // TODO: This is a work around for JSArrayConstr in varargs.
+      // We'd like to generate toScalaVarArgs(scala.Array(...)) (not a js.Array)
+      // and Optimizer to transform the internal scala.Array to js.Array when the target is JS.
+      // However, it's a bit tricky and here we just call genExpr, which generates slower code for JS
+      // but works without JS interop in Wasm backend.
+      args.map(genExpr(_))
+      // val wereRepeated = exitingPhase(currentRun.typerPhase) {
+      //   /* Do NOT use `params` instead of `paramss.flatten` here! Exiting
+      //    * typer, `params` only contains the *first* parameter list.
+      //    * This was causing #2265 and #2741.
+      //    */
+      //   sym.tpe.paramss.flatten.map(p => isScalaRepeatedParamType(p.tpe))
+      // }
 
-      if (wereRepeated.size > args.size) {
-        // Should not happen, but let's not crash
-        args.map(genExpr)
-      } else {
-        /* Arguments that are in excess compared to the type signature after
-         * typer are lambda-lifted arguments. They cannot be repeated, hence
-         * the extension to `false`.
-         */
-        for ((arg, wasRepeated) <- args.zipAll(wereRepeated, EmptyTree, false)) yield {
-          if (wasRepeated) {
-            tryGenRepeatedParamAsJSArray(arg, handleNil = false).fold {
-              genExpr(arg)
-            } { genArgs =>
-              genJSArrayToVarArgs(js.JSArrayConstr(genArgs))
-            }
-          } else {
-            genExpr(arg)
-          }
-        }
-      }
+      // if (wereRepeated.size > args.size) {
+      //   // Should not happen, but let's not crash
+      //   args.map(genExpr)
+      // } else {
+      //   /* Arguments that are in excess compared to the type signature after
+      //    * typer are lambda-lifted arguments. They cannot be repeated, hence
+      //    * the extension to `false`.
+      //    */
+      //   for ((arg, wasRepeated) <- args.zipAll(wereRepeated, EmptyTree, false)) yield {
+      //     if (wasRepeated) {
+      //       tryGenRepeatedParamAsJSArray(arg, handleNil = false).fold {
+      //         genExpr(arg)
+      //       } { genArgs =>
+      //         genJSArrayToVarArgs(js.JSArrayConstr(genArgs))
+      //       }
+      //     } else {
+      //       genExpr(arg)
+      //     }
+      //   }
+      // }
     }
 
     /** Info about a Scala method param when called as JS method.

@@ -7,18 +7,34 @@ object JavalibUtilTest {
     locally {
       val test = new ArraysTest
       import test._
+      sortInt()
+      sortLong()
+      sortShort()
+      sortByte()
+      sortChar()
+      // TODO: assertion fail
+      // sortFloat()
+      // sortDouble()
 
-      // requires assertArrayEquals
-      // Arrays.sort
+      // TODO:  type mismatch: expected (ref $type), found (ref extern)
+      // sortString()
+      // sortStringWithNullComparator()
 
-      // Arrays.fill
+      // TODO:  subtype of externref, found (ref null (id 1))
+      // sortIsStable_Issue2400()
+      // sortWithComparator()
+      // sortIsStable()
+
+      // TODO: exception
+      // sortIllegalArgumentException()
+      // sortArrayIndexOutOfBoundsException():
+
       fillBoolean()
       fillBooleanWithStartAndEndIndex()
-      // TODO: JSArrayConstr (Array[Short](...))
-      // fillByte()
-      // fillByteWithStartAndEndIndex()
-      // fillShort()
-      // fillShortWithStartAndEndIndex()
+      fillByte()
+      fillByteWithStartAndEndIndex()
+      fillShort()
+      fillShortWithStartAndEndIndex()
       fillInt()
       fillIntWithStartAndEndIndex()
       fillLong()
@@ -35,9 +51,8 @@ object JavalibUtilTest {
       binarySearchOnLong()
       binarySearchWithStartAndEndIndexOnInt()
       binarySearchOnInt()
-      // TODO: JSArrayConstr
-      // binarySearchWithStartAndEndIndexOnShort()
-      // binarySearchOnShort()
+      binarySearchWithStartAndEndIndexOnShort()
+      binarySearchOnShort()
 
       binarySearchWithStartAndEndIndexOnChar()
       binarySearchOnChar()
@@ -58,27 +73,46 @@ object JavalibUtilTest {
       // binarySearchIllegalArgumentException
       // binarySearchArrayIndexOutOfBoundsException
 
-      // copyOf
+      copyOfInt()
+      // copyOfLong()
+      copyOfShort()
+      copyOfByte()
+      copyOfChar()
+      // TODO: assertion fails
+      // copyOfDouble()
+      copyOfFloat()
+      copyOfBoolean()
+      // copyOfAnyRef()
+      copyOfAnyRefWithChangeOfType()
+      // copyOfRangeAnyRef()
+      copyOfRangeAnyRefArrayIndexOutOfBoundsException()
+
 
       asList()
 
-      // TODO: JSArrayConstr
-      // hashCode tests
+      hashCodeBoolean()
+      hashCodeChars()
+      hashCodeBytes()
+      hashCodeShorts()
+      hashCodeInts()
+      hashCodeLongs()
+      hashCodeFloats()
+      hashCodeDoubles()
+      // TODO: assertion fails
+      // hashCodeAnyRef()
+      // deepHashCode()
 
       equalsBooleans()
-      // TODO: JSArrayConstr
-      // equalsBytes()
-      // equalsChars()
-
-      // equalsShorts()
-      // equalsInts()
-      // equalsLongs()
-      // equalsFloats()
+      equalsBytes()
+      equalsChars()
+      equalsShorts()
+      equalsInts()
+      equalsLongs()
+      equalsFloats()
+      // TODO: assertion fail
       // equalsDoubles()
 
-      // TODO: JSArrayConstr
       deepEquals()
-
       toStringAnyRef()
 
       // TODO: JSArrayConstr in deepToString

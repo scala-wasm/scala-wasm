@@ -48,10 +48,7 @@ object CompilerTest {
       val test = new MatchTest
       test.switchWithGuardsStat()
       test.switchWithGuardsExpr()
-
-      // TODO: JSArrayConstr in HashSet
-      // test.matchWithNonIdentityMatchEndScalaLib()
-
+      test.matchWithNonIdentityMatchEndScalaLib()
       test.matchWithNonIdentityMatchEndIndependent()
     }
 
@@ -127,7 +124,6 @@ object CompilerTest {
       import test._
       objectType()
 
-      // TODO: JSArrayConstr (List(...))
       regularClass()
       regularInterface()
 
@@ -138,12 +134,11 @@ object CompilerTest {
 
       unit()
 
-      // TODO: JSArrayConstr (List(...))
       string()
       arrayTypes()
 
       nothingType()
-      nullType() // TODO: JSArrayConstr (List(...))
+      nullType()
     }
 
     locally {

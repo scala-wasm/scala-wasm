@@ -38,7 +38,6 @@ class ArraysTest {
     }
   }
 
-  /*
   /** Overridden by typedarray tests */
   def Array[T: ClassTag](v: T*): scala.Array[T] = scala.Array(v: _*)
 
@@ -133,6 +132,7 @@ class ArraysTest {
     scalajs.zip(sorted).forall(pair => pair ._1 eq pair._2)
   }
 
+  /*
   def sortIllegalArgumentException(): Unit = {
     val array = Array(0, 1, 3, 4)
 
@@ -613,6 +613,7 @@ class ArraysTest {
     assertThrows(classOf[ArrayIndexOutOfBoundsException],
         Arrays.binarySearch(array, 0, 5, 2))
   }
+        */
 
   def copyOfInt(): Unit = {
     val ints: Array[Int] = Array(1, 2, 3)
@@ -706,8 +707,8 @@ class ArraysTest {
   }
 
   def copyOfRangeAnyRefArrayIndexOutOfBoundsException(): Unit = {
-    assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
-        hasCompliantArrayIndexOutOfBounds)
+    // assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
+    //     hasCompliantArrayIndexOutOfBounds)
 
     val anyrefs: Array[AnyRef] = Array("a", "b", "c", "d", "e")
     assertThrows(classOf[ArrayIndexOutOfBoundsException],
@@ -715,7 +716,6 @@ class ArraysTest {
     assertThrows(classOf[ArrayIndexOutOfBoundsException],
         Arrays.copyOfRange(anyrefs, 6, 8))
   }
-  */
 
   def asList(): Unit = {
     val list = Arrays.asList(1, 2, 3)
@@ -728,8 +728,8 @@ class ArraysTest {
   def hashCodeBoolean(): Unit = {
     assertEquals(0, Arrays.hashCode(null: Array[Boolean]))
     assertEquals(1, Arrays.hashCode(Array[Boolean]()))
-    // assertEquals(1268, Arrays.hashCode(Array[Boolean](false)))
-    // assertEquals(40359, Arrays.hashCode(Array[Boolean](true, false)))
+    assertEquals(1268, Arrays.hashCode(Array[Boolean](false)))
+    assertEquals(40359, Arrays.hashCode(Array[Boolean](true, false)))
   }
 
   def hashCodeChars(): Unit = {
@@ -1009,17 +1009,12 @@ class ArraysTest {
     assertTrue(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[Double]())),
         Array[AnyRef](Array[AnyRef](Array[Double]()))))
-
-    // TODO: JSArrayConstr
-    /*
     assertTrue(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[Int](1))),
         Array[AnyRef](Array[AnyRef](Array[Int](1)))))
     assertTrue(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[AnyRef](1.asInstanceOf[AnyRef]))),
         Array[AnyRef](Array[AnyRef](Array[AnyRef](1.asInstanceOf[AnyRef])))))
-    */
-
     assertFalse(Arrays.deepEquals(
         null: Array[AnyRef],
         Array[AnyRef]()))
@@ -1048,8 +1043,6 @@ class ArraysTest {
         Array[AnyRef](Array[AnyRef](Array[AnyRef]())),
         Array[AnyRef](Array[AnyRef](Array[AnyRef](null)))))
 
-    // TODO: Closure in WrappedString
-        /*
     assertFalse(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[Int]())),
         Array[AnyRef](Array[AnyRef](Array[Int](1)))))
@@ -1062,7 +1055,6 @@ class ArraysTest {
     assertFalse(Arrays.deepEquals(
         Array[AnyRef](Array[AnyRef](Array[AnyRef](1.asInstanceOf[AnyRef]))),
         Array[AnyRef](Array[AnyRef](Array[AnyRef](2.asInstanceOf[AnyRef])))))
-        */
   }
 
   def toStringLong(): Unit = {

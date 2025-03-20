@@ -42,8 +42,7 @@ object JavalibLangTest {
       isSupplementaryCodePoint()
       isHighSurrogate()
       isLowSurrogate()
-      // TODO: JSArrayConstructor (List[Char] ?)
-      // isSurrogatePair()
+      isSurrogatePair()
       charCount()
       toCodePoint()
       // TODO: Assertion fails
@@ -53,8 +52,7 @@ object JavalibLangTest {
       // TODO: Math.random
       // isISOControl()
 
-      // TODO: JSArrayConstr
-      // digit()
+      digit()
 
       forDigit()
       codePointAtCharSequence()
@@ -79,25 +77,19 @@ object JavalibLangTest {
       offsetByCodePointsArray()
       offsetByCodePointsArrayBackwards()
       isDigit()
-
-      // TODO: JSArrayConstr in NumericRange
-      // toLowerCaseCompareCharAndCodepoint()
-      // toUpperCaseCompareCharAndCodepoint()
-      // toTitleCaseCompareCharAndCodepoint()
-      // isIdentifierIgnorable()
-      // isUpperCase()
-
+      toLowerCaseCompareCharAndCodepoint()
+      toUpperCaseCompareCharAndCodepoint()
+      toTitleCaseCompareCharAndCodepoint()
+      isIdentifierIgnorable()
+      isUpperCase()
       toLowerCaseInt()
       toLowerCaseCodePointSpecialCases()
       toLowerCaseCodePointStringLowerCaseDiffCharacterLowerCase()
-
       toUpperCaseInt()
       toUpperCaseCodePointSpecialCases()
       toUpperCaseCodePointStringUpperCaseDiffCharacterUpperCase()
-
       toTitleCaseCodePointSpecialCases()
       toTitleCaseCodePointStringUpperCaseDiffCharacterTitleCase()
-
       codePointCountString()
       codePointCountCharSequence()
       codePointCountArray()
@@ -138,21 +130,22 @@ object JavalibLangTest {
       // forNameString()
     }
 
-    // TODO:  JSArrayConstr (Seq(...))
     locally {
-      // val test = new ClassTest
-      // import test._
-      // hierarchy()
+      val test = new ClassTest
+      import test._
+      hierarchy()
+      // TODO: jsValueType
       // getPrimitiveTypeName()
       // getClassGetName()
-      // getClassGetNameNull()
-      // wellKnownClasses()
+
+      getClassGetNameNull()
+      wellKnownClasses()
 
       // JSSelect: hasOwnProperty: Utils.scala
       // getSimpleName()
 
-      // isAssignableFrom()
-      // getComponentType()
+      isAssignableFrom()
+      getComponentType()
     }
 
     // TODO
@@ -171,7 +164,7 @@ object JavalibLangTest {
       // toStringWithIntegerValuesWhenAnInteger()
       // toHexStringTest()
 
-      // TODO: JSArrayConstr (?)
+      // TODO: parseString
       // parseStringMethods()
       // parseDoubleInvalidThrows()
       compareToJavaDouble()
@@ -277,9 +270,8 @@ object JavalibLangTest {
       val test = new IterableDefaultTest
       import test._
       empty()
-      // TODO: JSArrayConstr
-      // simpleSum()
-      // iteratorThrowsNoSuchElementException()
+      simpleSum()
+      iteratorThrowsNoSuchElementException()
     }
 
     locally {
@@ -335,9 +327,7 @@ object JavalibLangTest {
       // TODO: anyGetTypeData - jsValueType
       // testGetClass()
 
-      // TODO: JSArrayConstr List(XY) ?
-      // test.equals()
-
+      test.equals()
       isInstanceOfObjectExceptNull() // TODO List(1)
       isInstanceOfObjectNull()
       asInstanceOfObjectAll()
@@ -389,10 +379,7 @@ object JavalibLangTest {
       // appendPrimitive()
 
       appendCodePoint()
-
-      // TODO: JSArrayConstr
-      // getChars()
-
+      getChars()
       delete()
       deleteCharAt()
       replace()
@@ -482,8 +469,7 @@ object JavalibLangTest {
       codePointCount()
       offsetByCodePoints()
       offsetByCodePointsBackwards()
-      // TODO: JSArrayConstr
-      // getChars()
+      getChars()
       setCharAt()
       substringStart()
       subSequence()
@@ -551,8 +537,9 @@ object JavalibLangTest {
 
       regionMatches()
 
-      // TODO JSArrayConstr (NumRanges)
-      // trim()
+      trim()
+
+      // TODO: it takes too long to concat strings
       // createFromLargeCharArray_Issue2553()
       // createFromLargeCodePointArray_Issue2553()
 
@@ -562,7 +549,7 @@ object JavalibLangTest {
     locally {
       val test = new SystemArraycopyTest
       import test._
-      // TODO: JSArrayConstr in SystemArrayCopyTest
+      // TODO: assertion fail, maybe mkString
       // simpleTests()
       arraycopyWithRangeOverlapsForTheSameArrayInt()
       arraycopyWithRangeOverlapsForTheSameArrayBoolean()
@@ -570,10 +557,8 @@ object JavalibLangTest {
       // TODO: type mismatch: expected subtype of externref, found (ref (id 1))
       // arraycopyWithRangeOverlapsForTheSameArrayString()
 
-      // TODO: JSArrayConstr in SystemArraycopyTest
-      // new Array[Int](10) translates to JSArrayConstr?
-      // arraycopyNulls()
-      // arraycopyNullsShortcircuited()
+      arraycopyNulls()
+      arraycopyNullsShortcircuited()
 
       // TODO: exception handling
       // arraycopyIndexOutOfBoundsInt()
@@ -581,8 +566,8 @@ object JavalibLangTest {
       // arraycopyIndexOutOfBoundsObject()
       // arraycopyIndexOutOfBoundsString()
 
-      // TODO: JSArrayConstr
-      // earlyArrayStoreException()
+      earlyArrayStoreException()
+      // TODO: asertion fail
       // lateArrayStoreException()
 
     }
@@ -635,8 +620,7 @@ object JavalibLangTest {
       // TODO: test fail (why?)
       // noWritableStackTrace()
 
-      // TODO: JSArrayConstr
-      // suppression()
+      suppression()
       noSuppression()
       throwableStillHasMethodsOfObject()
       throwableJSToStringCanBeOverridden()
