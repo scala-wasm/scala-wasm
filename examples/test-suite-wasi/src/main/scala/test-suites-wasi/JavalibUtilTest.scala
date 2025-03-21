@@ -74,7 +74,7 @@ object JavalibUtilTest {
       // binarySearchArrayIndexOutOfBoundsException
 
       copyOfInt()
-      // copyOfLong()
+      copyOfLong()
       copyOfShort()
       copyOfByte()
       copyOfChar()
@@ -82,6 +82,7 @@ object JavalibUtilTest {
       // copyOfDouble()
       copyOfFloat()
       copyOfBoolean()
+      // TODO: is CharSequence
       // copyOfAnyRef()
       copyOfAnyRefWithChangeOfType()
       // copyOfRangeAnyRef()

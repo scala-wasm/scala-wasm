@@ -474,7 +474,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             genGetValueBoth(SpecialNames.IntegerBoxClass)
             fb += I32Eq
             fb += Return
-            // TODO: Long and Double
           } {
             genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
             fb.ifThenElse(Int32) {

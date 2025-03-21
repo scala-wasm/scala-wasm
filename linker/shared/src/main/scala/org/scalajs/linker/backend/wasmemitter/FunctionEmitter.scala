@@ -1143,35 +1143,59 @@ private class FunctionEmitter private (
           val receiverLocal = addSyntheticLocal(watpe.RefType.any)
           fb += wa.LocalTee(receiverLocal)
 
-          val jsValueTypeLocal = addSyntheticLocal(watpe.Int32)
-          fb += wa.Call(genFunctionID.jsValueType)
-          fb += wa.LocalTee(jsValueTypeLocal)
+          if (!targetPureWasm) {
+            val jsValueTypeLocal = addSyntheticLocal(watpe.Int32)
+            fb += wa.Call(genFunctionID.jsValueType)
+            fb += wa.LocalTee(jsValueTypeLocal)
 
-          fb.switch(Sig(List(watpe.Int32), Nil), Sig(Nil, List(watpe.Int32))) { () =>
-            // scrutinee is already on the stack
-          }(
-            // case JSValueTypeFalse | JSValueTypeTrue =>
-            List(JSValueTypeFalse, JSValueTypeTrue) -> { () =>
-              /* The jsValueTypeLocal is the boolean value, thanks to the chosen encoding.
-               * This trick avoids an additional unbox.
-               */
-              fb += wa.LocalGet(jsValueTypeLocal)
+            fb.switch(Sig(List(watpe.Int32), Nil), Sig(Nil, List(watpe.Int32))) { () =>
+              // scrutinee is already on the stack
+            }(
+              // case JSValueTypeFalse | JSValueTypeTrue =>
+              List(JSValueTypeFalse, JSValueTypeTrue) -> { () =>
+                /* The jsValueTypeLocal is the boolean value, thanks to the chosen encoding.
+                 * This trick avoids an additional unbox.
+                 */
+                fb += wa.LocalGet(jsValueTypeLocal)
+                pushArgs(argsLocals)
+                genHijackedClassCall(BoxedBooleanClass)
+              },
+              // case JSValueTypeString =>
+              List(JSValueTypeString) -> { () =>
+                fb += wa.LocalGet(receiverLocal)
+                fb += wa.ExternConvertAny
+                pushArgs(argsLocals)
+                genHijackedClassCall(BoxedStringClass)
+              }
+            ) { () =>
+              // case _ (JSValueTypeNumber) =>
+              fb += wa.LocalGet(receiverLocal)
+              genUnbox(DoubleType)
+              pushArgs(argsLocals)
+              genHijackedClassCall(BoxedDoubleClass)
+            }
+          } else {
+            fb += wa.Call(genFunctionID.typeTest(BooleanRef))
+            fb.ifThenElse(watpe.Int32) {
+              fb += wa.LocalGet(receiverLocal)
+              genUnbox(BooleanType)
               pushArgs(argsLocals)
               genHijackedClassCall(BoxedBooleanClass)
-            },
-            // case JSValueTypeString =>
-            List(JSValueTypeString) -> { () =>
+            } {
               fb += wa.LocalGet(receiverLocal)
-              fb += wa.ExternConvertAny
-              pushArgs(argsLocals)
-              genHijackedClassCall(BoxedStringClass)
+              fb += wa.RefTest(watpe.RefType(genTypeID.i16Array))
+              fb.ifThenElse(watpe.Int32) {
+                fb += wa.LocalGet(receiverLocal)
+                fb += wa.RefCast(watpe.RefType(genTypeID.i16Array))
+                pushArgs(argsLocals)
+                genHijackedClassCall(BoxedStringClass)
+              } {
+                fb += wa.LocalGet(receiverLocal)
+                genUnbox(DoubleType)
+                pushArgs(argsLocals)
+                genHijackedClassCall(BoxedDoubleClass)
+              }
             }
-          ) { () =>
-            // case _ (JSValueTypeNumber) =>
-            fb += wa.LocalGet(receiverLocal)
-            genUnbox(DoubleType)
-            pushArgs(argsLocals)
-            genHijackedClassCall(BoxedDoubleClass)
           }
         } else {
           /* It must be a method of j.l.Object and it can be any value.

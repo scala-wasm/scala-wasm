@@ -17,8 +17,8 @@ object CompilerTest {
     locally {
       val test = new DefaultMethodsTest
       import test._
-      // canOverrideDefaultMethod()
-      // reflectiveCallDefaultMethod()
+      canOverrideDefaultMethod()
+      reflectiveCallDefaultMethod()
     }
 
     locally {
@@ -164,9 +164,7 @@ object CompilerTest {
       test.unaryMethodsOnPrimitiveTypes()
       test.binaryOperatorsOnPrimitiveTypes()
       test.qualityOperatorsOnPrimitiveTypes()
-
-      // TODO: expected (ref i31), found (ref any)
-      // test.compareToForPrimitives()
+      test.compareToForPrimitives()
 
       // TODO: float to string / long to string, runtime type check
       test.concatForPrimitives()
