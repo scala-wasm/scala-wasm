@@ -45,9 +45,8 @@ object JavalibLangTest {
       isSurrogatePair()
       charCount()
       toCodePoint()
-      // TODO: Assertion fails
-      // highSurrogate()
-      // lowSurrogate()
+      highSurrogate()
+      lowSurrogate()
 
       // TODO: Math.random
       // isISOControl()
@@ -134,8 +133,8 @@ object JavalibLangTest {
       val test = new ClassTest
       import test._
       hierarchy()
-      // TODO: jsValueType
-      // getPrimitiveTypeName()
+      getPrimitiveTypeName()
+      // TODO: jsValueType in anyGetTypeData
       // getClassGetName()
 
       getClassGetNameNull()
@@ -375,8 +374,8 @@ object JavalibLangTest {
       appendCharArray()
       appendCharArrayOffsetLen()
 
-      // TODO: toString primitive
-      // appendPrimitive()
+      // TODO: ltoa, float/double to string
+      appendPrimitive()
 
       appendCodePoint()
       getChars()

@@ -115,7 +115,7 @@ class RuntimeTypeTestsTest {
     testCloneable(false, true)
     testCloneable(false, 'Z')
     testCloneable(false, "hello")
-    // testCloneable(false, List(5))
+    testCloneable(false, List(5))
     testCloneable(false, new Foo)
     testCloneable(false, new MySerializable)
   }

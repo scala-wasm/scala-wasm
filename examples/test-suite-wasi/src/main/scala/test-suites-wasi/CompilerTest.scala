@@ -163,9 +163,7 @@ object CompilerTest {
       // test.genericReturnTypes()
       test.unaryMethodsOnPrimitiveTypes()
       test.binaryOperatorsOnPrimitiveTypes()
-
-      // TODO: primitive values equality
-      // test.qualityOperatorsOnPrimitiveTypes()
+      test.qualityOperatorsOnPrimitiveTypes()
 
       // TODO: expected (ref i31), found (ref any)
       // test.compareToForPrimitives()
@@ -199,7 +197,7 @@ object CompilerTest {
       regularClass()
       regularInterface()
 
-      // TODO: hit jsValueType
+      // TODO: jsValueType for genIsInstanceOf
       // serializableAndCloneable()
       // javaLangNumber()
       // primitiveTypes()
