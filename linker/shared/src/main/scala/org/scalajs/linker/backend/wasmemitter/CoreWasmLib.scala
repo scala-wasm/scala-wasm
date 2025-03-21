@@ -456,6 +456,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += I31GetS
         fb += I32Eq
       } {
+        // TODO: use typeData or something to switch by br_table instead
         genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
         fb.ifThenElse(Int32) {
           genGetValueBoth(SpecialNames.BooleanBoxClass)
@@ -475,26 +476,33 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
               fb += F32Eq
               fb += Return
             } {
-              genRefTestBoth(RefType(genTypeID.i16Array))
+              genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
               fb.ifThenElse(Int32) {
-                fb += LocalGet(a)
-                fb += RefCast(RefType(genTypeID.i16Array))
-                fb += LocalGet(b)
-                fb += RefCast(RefType(genTypeID.i16Array))
-                fb += Call(genFunctionID.string.stringEquals)
+                genGetValueBoth(SpecialNames.DoubleBoxClass)
+                fb += F64Eq
                 fb += Return
               } {
-                genRefTestBoth(RefType.eqref)
+                genRefTestBoth(RefType(genTypeID.i16Array))
                 fb.ifThenElse(Int32) {
                   fb += LocalGet(a)
-                  fb += RefCast(RefType.eqref)
+                  fb += RefCast(RefType(genTypeID.i16Array))
                   fb += LocalGet(b)
-                  fb += RefCast(RefType.eqref)
-                  fb += RefEq
+                  fb += RefCast(RefType(genTypeID.i16Array))
+                  fb += Call(genFunctionID.string.stringEquals)
                   fb += Return
                 } {
-                  fb += I32Const(0)
-                  fb += Return
+                  genRefTestBoth(RefType.eqref)
+                  fb.ifThenElse(Int32) {
+                    fb += LocalGet(a)
+                    fb += RefCast(RefType.eqref)
+                    fb += LocalGet(b)
+                    fb += RefCast(RefType.eqref)
+                    fb += RefEq
+                    fb += Return
+                  } {
+                    fb += I32Const(0)
+                    fb += Return
+                  }
                 }
               }
             }

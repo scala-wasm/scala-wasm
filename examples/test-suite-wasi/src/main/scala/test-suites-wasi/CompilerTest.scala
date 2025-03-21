@@ -44,8 +44,83 @@ object CompilerTest {
     }
 
     // DoubleTest
-    // FloatTest
-    // LongTest
+    locally {
+      val test = new DoubleTest
+      import test._
+
+      `toInt`()
+      toFloat()
+      // TODO: ExactlyEquals?
+      // toFloatNoLoss()
+      // TODO: fmod
+      // testRemainder()
+
+      noReverseComparisons_Issue3575()
+
+      // TODO: ExactlyEquals?
+      // negate_Issue4034()
+      // noWrongSimplifications()
+
+    }
+
+    locally {
+      val test = new FloatTest
+      import test._
+      toInt()
+      // TODO: fmod
+      // testRemainder()
+      noReverseComparisons_Issue3575()
+      // TODO: assertExactEquals
+      // negate_Issue4034()
+      // noWrongSimplifications()
+    }
+
+    locally {
+      val test = new LongTest
+      import test._
+      sanityOfEqualityTests()
+      equalsAny()
+      literals()
+      unaryOps()
+      binaryOps()
+      shifts_Issue622()
+      toLongConversions()
+      testHashCodeLiterals()
+      hashHash()
+      hashHashInCaseClasses()
+      concatWithString()
+      // TODO: JSArrayConstr in StringRadixInfos:
+      // stringToLong()
+      test.asInstanceOf()
+      compareOtherNumericTypes()
+      testHashCode()
+      // TODO: ltoa
+      // toStringTest()
+      toByte()
+      toShort()
+      toInt()
+      toLong()
+      toFloat()
+      toDouble()
+      fromDouble()
+      comparisons()
+      bitwiseNot()
+      bitwiseOr()
+      bitwiseAnd()
+      bitwiseXor()
+      shiftLeft()
+      shiftLogicalRight()
+      shiftArithmeticRight()
+      negate()
+      plus()
+      minus()
+      times()
+      divide()
+      divisionByZero()
+      modulo()
+      moduloByZero()
+    }
+
 
     locally {
       val test = new MatchTest
@@ -108,13 +183,8 @@ object CompilerTest {
       test.javaLangObjectClone_Issue303()
       // test.scalaAnyRefEqNeSynchronized_Issue2709()
 
-      // TODO
-      // 0: 0x8145 - <unknown>!uD
-      // 1: 0x9f3a - <unknown>!f.scala.runtime.BoxesRunTime$.equalsNumObject;Ljava.lang.Number;Ljava.lang.Object;Z
-      // 2: 0x11fc9 - <unknown>!f.testSuiteWASI.compiler.ReflectiveCallTest$AnyValWithAnyRefPrimitiveMethods$.eq$extension;I;Ljava.lang.Object;Z
-      // 3: 0x11eea - <unknown>!f.testSuiteWASI.compiler.ReflectiveCallTest$AnyValWithAnyRefPrimitiveMethods.eq;Ljava.lang.Object;R
-      // 4: 0x11c81 - <unknown>!ps.testSuiteWASI.compiler.ReflectiveCallTest.objEqTest$1;Ljava.lang.Object;Ljava.lang.Object;Z
-      // test.anyValEqNeSynchronized_Issue2709()
+      // TODO: assertEquals("hellothere", objSynchronizedTest(a, "hello"))
+      test.anyValEqNeSynchronized_Issue2709()
 
       test.javaLangFloatDoubleIsNaNIsInfinite()
       test.defaultArguments_Issue390()

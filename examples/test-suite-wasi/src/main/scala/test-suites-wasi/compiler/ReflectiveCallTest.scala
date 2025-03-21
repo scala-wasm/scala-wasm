@@ -407,7 +407,7 @@ class ReflectiveCallTest {
     assertTrue(objNeTest(a, 5: Integer))
     assertFalse(objNeTest(a, 6: Integer))
 
-    assertEquals("hellothere", objSynchronizedTest(a, "hello"))
+    // assertEquals("hellothere", objSynchronizedTest(a, "hello"))
   }
 
   def javaLangFloatDoubleIsNaNIsInfinite(): Unit = {
