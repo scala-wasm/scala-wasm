@@ -170,9 +170,8 @@ object CompilerTest {
       // TODO: expected (ref i31), found (ref any)
       // test.compareToForPrimitives()
 
-      // TODO: float to string
-      // reflective call with string concat doesn't work as expected...
-      // test.concatForPrimitives()
+      // TODO: float to string / long to string, runtime type check
+      test.concatForPrimitives()
 
       test.arrays()
       test.arraysOfPrimitiveValues()

@@ -1106,9 +1106,19 @@ private class FunctionEmitter private (
           // By spec, toString() is special
           assert(argsLocals.isEmpty)
           if (targetPureWasm) {
-            // TODO: we shouldn't reach here in WASI
-            fb += wa.Drop
-            fb ++= ctx.stringPool.getConstantStringInstr("todo")
+            fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType(genTypeID.i16Array)))) { exit =>
+              fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType(genTypeID.i16Array)))) { labelString =>
+                fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType.i31))) { labelI31 =>
+                  fb += wa.BrOnCast(labelI31, watpe.RefType.any, watpe.RefType.i31)
+                  fb += wa.BrOnCast(labelString, watpe.RefType.any, watpe.RefType(genTypeID.i16Array))
+                  fb += wa.Unreachable
+                } // end block of labelI31
+                fb += wa.I31GetS
+                fb += wa.Call(genFunctionID.itoa)
+                fb += wa.Br(exit)
+              }
+              fb += wa.Br(exit)
+            }
           } else {
             fb += wa.Call(genFunctionID.jsValueToString)
           }
