@@ -14,9 +14,12 @@ object CompilerTest {
     CharTest.doNotBoxSeveralTimesInIf()
     ClassDiffersOnlyInCaseTest.testClassesThatDifferOnlyInCase_Issue4855()
 
-    // TODO: type mismatch: expected (ref $type), found (ref extern)
-    // DefaultMethodsTest.canOverrideDefaultMethod()
-    // DefaultMethodsTest.reflectiveCallDefaultMethod()
+    locally {
+      val test = new DefaultMethodsTest
+      import test._
+      // canOverrideDefaultMethod()
+      // reflectiveCallDefaultMethod()
+    }
 
     locally {
       val test = new IntTest
@@ -172,6 +175,5 @@ object CompilerTest {
       test.testEquals()
       test.testEqualsOtherValues()
     }
-
   }
 }

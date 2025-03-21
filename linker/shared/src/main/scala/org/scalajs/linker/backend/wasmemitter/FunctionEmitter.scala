@@ -657,7 +657,8 @@ private class FunctionEmitter private (
         primType match {
           case NullType =>
             expectedType match {
-              case ClassType(BoxedStringClass, true) => fb += wa.ExternConvertAny
+              case ClassType(BoxedStringClass, true) if !targetPureWasm =>
+                fb += wa.ExternConvertAny
               case _                                 => ()
             }
           case ByteType | ShortType =>

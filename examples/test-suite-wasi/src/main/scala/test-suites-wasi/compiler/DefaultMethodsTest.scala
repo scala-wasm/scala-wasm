@@ -20,7 +20,7 @@ import java.{util => ju}
 
 // import org.scalajs.testsuite.utils.Platform._
 
-object DefaultMethodsTest {
+class DefaultMethodsTest {
 
   def canOverrideDefaultMethod(): Unit = {
     var counter = 0

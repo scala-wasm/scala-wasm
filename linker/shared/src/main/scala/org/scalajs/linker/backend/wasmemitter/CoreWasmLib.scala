@@ -404,8 +404,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
         if (primType == BooleanType) {
           // box boolean should be generated elsewhere
-          genUnboxBoolean()
-          genTestBoolean()
+          genUnbox(genFunctionID.unbox(BooleanRef), BooleanType)
+          genTypeTest(genFunctionID.typeTest(BooleanRef), BooleanType)
         } else {
           genBox(genFunctionID.box(primRef), primType)
           genUnbox(genFunctionID.unbox(primRef), primType)
@@ -446,7 +446,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         )
       }
 
-      genRefTestBoth(RefType.i31)
+      genRefTestBoth(RefType.i31) // byte or short
       fb.ifThenElse(Int32) {
         fb += LocalGet(a)
         fb += RefCast(RefType.i31)
@@ -456,43 +456,50 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += I31GetS
         fb += I32Eq
       } {
-        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
         fb.ifThenElse(Int32) {
-          genGetValueBoth(SpecialNames.IntegerBoxClass)
+          genGetValueBoth(SpecialNames.BooleanBoxClass)
           fb += I32Eq
           fb += Return
         } {
-          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
           fb.ifThenElse(Int32) {
-            genGetValueBoth(SpecialNames.FloatBoxClass)
-            fb += F32Eq
+            genGetValueBoth(SpecialNames.IntegerBoxClass)
+            fb += I32Eq
             fb += Return
+            // TODO: Long and Double
           } {
-            genRefTestBoth(RefType(genTypeID.i16Array))
+            genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
             fb.ifThenElse(Int32) {
-              fb += LocalGet(a)
-              fb += RefCast(RefType(genTypeID.i16Array))
-              fb += LocalGet(b)
-              fb += RefCast(RefType(genTypeID.i16Array))
-              fb += Call(genFunctionID.string.stringEquals)
+              genGetValueBoth(SpecialNames.FloatBoxClass)
+              fb += F32Eq
               fb += Return
             } {
-              genRefTestBoth(RefType.eqref)
+              genRefTestBoth(RefType(genTypeID.i16Array))
               fb.ifThenElse(Int32) {
                 fb += LocalGet(a)
-                fb += RefCast(RefType.eqref)
+                fb += RefCast(RefType(genTypeID.i16Array))
                 fb += LocalGet(b)
-                fb += RefCast(RefType.eqref)
-                fb += RefEq
+                fb += RefCast(RefType(genTypeID.i16Array))
+                fb += Call(genFunctionID.string.stringEquals)
                 fb += Return
               } {
-                fb += I32Const(0)
-                fb += Return
+                genRefTestBoth(RefType.eqref)
+                fb.ifThenElse(Int32) {
+                  fb += LocalGet(a)
+                  fb += RefCast(RefType.eqref)
+                  fb += LocalGet(b)
+                  fb += RefCast(RefType.eqref)
+                  fb += RefEq
+                  fb += Return
+                } {
+                  fb += I32Const(0)
+                  fb += Return
+                }
               }
             }
           }
         }
-
       }
       fb.buildAndAddToModule()
     }
@@ -783,33 +790,21 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     newFunctionBuilder(functionID, OriginalName(functionID.toString()))
   }
 
-  private def genUnboxBoolean()(implicit ctx: WasmContext): Unit = {
-    assert(targetPureWasm)
-    val fb = newFunctionBuilder(genFunctionID.unbox(BooleanRef))
-    val xParam = fb.addParam("x", RefType.i31)
-    fb.setResultType(Int32)
-
-    fb += LocalGet(xParam)
-    fb += I31GetS
-    fb.buildAndAddToModule()
-  }
-
   private def genBoxBoolean()(implicit ctx: WasmContext): Unit = {
-    val fb = newFunctionBuilder(genFunctionID.box(BooleanRef))
-    val xParam = fb.addParam("x", Int32)
-    fb.setResultType(RefType.any)
-
     if (targetPureWasm) {
-      fb += LocalGet(xParam)
-      fb += RefI31
+      genBox(genFunctionID.box(BooleanRef), BooleanType)
     } else {
+      val fb = newFunctionBuilder(genFunctionID.box(BooleanRef))
+      val xParam = fb.addParam("x", Int32)
+      fb.setResultType(RefType.any)
+
       fb += GlobalGet(genGlobalID.bTrue)
       fb += GlobalGet(genGlobalID.bFalse)
       fb += LocalGet(xParam)
       fb += Select(List(RefType.any))
-    }
 
-    fb.buildAndAddToModule()
+      fb.buildAndAddToModule()
+    }
   }
 
   private def genBoxInt()(implicit ctx: WasmContext): Unit = {
@@ -865,15 +860,18 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
   private def genTypeTest(functionID: FunctionID, targetTpe: PrimType)(implicit ctx: WasmContext): Unit = {
     assert(targetPureWasm)
-    assert(targetTpe == FloatType || targetTpe == DoubleType)
+    assert(targetTpe == FloatType || targetTpe == DoubleType || targetTpe == BooleanType)
 
     val fb = newFunctionBuilder(functionID)
     val xParam = fb.addParam("x", RefType.anyref)
     fb.setResultType(Int32)
 
-    val boxClass =
-      if (targetTpe == FloatType) SpecialNames.FloatBoxClass
-      else SpecialNames.DoubleBoxClass
+    val boxClass = targetTpe match {
+      case FloatType => SpecialNames.FloatBoxClass
+      case DoubleType => SpecialNames.DoubleBoxClass
+      case BooleanType => SpecialNames.BooleanBoxClass
+      case _ => throw new AssertionError(s"Invalid type: $targetTpe")
+    }
     fb += LocalGet(xParam)
     fb += RefTest(RefType(genTypeID.forClass(boxClass)))
     fb.buildAndAddToModule()
@@ -893,6 +891,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       case DoubleType => SpecialNames.DoubleBoxClass
       case CharType => SpecialNames.CharBoxClass
       case LongType => SpecialNames.LongBoxClass
+      case BooleanType => SpecialNames.BooleanBoxClass
       case _ => throw new AssertionError(s"Invalid targetTpe: $targetTpe")
     }
 
@@ -916,6 +915,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       case DoubleType => SpecialNames.DoubleBoxClass
       case CharType => SpecialNames.CharBoxClass
       case LongType => SpecialNames.LongBoxClass
+      case BooleanType => SpecialNames.BooleanBoxClass
       case _ => throw new AssertionError(s"Invalid targetTpe: $targetTpe")
     }
     val fieldName = FieldName(boxClass, SpecialNames.valueFieldSimpleName)
@@ -991,31 +991,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb += Drop
     fb += I32Const(0)
 
-    fb.buildAndAddToModule()
-  }
-
-  private def genTestBoolean()(implicit ctx: WasmContext): Unit = {
-    assert(targetPureWasm)
-    val fb = newFunctionBuilder(genFunctionID.typeTest(BooleanRef))
-    val xParam = fb.addParam("x", RefType.anyref)
-    fb.setResultType(Int32)
-
-    val boolValueLocal = fb.addLocal("value", Int32)
-
-    fb.block(RefType.anyref) { nonI31 =>
-      fb += LocalGet(xParam)
-      fb += BrOnCastFail(nonI31, RefType.anyref, RefType.i31)
-      fb += I31GetU
-      fb += LocalTee(boolValueLocal)
-      fb += I32Eqz
-      fb += LocalGet(boolValueLocal)
-      fb += I32Const(1)
-      fb += I32Eq
-      fb += I32Or
-      fb += Return
-    }
-    fb += Drop
-    fb += I32Const(0)
     fb.buildAndAddToModule()
   }
 
@@ -1376,6 +1351,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                   fb += BrOnCast(isIntegerLabel, objectType, RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
                   fb += BrOnCast(isFloatLabel, objectType, RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
                   fb += BrOnCast(isDoubleLabel, objectType, RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
+                  // boolean, short, long は? いずれも not our object で box されたときは
+                  // i31ref もしくは、BoxedLongClass
+                  // ていうか integer の場合は
 
                   // Get and return the class name
                   fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
@@ -1518,12 +1496,15 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.setResultType(resultType)
 
     def genCastDerivedClass(objIsNullLabel: LabelID): Unit = {
-      val boxClass =
-        if (primType == CharType) SpecialNames.CharBoxClass
-        else if (primType == LongType) SpecialNames.LongBoxClass
-        else if (primType == IntType) SpecialNames.IntegerBoxClass
-        else if (primType == FloatType) SpecialNames.FloatBoxClass
-        else SpecialNames.DoubleBoxClass
+      val boxClass = primType match {
+        case CharType => SpecialNames.CharBoxClass
+        case LongType => SpecialNames.LongBoxClass
+        case IntType     if targetPureWasm => SpecialNames.IntegerBoxClass
+        case FloatType   if targetPureWasm => SpecialNames.FloatBoxClass
+        case DoubleType  if targetPureWasm => SpecialNames.DoubleBoxClass
+        case BooleanType if targetPureWasm => SpecialNames.BooleanBoxClass
+        case _ => throw new AssertionError(s"Invalid primType: $primType")
+      }
       val structTypeID = genTypeID.forClass(boxClass)
 
       fb.block(RefType.any) { castFailLabel =>
@@ -1577,40 +1558,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
             fb += LocalGet(objParam)
           }
 
-        case BooleanType if targetPureWasm =>
-          val intValueLocal = fb.addLocal("intValue", Int32)
-          fb.block(RefType.anyref) { castFailLabel =>
-            fb += LocalGet(objParam)
-            fb += BrOnNull(objIsNullLabel)
-            fb += BrOnCastFail(castFailLabel, RefType.any, RefType.i31)
-
-            // Extract the i31 value
-            fb += I31GetS
-            fb += LocalTee(intValueLocal)
-
-            // if it's 0 or 1
-            fb += I32Eqz
-            fb += LocalGet(intValueLocal)
-            fb += I32Const(1)
-            fb += I32Eq
-            fb += I32Or
-
-            fb.ifThen() {
-              if (isUnbox)
-                fb += LocalGet(intValueLocal)
-              else
-                fb += LocalGet(objParam)
-              fb += Return
-            }
-            fb += LocalGet(objParam)
-          }
-
         // For char and long, use br_on_cast_fail to test+cast to the box class
         case CharType | LongType =>
           genCastDerivedClass(objIsNullLabel)
 
-        // Anyway use BoxedInteger type rather than i31ref for ease
-        case FloatType | DoubleType if targetPureWasm =>
+        case FloatType | DoubleType | BooleanType if targetPureWasm =>
           genCastDerivedClass(objIsNullLabel)
 
         // For all other types, use type test, and separately unbox if required

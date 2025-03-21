@@ -40,7 +40,8 @@ object DerivedClasses {
             clazz.className == BoxedLongClass ||
             clazz.className == BoxedIntegerClass ||
             clazz.className == BoxedFloatClass ||
-            clazz.className == BoxedDoubleClass =>
+            clazz.className == BoxedDoubleClass ||
+            clazz.className == BoxedBooleanClass =>
           deriveBoxClass(clazz)
       }
     } else {
