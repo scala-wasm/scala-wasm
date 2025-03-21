@@ -67,7 +67,7 @@ final class Emitter(config: Emitter.Config) {
       globalInfo: LinkedGlobalInfo): (wamod.Module, JSFileContentInfo) = {
     // Inject the derived linked classes
     val allClasses =
-      DerivedClasses.deriveClasses(module.classDefs) ::: module.classDefs
+      DerivedClasses.deriveClasses(module.classDefs, coreSpec) ::: module.classDefs
 
     /* Sort by ancestor count so that superclasses always appear before
      * subclasses, then tie-break by name for stability.

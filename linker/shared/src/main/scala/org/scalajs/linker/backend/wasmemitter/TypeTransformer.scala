@@ -108,7 +108,10 @@ object TypeTransformer {
     val heapType: watpe.HeapType = ctx.getClassInfoOption(className) match {
       case Some(info) =>
         if (className == BoxedStringClass)
-          watpe.HeapType.Extern // for all the JS string builtin functions
+          if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+            watpe.HeapType(genTypeID.i16Array)
+          else
+            watpe.HeapType.Extern // for all the JS string builtin functions
         else if (info.isAncestorOfHijackedClass)
           watpe.HeapType.Any
         else if (!info.hasInstances)
@@ -125,7 +128,7 @@ object TypeTransformer {
     watpe.RefType(nullable, heapType)
   }
 
-  def transformPrimType(tpe: PrimType): watpe.Type = {
+  def transformPrimType(tpe: PrimType)(implicit ctx: WasmContext): watpe.Type = {
     tpe match {
       case UndefType   => watpe.RefType.any
       case BooleanType => watpe.Int32
@@ -136,7 +139,9 @@ object TypeTransformer {
       case LongType    => watpe.Int64
       case FloatType   => watpe.Float32
       case DoubleType  => watpe.Float64
-      case StringType  => watpe.RefType.extern
+      case StringType  =>
+        if (ctx.coreSpec.wasmFeatures.targetPureWasm) watpe.RefType(genTypeID.i16Array)
+        else watpe.RefType.extern
       case NullType    => watpe.RefType.nullref
 
       case VoidType | NothingType =>

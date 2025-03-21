@@ -59,7 +59,8 @@ object CoderResult {
   private val Malformed4 = new CoderResult(Malformed, 4)
 
   // This is a sparse array
-  private val uniqueMalformed = js.Array[js.UndefOr[CoderResult]]()
+  // private val uniqueMalformed = js.Array[js.UndefOr[CoderResult]]()
+  private val uniqueMalformed = new java.util.HashMap[Int, CoderResult]()
 
   private val Unmappable1 = new CoderResult(Unmappable, 1)
   private val Unmappable2 = new CoderResult(Unmappable, 2)
@@ -67,7 +68,8 @@ object CoderResult {
   private val Unmappable4 = new CoderResult(Unmappable, 4)
 
   // This is a sparse array
-  private val uniqueUnmappable = js.Array[js.UndefOr[CoderResult]]()
+  // private val uniqueUnmappable = js.Array[js.UndefOr[CoderResult]]()
+  private val uniqueUnmappable = new java.util.HashMap[Int, CoderResult]()
 
   @inline def malformedForLength(length: Int): CoderResult = (length: @switch) match {
     case 1 => Malformed1
@@ -78,13 +80,14 @@ object CoderResult {
   }
 
   private def malformedForLengthImpl(length: Int): CoderResult = {
-    undefOrFold(uniqueMalformed(length)) { () =>
-      val result = new CoderResult(Malformed, length)
-      uniqueMalformed(length) = result
-      result
-    } { result =>
-      result
-    }
+    // undefOrFold(uniqueMalformed(length)) { () =>
+    //   val result = new CoderResult(Malformed, length)
+    //   uniqueMalformed(length) = result
+    //   result
+    // } { result =>
+    //   result
+    // }
+    uniqueMalformed.computeIfAbsent(length, _ => new CoderResult(Malformed, length))
   }
 
   @inline def unmappableForLength(length: Int): CoderResult = (length: @switch) match {
@@ -96,12 +99,13 @@ object CoderResult {
   }
 
   private def unmappableForLengthImpl(length: Int): CoderResult = {
-    undefOrFold(uniqueUnmappable(length)) { () =>
-      val result = new CoderResult(Unmappable, length)
-      uniqueUnmappable(length) = result
-      result
-    } { result =>
-      result
-    }
+    // undefOrFold(uniqueUnmappable(length)) { () =>
+    //   val result = new CoderResult(Unmappable, length)
+    //   uniqueUnmappable(length) = result
+    //   result
+    // } { result =>
+    //   result
+    // }
+    uniqueUnmappable.computeIfAbsent(length, _ => new CoderResult(Unmappable, length))
   }
 }
