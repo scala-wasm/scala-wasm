@@ -560,7 +560,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
           // Load 1 << jsValueType(expr)
           fb += wa.I32Const(1)
           fb += wa.LocalGet(exprNonNullLocal)
-          fb += wa.Call(genFunctionID.jsValueType)
+          if (targetPureWasm) fb += wa.Call(genFunctionID.scalaValueType)
+          else fb += wa.Call(genFunctionID.jsValueType)
           fb += wa.I32Shl
 
           // return (... & specialInstanceTypes) != 0

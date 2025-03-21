@@ -12,18 +12,16 @@ object JavalibUtilTest {
       sortShort()
       sortByte()
       sortChar()
-      // TODO: assertion fail
-      // sortFloat()
-      // sortDouble()
+      sortFloat()
+      sortDouble()
 
-      // TODO:  type mismatch: expected (ref $type), found (ref extern)
-      // sortString()
-      // sortStringWithNullComparator()
+      sortString()
+      sortStringWithNullComparator()
 
       // TODO:  subtype of externref, found (ref null (id 1))
-      // sortIsStable_Issue2400()
+      sortIsStable_Issue2400()
       // sortWithComparator()
-      // sortIsStable()
+      sortIsStable()
 
       // TODO: exception
       // sortIllegalArgumentException()
@@ -41,9 +39,8 @@ object JavalibUtilTest {
       fillLongWithStartAndEndIndex()
       fillFloat()
       fillFloatWithStartAndEndIndex()
-      // TODO: assert fail
-      // fillDouble()
-      // fillDoubleWithStartAndEndIndex()
+      fillDouble()
+      fillDoubleWithStartAndEndIndex()
       fillAnyRef()
       fillAnyRefWithStartAndEndIndex()
 
@@ -62,29 +59,28 @@ object JavalibUtilTest {
       binarySearchOnFloat()
 
       // TODO: type mismatch: expected (ref $type), found (ref extern)
-      // binarySearchWithStartAndEndIndexOnAnyRef()
-      // binarySearchOnAnyRef()
+      binarySearchWithStartAndEndIndexOnAnyRef()
+      binarySearchOnAnyRef()
       // binarySearchWithStartAndEndIndexOnSpecificAnyRefWithNullComparator()
       // binarySearchOnSpecificAnyRefWithNullComparator()
-      // binarySearchWithStartAndEndIndexOnSpecificAnyRefWithComparator()
-      // binarySearchOnSpecificAnyRefWithComparator()
+      binarySearchWithStartAndEndIndexOnSpecificAnyRefWithComparator()
+      binarySearchOnSpecificAnyRefWithComparator()
 
       // TODO: assertThrows
       // binarySearchIllegalArgumentException
       // binarySearchArrayIndexOutOfBoundsException
 
       copyOfInt()
-      // copyOfLong()
+      copyOfLong()
       copyOfShort()
       copyOfByte()
       copyOfChar()
-      // TODO: assertion fails
-      // copyOfDouble()
+      copyOfDouble()
       copyOfFloat()
       copyOfBoolean()
-      // copyOfAnyRef()
+      copyOfAnyRef()
       copyOfAnyRefWithChangeOfType()
-      // copyOfRangeAnyRef()
+      copyOfRangeAnyRef()
       copyOfRangeAnyRefArrayIndexOutOfBoundsException()
 
 
@@ -109,8 +105,7 @@ object JavalibUtilTest {
       equalsInts()
       equalsLongs()
       equalsFloats()
-      // TODO: assertion fail
-      // equalsDoubles()
+      equalsDoubles()
 
       deepEquals()
       toStringAnyRef()

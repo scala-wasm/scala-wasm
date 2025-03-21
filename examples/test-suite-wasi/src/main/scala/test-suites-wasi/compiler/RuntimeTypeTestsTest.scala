@@ -217,6 +217,8 @@ class RuntimeTypeTestsTest {
     testDouble(!executingInJVM, Float.NaN)
     testDouble(!executingInJVM, Float.PositiveInfinity)
 
+    testByte(false, -0.0)
+    testInt(true, 0.0)
     testInt(false, -0.0)
     testInt(false, Double.NaN)
     testInt(false, Double.PositiveInfinity)

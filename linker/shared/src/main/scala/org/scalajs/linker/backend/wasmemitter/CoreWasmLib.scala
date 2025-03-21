@@ -141,7 +141,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
           )
         )
       }
-      genStubJSValueType()
+      genScalaValueType()
       genBoxUnboxEquals()
     }
 
@@ -394,7 +394,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // integer
     genBox(genFunctionID.bIFallback, IntType)
     genUnbox(genFunctionID.uIFallback, IntType)
-    genTestNumber(IntType)
+    genTestInteger()
 
     // boolean
     // box boolean should be generated elsewhere
@@ -414,10 +414,12 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         val primRef = primType.primRef
         val wasmType = transformPrimType(primType)
         genBox(genFunctionID.box(primRef), primType)
-        genTestNumber(primType)
       }
       genUnboxFloat()
       genUnboxDouble()
+
+      genTestFloat()
+      genTestDouble()
     }
 
     locally {
@@ -425,9 +427,15 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       // Double, Long, Char should be handled by BoxedRuntime
       // Boolean, Byte, Short (and 31bit int) should be i31ref and handled by ref.eq.
       val fb = newFunctionBuilder(genFunctionID.is)
-      val a = fb.addParam("a", anyref)
-      val b = fb.addParam("b", anyref)
+      val aParam = fb.addParam("a", anyref)
+      val bParam = fb.addParam("b", anyref)
       fb.setResultType(Int32)
+
+      val a = fb.addLocal("a", RefType.any)
+      val b = fb.addLocal("b", RefType.any)
+      val doubleA = fb.addLocal("doubleA", Float64)
+      val doubleB = fb.addLocal("doubleB", Float64)
+      val valueType = fb.addLocal("valueType", Int32)
 
       def genRefTestBoth(ref: RefType): Unit = {
         fb += LocalGet(a)
@@ -437,84 +445,103 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         fb += I32And
       }
 
-      def genGetValueBoth(className: ClassName): Unit = {
-        fb += LocalGet(a)
-        fb += RefCast(RefType(genTypeID.forClass(className)))
-        fb += StructGet(
-          genTypeID.forClass(className),
-          genFieldID.forClassInstanceField(FieldName(className, SpecialNames.valueFieldSimpleName))
-        )
-        fb += LocalGet(b)
-        fb += RefCast(RefType(genTypeID.forClass(className)))
-        fb += StructGet(
-          genTypeID.forClass(className),
-          genFieldID.forClassInstanceField(FieldName(className, SpecialNames.valueFieldSimpleName))
-        )
+      // aParam == bParam == null
+      fb += LocalGet(aParam)
+      fb += RefIsNull
+      fb += LocalGet(bParam)
+      fb += RefIsNull
+      fb += I32And
+      fb.ifThen() {
+        fb += I32Const(1)
+        fb += Return
       }
 
-      genRefTestBoth(RefType.i31) // byte or short
-      fb.ifThenElse(Int32) {
-        fb += LocalGet(a)
-        fb += RefCast(RefType.i31)
-        fb += I31GetS
-        fb += LocalGet(b)
-        fb += RefCast(RefType.i31)
-        fb += I31GetS
-        fb += I32Eq
-      } {
-        // TODO: use typeData or something to switch by br_table instead
-        genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.BooleanBoxClass)))
-        fb.ifThenElse(Int32) {
-          genGetValueBoth(SpecialNames.BooleanBoxClass)
-          fb += I32Eq
-          fb += Return
-        } {
-          genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
-          fb.ifThenElse(Int32) {
-            genGetValueBoth(SpecialNames.IntegerBoxClass)
+      // aParam or bParam is null, another one is not
+      fb += LocalGet(aParam)
+      fb += RefIsNull
+      fb += LocalGet(bParam)
+      fb += RefIsNull
+      fb += I32Or
+      fb.ifThen() {
+        fb += I32Const(0)
+        fb += Return
+      }
+
+      fb += LocalGet(aParam)
+      fb += RefAsNonNull
+      fb += LocalSet(a)
+      fb += LocalGet(bParam)
+      fb += RefAsNonNull
+      fb += LocalSet(b)
+
+      fb += LocalGet(a)
+      fb += Call(genFunctionID.scalaValueType)
+      fb += LocalGet(b)
+      fb += Call(genFunctionID.scalaValueType)
+      fb += LocalTee(valueType)
+      fb += I32Eq
+      fb.ifThenElse() {
+        fb.switch() { () =>
+          fb += LocalGet(valueType)
+        }(
+          List(JSValueTypeFalse, JSValueTypeTrue) -> { () =>
+            fb += LocalGet(a)
+            fb += Call(genFunctionID.unbox(BooleanRef))
+            fb += LocalGet(b)
+            fb += Call(genFunctionID.unbox(BooleanRef))
             fb += I32Eq
             fb += Return
-            // TODO: Long and Double
-          } {
-            genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.FloatBoxClass)))
+          },
+          List(JSValueTypeString) -> { () =>
+            fb += LocalGet(a)
+            fb += RefCast(RefType(genTypeID.i16Array))
+            fb += LocalGet(b)
+            fb += RefCast(RefType(genTypeID.i16Array))
+            fb += Call(genFunctionID.string.stringEquals)
+            fb += Return
+          },
+          // case JSValueTypeNumber => ...
+          List(JSValueTypeNumber) -> { () =>
+            fb += LocalGet(a)
+            fb += Call(genFunctionID.unbox(DoubleRef))
+            fb += LocalTee(doubleA)
+            fb += LocalGet(b)
+            fb += Call(genFunctionID.unbox(DoubleRef))
+            fb += LocalTee(doubleB)
+            fb += F64Eq
             fb.ifThenElse(Int32) {
-              genGetValueBoth(SpecialNames.FloatBoxClass)
-              fb += F32Eq
-              fb += Return
+              fb += I32Const(1)
             } {
-              genRefTestBoth(RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
-              fb.ifThenElse(Int32) {
-                genGetValueBoth(SpecialNames.DoubleBoxClass)
-                fb += F64Eq
-                fb += Return
-              } {
-                genRefTestBoth(RefType(genTypeID.i16Array))
-                fb.ifThenElse(Int32) {
-                  fb += LocalGet(a)
-                  fb += RefCast(RefType(genTypeID.i16Array))
-                  fb += LocalGet(b)
-                  fb += RefCast(RefType(genTypeID.i16Array))
-                  fb += Call(genFunctionID.string.stringEquals)
-                  fb += Return
-                } {
-                  genRefTestBoth(RefType.eqref)
-                  fb.ifThenElse(Int32) {
-                    fb += LocalGet(a)
-                    fb += RefCast(RefType.eqref)
-                    fb += LocalGet(b)
-                    fb += RefCast(RefType.eqref)
-                    fb += RefEq
-                    fb += Return
-                  } {
-                    fb += I32Const(0)
-                    fb += Return
-                  }
-                }
-              }
+              // both of a and b are NaN -> true
+              // because JS Object.is(NaN, NaN) -> true
+              fb += LocalGet(doubleA)
+              fb += LocalGet(doubleA)
+              fb += F64Ne
+              fb += LocalGet(doubleB)
+              fb += LocalGet(doubleB)
+              fb += F64Ne
+              fb += I32And
             }
+            fb += Return
+          },
+        ) { () =>
+          genRefTestBoth(RefType.eqref)
+          fb.ifThenElse(Int32) {
+            fb += LocalGet(a)
+            fb += RefCast(RefType.eqref)
+            fb += LocalGet(b)
+            fb += RefCast(RefType.eqref)
+            fb += RefEq
+          } {
+            fb += I32Const(0)
           }
+          fb += Return
         }
+      } {
+        fb += I32Const(0)
+        fb += Return
       }
+      fb += Unreachable
       fb.buildAndAddToModule()
     }
   }
@@ -1086,21 +1113,99 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule()
   }
 
-  private def genTestNumber(targetTpe: PrimTypeWithRef)(implicit ctx: WasmContext): Unit = {
+  private def genTestFloat()(implicit ctx: WasmContext): Unit = {
     assert(targetPureWasm)
-    // Byte <:< Short <:<  Int  <:< Double
-    //                <:< Float <:<
-    val tests = targetTpe match {
-      case IntType =>
-        List(SpecialNames.IntegerBoxClass)
-      case FloatType =>
-        List(SpecialNames.FloatBoxClass)
-      case DoubleType =>
-        List(SpecialNames.IntegerBoxClass, SpecialNames.FloatBoxClass, SpecialNames.DoubleBoxClass)
-      case _ => throw new AssertionError(s"Invalid targetTpe: $targetTpe")
+    val fb = newFunctionBuilder(genFunctionID.typeTest(FloatRef))
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+
+    val doubleValue = fb.addLocal("doubleValue", Float64)
+
+    fb += LocalGet(xParam)
+    fb += Call(genFunctionID.typeTest(DoubleRef))
+    fb.ifThenElse(Int32) {
+      fb += LocalGet(xParam)
+      fb += Call(genFunctionID.unbox(DoubleRef))
+      fb += LocalTee(doubleValue)
+
+      // if doubleValue.toFloat.toDouble == doubleValue
+      fb += F32DemoteF64
+      fb += F64PromoteF32
+      fb += LocalGet(doubleValue)
+      fb += F64Eq
+      fb.ifThenElse(Int32) {
+        fb += I32Const(1)
+      } {
+        // if it is NaN
+        fb += LocalGet(doubleValue)
+        fb += LocalGet(doubleValue)
+        fb += F64Ne
+      }
+    } {
+      fb += I32Const(0)
+    }
+    fb.buildAndAddToModule()
+  }
+
+  private def genTestInteger()(implicit ctx: WasmContext): Unit = {
+    assert(targetPureWasm)
+
+    val fb = newFunctionBuilder(genFunctionID.typeTest(IntRef))
+    val xParam = fb.addParam("x", RefType.anyref)
+    fb.setResultType(Int32)
+
+    val doubleValue = fb.addLocal("doubleValue", Float64)
+    val truncatedDoubleValue = fb.addLocal("truncDoubleValue", Float64)
+
+    // fast path
+    fb += LocalGet(xParam)
+    fb += RefTest(RefType.i31)
+    fb.ifThen() {
+      fb += I32Const(1)
+      fb += Return
     }
 
-    val fb = newFunctionBuilder(genFunctionID.typeTest(targetTpe.primRef))
+    fb += LocalGet(xParam)
+    fb += RefTest(RefType(genTypeID.forClass(SpecialNames.IntegerBoxClass)))
+    fb.ifThen() {
+      fb += I32Const(1)
+      fb += Return
+    }
+
+    fb += LocalGet(xParam)
+    fb += Call(genFunctionID.typeTest(DoubleRef))
+    fb.ifThenElse(Int32) {
+      fb += LocalGet(xParam)
+      fb += Call(genFunctionID.unbox(DoubleRef))
+      // doubleValue.toInt.toDouble == doubleValue
+      // NaN and Inifinity will be false
+      // because of i32.trunc_sat_f64_s
+      fb += LocalTee(doubleValue)
+      fb += LocalGet(doubleValue)
+      fb += I32TruncSatF64S
+      fb += F64ConvertI32S
+      fb += LocalTee(truncatedDoubleValue)
+      fb += F64Eq
+
+      // check same bit pattern to avoid -0.0 to be Int
+      fb += LocalGet(doubleValue)
+      fb += I64ReinterpretF64
+      fb += LocalGet(truncatedDoubleValue)
+      fb += I64ReinterpretF64
+      fb += I64Eq
+
+      fb += I32And
+    } {
+      fb += I32Const(0)
+    }
+
+    fb.buildAndAddToModule()
+  }
+
+  private def genTestDouble()(implicit ctx: WasmContext): Unit = {
+    assert(targetPureWasm)
+
+    val fb = newFunctionBuilder(genFunctionID.typeTest(DoubleRef))
     val xParam = fb.addParam("x", RefType.anyref)
     fb.setResultType(Int32)
 
@@ -1110,7 +1215,11 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += I32Const(1)
       fb += Return
     }
-    for (t <- tests) {
+    for (t <- List(
+        SpecialNames.IntegerBoxClass,
+        SpecialNames.FloatBoxClass,
+        SpecialNames.DoubleBoxClass
+    )) {
       fb += LocalGet(xParam)
       fb += RefTest(RefType(genTypeID.forClass(t)))
       fb.ifThen() {
@@ -1694,6 +1803,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                 fb += ExternConvertAny
                 fb += Call(genFunctionID.stringBuiltins.test)
               }
+            case ByteType | ShortType | IntType | FloatType | DoubleType if targetPureWasm =>
+              fb += Call(genFunctionID.typeTest(DoubleRef))
             case primType: PrimTypeWithRef =>
               fb += Call(genFunctionID.typeTest(primType.primRef))
           }
@@ -1711,25 +1822,48 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
                     fb += ExternConvertAny
                     fb += RefAsNonNull
                   }
+                case ByteType | ShortType | IntType if targetPureWasm =>
+                  fb += LocalGet(objParam)
+                  fb += Call(genFunctionID.unbox(DoubleRef))
+                  fb += I32TruncF64S
+
+                case FloatType if targetPureWasm =>
+                  fb += LocalGet(objParam)
+                  fb += Call(genFunctionID.unbox(DoubleRef))
+                  fb += F32DemoteF64
+
                 case primType: PrimTypeWithRef =>
                   fb += LocalGet(objParam)
                   fb += Call(genFunctionID.unbox(primType.primRef))
               }
             } else {
               fb += LocalGet(objParam)
-              if (targetPureWasm) {
-                primType match {
-                  case StringType =>
-                    if (targetPureWasm)
-                      fb += RefCast(RefType.nullable(genTypeID.i16Array))
-                    else
-                      fb += ExternConvertAny
-                  case p: PrimTypeWithRef =>
-                    fb += Call(genFunctionID.unbox(p.primRef))
-                    fb += Call(genFunctionID.box(p.primRef))
-                  case _ =>
-                }
+              primType match {
+                case StringType =>
+                  if (targetPureWasm)
+                    fb += RefCast(RefType.nullable(genTypeID.i16Array))
+                  else {
+                    fb += ExternConvertAny
+                    fb += RefAsNonNull
+                  }
+
+                // subtype of DoubleType (Byte, Short, Int, Float, and Double)
+                case ByteType | ShortType | IntType if targetPureWasm =>
+                  fb += Call(genFunctionID.unbox(DoubleRef))
+                  fb += I32TruncF64S
+                  fb += Call(genFunctionID.box(primType.asInstanceOf[PrimTypeWithRef].primRef))
+
+                case FloatType if targetPureWasm =>
+                  fb += Call(genFunctionID.unbox(DoubleRef))
+                  fb += F32DemoteF64
+                  fb += Call(genFunctionID.box(FloatRef))
+
+                case p: PrimTypeWithRef if targetPureWasm =>
+                  fb += Call(genFunctionID.unbox(p.primRef))
+                  fb += Call(genFunctionID.box(p.primRef))
+                case _ =>
               }
+
             }
             fb += Return
           }
@@ -2566,7 +2700,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
         // Load (1 << jsValueType(valueNonNull))
         fb += I32Const(1)
         fb += LocalGet(valueNonNullLocal)
-        fb += Call(genFunctionID.jsValueType)
+        if (targetPureWasm) fb += Call(genFunctionID.scalaValueType)
+        else fb += Call(genFunctionID.jsValueType)
         fb += I32Shl
 
         // if ((... & specialInstanceTypes) != 0)
@@ -3051,7 +3186,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb.switch() { () =>
         // scrutinee
         fb += LocalGet(valueParam)
-        fb += Call(genFunctionID.jsValueType)
+        if (targetPureWasm) fb += Call(genFunctionID.scalaValueType)
+        else fb += Call(genFunctionID.jsValueType)
       }(
         // case JSValueTypeFalse, JSValueTypeTrue => typeDataOf[jl.Boolean]
         List(JSValueTypeFalse, JSValueTypeTrue) -> { () =>
@@ -4119,18 +4255,42 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     fb.buildAndAddToModule
   }
 
-  private def genStubJSValueType()(implicit ctx: WasmContext): Unit = {
+  /** Get the type of the given Wasm type of `x` without JS,
+    * the return value should be compatible with jsValueType.
+    */
+  private def genScalaValueType()(implicit ctx: WasmContext): Unit = {
     assert(targetPureWasm)
-    val fb = newFunctionBuilder(genFunctionID.jsValueType)
-    fb.addParam("x", RefType.any)
+    val fb = newFunctionBuilder(genFunctionID.scalaValueType)
+    val xParam = fb.addParam("x", RefType.any)
     fb.setResultType(Int32)
 
-    if (coreSpec.wasmFeatures.exceptionHandling) {
-      genNewScalaClass(fb, IllegalArgumentExceptionClass, NoArgConstructorName) {}
-      genMaybeExternConvertAny(fb)
-      fb += Throw(genTagID.exception)
-    } else fb += Unreachable
-
+    fb += LocalGet(xParam)
+    fb += Call(genFunctionID.typeTest(DoubleRef))
+    fb.ifThenElse(Int32) {
+      fb += I32Const(JSValueTypeNumber)
+    } {
+      fb += LocalGet(xParam)
+      fb += RefTest(RefType(genTypeID.i16Array))
+      fb.ifThenElse(Int32) {
+        fb += I32Const(JSValueTypeString)
+      } {
+        fb += LocalGet(xParam)
+        fb += Call(genFunctionID.typeTest(BooleanRef))
+        fb.ifThenElse(Int32) {
+          fb += LocalGet(xParam)
+          fb += Call(genFunctionID.unbox(BooleanRef))
+        } {
+          fb += LocalGet(xParam)
+          fb += Call(genFunctionID.isUndef)
+          fb.ifThenElse(Int32) {
+            fb += I32Const(JSValueTypeUndefined)
+          } {
+            fb += I32Const(JSValueTypeOther)
+          }
+          // bigint and symbol?
+        }
+      }
+    }
     fb.buildAndAddToModule()
   }
 
