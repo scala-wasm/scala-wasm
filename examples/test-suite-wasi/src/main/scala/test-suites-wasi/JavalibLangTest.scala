@@ -553,8 +553,7 @@ object JavalibLangTest {
       arraycopyWithRangeOverlapsForTheSameArrayInt()
       arraycopyWithRangeOverlapsForTheSameArrayBoolean()
       arraycopyWithRangeOverlapsForTheSameArrayObject()
-      // TODO: type mismatch: expected subtype of externref, found (ref (id 1))
-      // arraycopyWithRangeOverlapsForTheSameArrayString()
+      arraycopyWithRangeOverlapsForTheSameArrayString()
 
       arraycopyNulls()
       arraycopyNullsShortcircuited()

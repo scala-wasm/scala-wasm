@@ -18,9 +18,8 @@ object JavalibUtilTest {
       sortString()
       sortStringWithNullComparator()
 
-      // TODO:  subtype of externref, found (ref null (id 1))
       sortIsStable_Issue2400()
-      // sortWithComparator()
+      sortWithComparator()
       sortIsStable()
 
       // TODO: exception

@@ -754,8 +754,9 @@ private class FunctionEmitter private (
             def genRhs(): Unit = {
               genTree(rhs, lhs.tpe)
               lhs.tpe match {
-                case ClassType(BoxedStringClass, _) => fb += wa.AnyConvertExtern
-                case _                              => ()
+                case ClassType(BoxedStringClass, _) if !targetPureWasm =>
+                    fb += wa.AnyConvertExtern
+                case _ => ()
               }
             }
 

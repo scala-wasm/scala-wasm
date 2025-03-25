@@ -204,8 +204,7 @@ object CompilerTest {
       test.javaCallable()
       test.specialResultTypes()
       test.javaComparator()
-      // TODO: expected (ref $type), found (ref extern)
-      // test.samHasDefaultMethod()
+      test.samHasDefaultMethod()
       test.specialParamTypes()
       test.nonLFMCapableSAM()
     }
