@@ -42,6 +42,7 @@ import WasmContext._
 class ClassEmitter(coreSpec: CoreSpec) {
   import ClassEmitter._
   import coreSpec.semantics
+  import coreSpec.wasmFeatures.targetPureWasm
 
   def genClassDef(clazz: LinkedClass)(implicit ctx: WasmContext): Unit = {
     val classInfo = ctx.getClassInfo(clazz.className)
@@ -313,7 +314,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         // componentType - always `null` since this method is not used for array types
         wa.RefNull(watpe.HeapType(genTypeID.typeData)),
         // name - initially `null`; filled in by the `typeDataName` helper
-        wa.RefNull(watpe.HeapType.NoExtern),
+        wa.RefNull(if (targetPureWasm) watpe.HeapType(genTypeID.i16Array) else watpe.HeapType.NoExtern), // scalastyle:ignore
         // the classOf instance - initially `null`; filled in by the `createClassOf` helper
         wa.RefNull(watpe.HeapType(genTypeID.ClassStruct)),
         // arrayOf, the typeData of an array of this type - initially `null`; filled in by the `arrayTypeData` helper
@@ -384,7 +385,16 @@ class ClassEmitter(coreSpec: CoreSpec) {
       watpe.RefType(genTypeID.itables),
       isMutable = false
     )
-    val fields = classInfo.allFieldDefs.map { field =>
+    val idHashCodeField = if (targetPureWasm) {
+      Some(watpe.StructField(
+        genFieldID.objStruct.idHashCode,
+        OriginalName(genFieldID.objStruct.idHashCode.toString()),
+        watpe.Int32,
+        isMutable = true
+      ))
+    } else None
+
+    val fields = idHashCodeField.toList ::: classInfo.allFieldDefs.map { field =>
       watpe.StructField(
         genFieldID.forClassInstanceField(field.name.name),
         makeDebugName(ns.InstanceField, field.name.name),
@@ -559,7 +569,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
           // Load 1 << jsValueType(expr)
           fb += wa.I32Const(1)
           fb += wa.LocalGet(exprNonNullLocal)
-          fb += wa.Call(genFunctionID.jsValueType)
+          if (targetPureWasm) fb += wa.Call(genFunctionID.scalaValueType)
+          else fb += wa.Call(genFunctionID.jsValueType)
           fb += wa.I32Shl
 
           // return (... & specialInstanceTypes) != 0
@@ -648,6 +659,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
     else
       fb += wa.GlobalGet(genGlobalID.emptyITable)
 
+    if (targetPureWasm) fb += wa.I32Const(0)
+
     classInfo.allFieldDefs.foreach { f =>
       fb += genZeroOf(f.ftpe)
     }
@@ -692,6 +705,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
     // Push vtable and itables on the stack (there is at least Cloneable in the itables)
     fb += wa.GlobalGet(genGlobalID.forVTable(className))
     fb += wa.GlobalGet(genGlobalID.forITable(className))
+
+    if (targetPureWasm) fb += wa.I32Const(0)
 
     // Push every field of `fromTyped` on the stack
     info.allFieldDefs.foreach { field =>

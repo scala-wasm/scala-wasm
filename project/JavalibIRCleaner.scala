@@ -368,6 +368,9 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case IntrinsicCall(LinkingInfoClass, `linkerVersionMethodName`, Nil) =>
           LinkTimeProperty(LinkTimeProperty.LinkerVersion)(StringType)
 
+        case IntrinsicCall(LinkingInfoClass, `targetPureWasmMethodName`, Nil) =>
+          LinkTimeProperty(LinkTimeProperty.TargetPureWasm)(BooleanType)
+
         case _ =>
           tree
       }
@@ -668,6 +671,7 @@ object JavalibIRCleaner {
   private val esVersionMethodName = MethodName("esVersion", Nil, IntRef)
   private val isWebAssemblyMethodName = MethodName("isWebAssembly", Nil, BooleanRef)
   private val linkerVersionMethodName = MethodName("linkerVersion", Nil, ClassRef(BoxedStringClass))
+  private val targetPureWasmMethodName = MethodName("targetPureWasm", Nil, BooleanRef)
 
   private val ClassNameSubstitutions: Map[ClassName, ClassName] = {
     val refBaseNames =

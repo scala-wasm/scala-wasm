@@ -77,6 +77,12 @@ object Types {
     /** `(ref null any)`, i.e., `anyref`. */
     val anyref: RefType = nullable(HeapType.Any)
 
+    /** `(ref eq)`. */
+    val eq: RefType = apply(HeapType.Eq)
+
+    /** `(ref null eq)`. */
+    val eqref: RefType = nullable(HeapType.Eq)
+
     /** `(ref func)`. */
     val func: RefType = apply(HeapType.Func)
 
