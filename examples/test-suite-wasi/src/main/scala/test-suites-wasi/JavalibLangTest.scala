@@ -586,10 +586,9 @@ object JavalibLangTest {
       setOut()
       setErr()
 
-      // TODO: identityHashCode
-      // identityHashCode()
-      // identityHashCodeNotEqualHashCodeForList()
-      // identityHashCodeOfNull()
+      identityHashCode()
+      identityHashCodeNotEqualHashCodeForList()
+      identityHashCodeOfNull()
 
       lineSeparator()
       getenvReturnsUnmodifiableMap()

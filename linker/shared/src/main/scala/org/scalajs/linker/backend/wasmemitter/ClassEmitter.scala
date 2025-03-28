@@ -385,7 +385,16 @@ class ClassEmitter(coreSpec: CoreSpec) {
       watpe.RefType(genTypeID.itables),
       isMutable = false
     )
-    val fields = classInfo.allFieldDefs.map { field =>
+    val idHashCodeField = if (targetPureWasm) {
+      Some(watpe.StructField(
+        genFieldID.objStruct.idHashCode,
+        OriginalName(genFieldID.objStruct.idHashCode.toString()),
+        watpe.Int32,
+        isMutable = true
+      ))
+    } else None
+
+    val fields = idHashCodeField.toList ::: classInfo.allFieldDefs.map { field =>
       watpe.StructField(
         genFieldID.forClassInstanceField(field.name.name),
         makeDebugName(ns.InstanceField, field.name.name),
@@ -650,6 +659,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
     else
       fb += wa.GlobalGet(genGlobalID.emptyITable)
 
+    if (targetPureWasm) fb += wa.I32Const(0)
+
     classInfo.allFieldDefs.foreach { f =>
       fb += genZeroOf(f.ftpe)
     }
@@ -694,6 +705,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
     // Push vtable and itables on the stack (there is at least Cloneable in the itables)
     fb += wa.GlobalGet(genGlobalID.forVTable(className))
     fb += wa.GlobalGet(genGlobalID.forITable(className))
+
+    if (targetPureWasm) fb += wa.I32Const(0)
 
     // Push every field of `fromTyped` on the stack
     info.allFieldDefs.foreach { field =>

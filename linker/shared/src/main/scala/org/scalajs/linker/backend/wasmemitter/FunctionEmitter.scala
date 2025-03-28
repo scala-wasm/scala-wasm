@@ -2864,6 +2864,7 @@ private class FunctionEmitter private (
     fb += wa.LocalSet(primLocal)
     fb += wa.GlobalGet(genGlobalID.forVTable(boxClassName))
     fb += wa.GlobalGet(genGlobalID.forITable(boxClassName))
+    if (targetPureWasm) fb += wa.I32Const(0)
     fb += wa.LocalGet(primLocal)
     fb += wa.StructNew(genTypeID.forClass(boxClassName))
 
@@ -3142,7 +3143,7 @@ private class FunctionEmitter private (
 
     markPosition(tree)
 
-    genLoadVTableAndITableForArray(fb, arrayTypeRef)
+    genLoadVTableAndITableForArray(fb, arrayTypeRef, targetPureWasm)
 
     // Create the underlying array
     genTree(length, IntType)
@@ -3262,7 +3263,7 @@ private class FunctionEmitter private (
     // Mark the position for the header of `genArrayValue`
     markPosition(tree)
 
-    SWasmGen.genArrayValue(fb, arrayTypeRef, elems.size) {
+    SWasmGen.genArrayValue(fb, arrayTypeRef, elems.size, targetPureWasm) {
       // Create the underlying array
       elems.foreach(genTree(_, expectedElemType))
 

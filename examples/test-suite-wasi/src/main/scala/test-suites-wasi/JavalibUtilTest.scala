@@ -57,11 +57,10 @@ object JavalibUtilTest {
       binarySearchWithStartAndEndIndexOnFloat()
       binarySearchOnFloat()
 
-      // TODO: type mismatch: expected (ref $type), found (ref extern)
       binarySearchWithStartAndEndIndexOnAnyRef()
       binarySearchOnAnyRef()
-      // binarySearchWithStartAndEndIndexOnSpecificAnyRefWithNullComparator()
-      // binarySearchOnSpecificAnyRefWithNullComparator()
+      binarySearchWithStartAndEndIndexOnSpecificAnyRefWithNullComparator()
+      binarySearchOnSpecificAnyRefWithNullComparator()
       binarySearchWithStartAndEndIndexOnSpecificAnyRefWithComparator()
       binarySearchOnSpecificAnyRefWithComparator()
 
@@ -93,9 +92,8 @@ object JavalibUtilTest {
       hashCodeLongs()
       hashCodeFloats()
       hashCodeDoubles()
-      // TODO: assertion fails
-      // hashCodeAnyRef()
-      // deepHashCode()
+      hashCodeAnyRef()
+      deepHashCode()
 
       equalsBooleans()
       equalsBytes()

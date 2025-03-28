@@ -253,6 +253,7 @@ object VarGen {
       case object vtable extends FieldID
       case object itables extends FieldID
       case object arrayUnderlying extends FieldID
+      case object idHashCode extends FieldID // pure Wasm
     }
 
     object itablesStruct {
