@@ -2018,7 +2018,32 @@ object Build {
       exampleSettings,
       name := "Hello World - Scala.js example",
       moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true)
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val testSuiteWASI: MultiScalaProject = MultiScalaProject(
+      id = "testSuiteWASI", base = file("examples") / "test-suite-wasi"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      commonSettings,
+      name := "test-suite-wasi",
+      scalacOptions ~= (_.filterNot(
+        Set("-deprecation") contains _)),
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withWasmFeatures(_.withExceptionHandling(true).withTargetPureWasm(true))
+         .withModuleKind(ModuleKind.ESModule)
+         .withSemantics(
+            _.withArrayIndexOutOfBounds(CheckedBehavior.Compliant)
+             .withStringIndexOutOfBounds(CheckedBehavior.Compliant)
+             .withNullPointers(CheckedBehavior.Compliant)
+             .withArrayStores(CheckedBehavior.Compliant)
+         )
+      },
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(

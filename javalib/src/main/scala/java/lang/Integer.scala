@@ -308,9 +308,57 @@ object Integer {
     if (i == 0) 32
     else 31 - numberOfLeadingZeros(i & -i)
 
-  def toBinaryString(i: scala.Int): String = toStringBase(i, 2)
-  def toHexString(i: scala.Int): String = toStringBase(i, 16)
-  def toOctalString(i: scala.Int): String = toStringBase(i, 8)
+  // def toBinaryString(i: scala.Int): String =
+  def toBinaryString(i: scala.Int): String = {
+    var count =
+      if (i == 0) 1
+      else 32 - numberOfLeadingZeros(i)
+    val buffer = new Array[Char](count)
+    var k = i
+    while ({
+      count -= 1
+      buffer(count) = ((k & 1) + '0').toChar
+      k >>>= 1
+      count > 0
+    }) ()
+    new String(buffer)
+  }
+
+  def toHexString(i: scala.Int): String = {
+    var count =
+      if (i == 0) 1
+      else ((32 - numberOfLeadingZeros(i)) + 3) / 4
+    val buffer = new Array[Char](count)
+    var k = i
+    while ({
+      var t = k & 15
+      if (t > 9) {
+        t = t - 10 + 'a'
+      } else {
+        t += '0'
+      }
+      count -= 1
+      buffer(count) = t.toChar
+      k >>>= 4
+      count > 0
+    }) ()
+    new String(buffer)
+  }
+
+  def toOctalString(i: scala.Int): String = {
+    var count =
+      if (i == 0) 1
+      else ((32 - numberOfLeadingZeros(i)) + 2) / 3
+    val buffer = new Array[Char](count)
+    var k = i
+    while ({
+      count -= 1
+      buffer(count) = ((k & 7) + '0').toChar
+      k >>>= 3
+      count > 0
+    }) ()
+    new String(buffer)
+  }
 
   @inline // because radix is almost certainly constant at call site
   def toString(i: Int, radix: Int): String = {

@@ -67,7 +67,7 @@ final class Emitter(config: Emitter.Config) {
       globalInfo: LinkedGlobalInfo): (wamod.Module, JSFileContentInfo) = {
     // Inject the derived linked classes
     val allClasses =
-      DerivedClasses.deriveClasses(module.classDefs) ::: module.classDefs
+      DerivedClasses.deriveClasses(module.classDefs, coreSpec) ::: module.classDefs
 
     /* Sort by ancestor count so that superclasses always appear before
      * subclasses, then tie-break by name for stability.
@@ -181,7 +181,7 @@ final class Emitter(config: Emitter.Config) {
       ModuleInitializerImpl.fromInitializer(init) match {
         case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
           val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
-          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
+          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size, coreSpec.wasmFeatures.targetPureWasm) {
             for (arg <- args) {
               fb ++= ctx.stringPool.getConstantStringInstr(arg)
               fb += wa.AnyConvertExtern
