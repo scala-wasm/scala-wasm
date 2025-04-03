@@ -13,6 +13,7 @@
 package testSuiteWASI.javalib.lang
 
 import testSuiteWASI.junit.Assert._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 /** Tests for `System.arraycopy`.
  *

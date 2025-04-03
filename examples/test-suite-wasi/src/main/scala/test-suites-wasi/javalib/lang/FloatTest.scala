@@ -14,6 +14,7 @@ package testSuiteWASI.javalib.lang
 
 import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 import java.lang.{Float => JFloat}
 

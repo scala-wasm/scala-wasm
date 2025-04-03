@@ -16,6 +16,7 @@ import java.lang.StringBuilder
 
 import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 import WrappedStringCharSequence.charSequence
 

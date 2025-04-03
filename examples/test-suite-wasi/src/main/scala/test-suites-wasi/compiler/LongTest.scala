@@ -13,6 +13,7 @@
 package testSuiteWASI.compiler
 
 import testSuiteWASI.junit.Assert._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 class LongTest {
   import LongTest._

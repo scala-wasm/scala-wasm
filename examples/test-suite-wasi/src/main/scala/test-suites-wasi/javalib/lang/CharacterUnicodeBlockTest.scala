@@ -13,10 +13,8 @@
 package testSuiteWASI.javalib.lang
 
 import java.lang.Character.UnicodeBlock
-// import org.junit.Test
-// import org.junit.Assert._
-// import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 
+import testSuiteWASI.utils.AssertThrows.assertThrows
 import testSuiteWASI.junit.Assert._
 
 class CharacterUnicodeBlockTest {

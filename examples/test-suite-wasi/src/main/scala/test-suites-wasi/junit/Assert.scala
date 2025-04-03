@@ -6,7 +6,7 @@ package testSuiteWASI.junit
 
 import java.util.Objects
 
-// import org.junit.function.ThrowingRunnable
+import testSuiteWASI.junit.function.ThrowingRunnable
 import testSuiteWASI.junit.internal.InexactComparisonCriteria
 import testSuiteWASI.junit.internal.ExactComparisonCriteria
 // import org.hamcrest.Matcher
@@ -374,17 +374,13 @@ object Assert {
   }
 
 
-  // TODO
-  def assertThrows[T <: Throwable, U](expectedThrowable: Class[T], code: => U): Unit = ()
-  def assertThrowsNPEIfCompliant[U](code: => U): Unit = ()
-  /*
-  @noinline
-  def assertThat[T](actual: T, matcher: Matcher[T]): Unit =
-    assertThat("", actual, matcher)
+  // @noinline
+  // def assertThat[T](actual: T, matcher: Matcher[T]): Unit =
+  //   assertThat("", actual, matcher)
 
-  @noinline
-  def assertThat[T](reason: String, actual: T, matcher: Matcher[T]): Unit =
-    MatcherAssert.assertThat(reason, actual, matcher)
+  // @noinline
+  // def assertThat[T](reason: String, actual: T, matcher: Matcher[T]): Unit =
+  //   MatcherAssert.assertThat(reason, actual, matcher)
 
   @noinline
   def assertThrows[T <: Throwable](expectedThrowable: Class[T], runnable: ThrowingRunnable): T =
@@ -407,16 +403,22 @@ object Assert {
       case actualThrown: Throwable =>
         val expected = formatClass(expectedThrowable)
         val actual = formatClass(actualThrown.getClass())
-        throw new AssertionError(
-            buildPrefix + format("unexpected exception type thrown;", expected, actual),
-            actualThrown)
+        if (expectedThrowable.isInstance(actualThrown)) {
+          return actualThrown.asInstanceOf[T]
+        } else {
+          throw new AssertionError(
+              buildPrefix + format("unexpected exception type thrown;", expected, actual),
+              actualThrown)
+        }
     }
 
     throw new AssertionError(
         buildPrefix +
-        String.format("expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable)))
+        "expected to be thrown, but nothing was thrown"
+    )
+    // TODO
+        // String.format("expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable)))
 
     // scalastyle:on return
   }
-  */
 }

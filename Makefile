@@ -3,7 +3,7 @@ HELLOWORLD_MODULE := examples/helloworld/.2.12/target/scala-2.12/helloworld-fast
 TEST_SCRIPT := ./index.mjs
 
 test:
-	node $(TEST_SCRIPT) $(TEST_MODULE)
+	node --experimental-wasm-exnref $(TEST_SCRIPT) $(TEST_MODULE)
 
 helloworld:
-	node $(TEST_SCRIPT) $(HELLOWORLD_MODULE)
+	node --experimental-wasm-exnref $(TEST_SCRIPT) $(HELLOWORLD_MODULE)

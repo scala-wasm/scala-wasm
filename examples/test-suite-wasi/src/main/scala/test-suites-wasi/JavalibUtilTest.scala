@@ -22,9 +22,8 @@ object JavalibUtilTest {
       sortWithComparator()
       sortIsStable()
 
-      // TODO: exception
-      // sortIllegalArgumentException()
-      // sortArrayIndexOutOfBoundsException():
+      sortIllegalArgumentException()
+      sortArrayIndexOutOfBoundsException()
 
       fillBoolean()
       fillBooleanWithStartAndEndIndex()
@@ -64,9 +63,8 @@ object JavalibUtilTest {
       binarySearchWithStartAndEndIndexOnSpecificAnyRefWithComparator()
       binarySearchOnSpecificAnyRefWithComparator()
 
-      // TODO: assertThrows
-      // binarySearchIllegalArgumentException
-      // binarySearchArrayIndexOutOfBoundsException
+      binarySearchIllegalArgumentException()
+      binarySearchArrayIndexOutOfBoundsException()
 
       copyOfInt()
       copyOfLong()

@@ -12,6 +12,7 @@
 
 package testSuiteWASI.javalib.lang
 
+import testSuiteWASI.utils.AssertThrows.assertThrows
 import testSuiteWASI.junit.Assert._
 
 // import org.scalajs.testsuite.utils.AssertThrows.assertThrows

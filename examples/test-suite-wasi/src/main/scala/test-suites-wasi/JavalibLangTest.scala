@@ -120,8 +120,9 @@ object JavalibLangTest {
       // forNameNormalizations()
       // forNameHistorical()
 
-      ofIntOutOfRangeThrowsIllegalArgumentException()
-      forNameNotFoundThrowsIllegalArgumentException()
+      // TODO: JSMethodApply String.split
+      // ofIntOutOfRangeThrowsIllegalArgumentException()
+      // forNameNotFoundThrowsIllegalArgumentException()
 
       // TODO: JSMethodApply: _String.replace
       // ofChar()
@@ -323,11 +324,11 @@ object JavalibLangTest {
     locally {
       val test = new ObjectTest
       import test._
-      // TODO: anyGetTypeData - jsValueType
+      // TODO: anyGetTypeData ?
       // testGetClass()
 
       test.equals()
-      isInstanceOfObjectExceptNull() // TODO List(1)
+      isInstanceOfObjectExceptNull()
       isInstanceOfObjectNull()
       asInstanceOfObjectAll()
       cloneCtorSideEffects_Issue3192()
@@ -345,7 +346,7 @@ object JavalibLangTest {
       // parseStringInvalidThrows()
       // parseStringBase16()
       // decodeStringBase8()
-      decodeStringInvalidThrows()
+      // decodeStringInvalidThrows()
     }
 
     locally {
@@ -558,15 +559,13 @@ object JavalibLangTest {
       arraycopyNulls()
       arraycopyNullsShortcircuited()
 
-      // TODO: exception handling
-      // arraycopyIndexOutOfBoundsInt()
-      // arraycopyIndexOutOfBoundsBoolean()
-      // arraycopyIndexOutOfBoundsObject()
-      // arraycopyIndexOutOfBoundsString()
+      arraycopyIndexOutOfBoundsInt()
+      arraycopyIndexOutOfBoundsBoolean()
+      arraycopyIndexOutOfBoundsObject()
+      arraycopyIndexOutOfBoundsString()
 
       earlyArrayStoreException()
-      // TODO: asertion fail
-      // lateArrayStoreException()
+      lateArrayStoreException()
 
     }
 
@@ -626,7 +625,5 @@ object JavalibLangTest {
       assertionErrorsPeculiarConstructors()
 
     }
-
-
   }
 }

@@ -14,6 +14,7 @@ package testSuiteWASI.javalib.util
 
 import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 import java.util.{ Arrays, Comparator }
 
@@ -132,7 +133,6 @@ class ArraysTest {
     scalajs.zip(sorted).forall(pair => pair ._1 eq pair._2)
   }
 
-  /*
   def sortIllegalArgumentException(): Unit = {
     val array = Array(0, 1, 3, 4)
 
@@ -147,8 +147,8 @@ class ArraysTest {
   }
 
   def sortArrayIndexOutOfBoundsException(): Unit = {
-    assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
-        hasCompliantArrayIndexOutOfBounds)
+    // assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
+    //     hasCompliantArrayIndexOutOfBounds)
 
     val array = Array(0, 1, 3, 4)
 
@@ -158,7 +158,6 @@ class ArraysTest {
     assertThrows(classOf[ArrayIndexOutOfBoundsException],
         Arrays.sort(array, 0, 5))
   }
-  */
 
   def fillBoolean(): Unit = {
     val booleans = new Array[Boolean](6)
@@ -587,7 +586,6 @@ class ArraysTest {
     assertEquals(-7 - 1, Arrays.binarySearch(pairs, (10, 7), cmp))
   }
 
-  /*
   def binarySearchIllegalArgumentException(): Unit = {
     val array = Array(0, 1, 3, 4)
 
@@ -602,8 +600,8 @@ class ArraysTest {
   }
 
   def binarySearchArrayIndexOutOfBoundsException(): Unit = {
-    assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
-        hasCompliantArrayIndexOutOfBounds)
+    // assumeTrue("Assuming compliant ArrayIndexOutOfBounds",
+    //     hasCompliantArrayIndexOutOfBounds)
 
     val array = Array(0, 1, 3, 4)
 
@@ -613,7 +611,6 @@ class ArraysTest {
     assertThrows(classOf[ArrayIndexOutOfBoundsException],
         Arrays.binarySearch(array, 0, 5, 2))
   }
-        */
 
   def copyOfInt(): Unit = {
     val ints: Array[Int] = Array(1, 2, 3)

@@ -20,6 +20,7 @@ import scala.reflect.ClassTag
 
 import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
+import testSuiteWASI.utils.AssertThrows.assertThrows
 
 /** Tests the implementation of the java standard library Iterable
  */

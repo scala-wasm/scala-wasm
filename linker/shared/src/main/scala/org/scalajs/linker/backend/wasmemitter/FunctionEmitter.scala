@@ -1695,6 +1695,7 @@ private class FunctionEmitter private (
       case Throw =>
         if (ctx.coreSpec.wasmFeatures.exceptionHandling) {
           if (!targetPureWasm) fb += wa.ExternConvertAny
+          else fb += wa.RefCast(watpe.RefType(genTypeID.ThrowableStruct))
           fb += wa.Throw(genTagID.exception)
         } else {
           fb += wa.Drop
@@ -2746,15 +2747,19 @@ private class FunctionEmitter private (
 
     markPosition(tree)
 
+    val exceptionType =
+      if (targetPureWasm) watpe.RefType.nullable(genTypeID.ThrowableStruct)
+      else watpe.RefType.externref
+
     fb.block(resultType) { doneLabel =>
-      fb.block(watpe.RefType.externref) { catchLabel =>
+      fb.block(exceptionType) { catchLabel =>
         /* We used to have `resultType` as result of the try_table, with the
          * `wa.BR(doneLabel)` outside of the try_table. Unfortunately it seems
          * V8 cannot handle try_table with a result type that is `(ref ...)`.
          * The current encoding with `externref` as result type (to match the
          * enclosing block) and the `br` *inside* the `try_table` works.
          */
-        fb.tryTable(watpe.RefType.externref)(
+        fb.tryTable(exceptionType)(
           List(wa.CatchClause.Catch(genTagID.exception, catchLabel))
         ) {
           withNPEScope(resultType) {
@@ -2765,7 +2770,7 @@ private class FunctionEmitter private (
         }
       } // end block $catch
       withNewLocal(errVarName, errVarOrigName, watpe.RefType.anyref) { exceptionLocal =>
-        fb += wa.AnyConvertExtern
+        if (!targetPureWasm) fb += wa.AnyConvertExtern
         fb += wa.LocalSet(exceptionLocal)
         genTree(handler, expectedType)
       }
@@ -4120,6 +4125,10 @@ private class FunctionEmitter private (
 
       val resultType = transformResultType(expectedType)
       val resultLocals = resultType.map(addSyntheticLocal(_))
+
+      val exceptionType =
+        if (targetPureWasm) watpe.RefType.nullable(genTypeID.ThrowableStruct)
+        else watpe.RefType.externref
 
       markPosition(tree)
 

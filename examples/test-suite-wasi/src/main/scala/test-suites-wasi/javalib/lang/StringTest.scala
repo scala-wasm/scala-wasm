@@ -16,6 +16,7 @@ import java.nio.charset.Charset
 
 import testSuiteWASI.junit.Assert._
 import testSuiteWASI.Platform._
+import testSuiteWASI.utils.AssertThrows.{assertThrows, assertThrowsNPEIfCompliant}
 
 class StringTest {
 
