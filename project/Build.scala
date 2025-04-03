@@ -2035,8 +2035,14 @@ object Build {
         Set("-deprecation") contains _)),
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
-        _.withWasmFeatures(_.withExceptionHandling(false).withTargetPureWasm(true))
+        _.withWasmFeatures(_.withExceptionHandling(true).withTargetPureWasm(true))
          .withModuleKind(ModuleKind.ESModule)
+         .withSemantics(
+            _.withArrayIndexOutOfBounds(CheckedBehavior.Compliant)
+             .withStringIndexOutOfBounds(CheckedBehavior.Compliant)
+             .withNullPointers(CheckedBehavior.Compliant)
+             .withArrayStores(CheckedBehavior.Compliant)
+         )
       },
   ).withScalaJSCompiler.dependsOnLibrary
 
