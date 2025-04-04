@@ -189,6 +189,10 @@ object Traversers {
       case JSTypeOfGlobalRef(globalRef) =>
         traverse(globalRef)
 
+      case ComponentFunctionApply(receiver, module, name, args) =>
+        receiver.foreach(traverse)
+        args.foreach(traverse)
+
       // Atomic expressions
 
       case Closure(flags, captureParams, params, restParam, resultType, body, captureValues) =>
@@ -248,6 +252,9 @@ object Traversers {
 
         case TopLevelMethodExportDef(_, methodDef) =>
           traverseJSMethodPropDef(methodDef)
+
+        case WasmComponentExportDef(_, _, methodDef, _) =>
+          traverseMethodDef(methodDef)
       }
     }
   }

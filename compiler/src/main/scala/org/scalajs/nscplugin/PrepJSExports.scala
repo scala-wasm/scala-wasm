@@ -44,6 +44,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     /** Export at the top-level. */
     case class TopLevel(moduleID: String) extends ExportDestination
 
+    case object WasmComponent extends ExportDestination
+
     /** Export as a static member of the companion class. */
     case object Static extends ExportDestination
   }
@@ -121,6 +123,19 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
 
     if (static.nonEmpty)
       jsInterop.registerStaticExports(sym, static)
+
+    val wasmComponent = exports.collect {
+      case info @ ExportInfo(name, ExportDestination.WasmComponent) if sym.isMethod =>
+        val signature = jsInterop.ComponentFunctionType(
+          (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
+          sym.tpe.resultType
+        )
+        val methodName = sym.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
+        jsInterop.WasmComponentExportInfo(s"$name#$methodName", signature)(info.pos)
+    }
+
+    if (sym.isMethod && wasmComponent.nonEmpty)
+      jsInterop.registerWasmComponentExport(sym, wasmComponent.head)
   }
 
   /** retrieves the names a sym should be exported to from its annotations
@@ -160,7 +175,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       }
 
       if (useExportAll)
-        symOwner.annotations.filter(_.symbol == JSExportAllAnnotation)
+        symOwner.annotations.filter(a =>
+          a.symbol == JSExportAllAnnotation || a.symbol == ComponentExportAnnotation)
       else
         Nil
     }
@@ -182,10 +198,13 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       val isExportAll = annot.symbol == JSExportAllAnnotation
       val isTopLevelExport = annot.symbol == JSExportTopLevelAnnotation
       val isStaticExport = annot.symbol == JSExportStaticAnnotation
+      val isWasmComponentExport = annot.symbol == ComponentExportAnnotation
       val hasExplicitName = annot.args.nonEmpty
 
       assert(!isTopLevelExport || hasExplicitName,
           "Found a top-level export without an explicit name at " + annot.pos)
+      assert(!isWasmComponentExport || hasExplicitName,
+          "Found a top-level wasm component export without an explicit name at " + annot.pos)
 
       val name = {
         if (hasExplicitName) {
@@ -220,6 +239,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           }
 
           ExportDestination.TopLevel(moduleID)
+        } else if (isWasmComponentExport) {
+          ExportDestination.WasmComponent
         } else if (isStaticExport) {
           ExportDestination.Static
         } else {
@@ -279,7 +300,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
             }
           }
 
-        case _: ExportDestination.TopLevel =>
+        case _: ExportDestination.TopLevel | ExportDestination.WasmComponent =>
+          val isWasmComponentExport = destination == ExportDestination.WasmComponent
           if (sym.isLazy) {
             reporter.error(annot.pos,
                 "You may not export a lazy val to the top level")
@@ -295,7 +317,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           }
 
           // The top-level name must be a valid JS identifier
-          if (!isValidTopLevelExportName(name)) {
+          if (!isWasmComponentExport && !isValidTopLevelExportName(name)) {
             reporter.error(annot.pos,
                 "The top-level export name must be a valid JavaScript " +
                 "identifier name")
@@ -369,7 +391,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
                 "Fields (val or var) cannot be exported as static more " +
                 "than once")
 
-          case _: ExportDestination.TopLevel =>
+          case _: ExportDestination.TopLevel | ExportDestination.WasmComponent =>
             reporter.error(duplicate.pos,
                 "Fields (val or var) cannot be exported both as static " +
                 "and at the top-level")

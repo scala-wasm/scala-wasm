@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test-suite-js:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_13]
+        esVersion: [ES5_1, ES2021]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            helloworld${{ matrix.suffix }}/run
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            testSuite${{ matrix.suffix }}/test
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt 'set scalaJSLinkerConfig in testSuite.v${{ matrix.suffix }} ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))) ' \
+            testSuiteEx${{ matrix.suffix }}/test
+
+  test-suite-webassembly:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt 'set Global/enableWasmEverywhere := true' helloworld${{ matrix.suffix }}/run
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt 'set Global/enableWasmEverywhere := true' testSuite${{ matrix.suffix }}/test
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt 'set Global/enableWasmEverywhere := true' testSuiteEx${{ matrix.suffix }}/test
+
+  test-suite-wasi:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12] # TODO: test with 2_13 too
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+      - name: npm install
+        run: npm install
+      - name: testSuiteWASI${{ matrix.suffix }}/fastLinkJS
+        run: |
+          sbt 'set Global/enableWasmEverywhere := true' testSuiteWASI${{ matrix.suffix }}/fastLinkJS
+          VERSION=$(echo "${{ matrix.suffix }}" | sed 's/2_/2./')
+          node --experimental-wasm-exnref ./index.mjs ./examples/test-suite-wasi/.$VERSION/target/scala-$VERSION/test-suite-wasi-fastopt/main.wasm
+          echo "test success"
+
+  test-suite-component:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12] # TODO: test with 2_13 too
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '23'
+      - name: npm install
+        run: npm install
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+      - name: Install wasmtime, wasm-tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasmtime,wasm-tools
+      - name: Install wac
+        run: cargo install --git https://github.com/bytecodealliance/wac # install from git for https://github.com/bytecodealliance/wac/pull/146
+      - name: Install cargo-component
+        run: cargo install cargo-component@0.17.0
+      - name: Build rust-exports
+        run: cargo component build --target wasm32-wasip2 -r
+        working-directory: examples/test-component-model/rust-exports
+      - name: Build rust-run
+        run: cargo component build --target wasm32-wasip2 -r
+        working-directory: examples/test-component-model/rust-run
+      - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
+      - name: Compose
+        run: |
+          wasm-tools component embed wit .2.12/target/scala-2.12/testing-module-for-component-model-fastopt/main.wasm -o main.wasm -w scala --encoding utf16
+          wasm-tools component new main.wasm -o main.wasm
+          wac plug --plug rust-exports/target/wasm32-wasip1/release/rust_exports.wasm main.wasm -o scala.wasm
+          wac plug --plug scala.wasm rust-run/target/wasm32-wasip1/release/rust_run.wasm -o out.wasm
+        working-directory: examples/test-component-model
+      - name: Run tests
+        run: -W function-references,gc out.wasm
+        working-directory: examples/test-component-model

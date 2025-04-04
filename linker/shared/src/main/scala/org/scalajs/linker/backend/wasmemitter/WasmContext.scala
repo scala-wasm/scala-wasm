@@ -58,6 +58,7 @@ final class WasmContext(
   val jsNameGen = new JSNameGen()
 
   private val customJSHelpers = mutable.ListBuffer.empty[(String, js.Function)]
+  private val componentFunctions = mutable.ListBuffer.empty[(String, String)]
 
   val moduleBuilder: ModuleBuilder = {
     new ModuleBuilder(new ModuleBuilder.FunctionTypeProvider {
@@ -329,6 +330,9 @@ object WasmContext {
 
     def isInterface: Boolean =
       kind == ClassKind.Interface
+
+    def isWasmComponentResource: Boolean =
+      kind == ClassKind.NativeWasmComponentResourceClass
   }
 
   final class ConcreteMethodInfo(val ownerClass: ClassName, val methodName: MethodName) {

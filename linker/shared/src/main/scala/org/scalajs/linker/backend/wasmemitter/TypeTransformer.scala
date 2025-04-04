@@ -19,6 +19,7 @@ import org.scalajs.ir.WellKnownNames._
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
 
 import VarGen._
+import org.scalajs.linker.backend.webassembly.component.Flatten
 
 object TypeTransformer {
 
@@ -88,6 +89,10 @@ object TypeTransformer {
     tpe match {
       case AnyType                        => watpe.RefType.anyref
       case AnyNotNullType                 => watpe.RefType.any
+      case ClassType(className, nullable)
+          if ctx.getClassInfo(className).isWasmComponentResource =>
+        watpe.Int32
+
       case ClassType(className, nullable) => transformClassType(className, nullable)
       case tpe: PrimType                  => transformPrimType(tpe)
 
@@ -108,13 +113,18 @@ object TypeTransformer {
     val heapType: watpe.HeapType = ctx.getClassInfoOption(className) match {
       case Some(info) =>
         if (className == BoxedStringClass)
-          watpe.HeapType.Extern // for all the JS string builtin functions
+          if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+            watpe.HeapType(genTypeID.i16Array)
+          else
+            watpe.HeapType.Extern // for all the JS string builtin functions
         else if (info.isAncestorOfHijackedClass)
           watpe.HeapType.Any
         else if (!info.hasInstances)
           watpe.HeapType.None
         else if (info.isInterface)
           watpe.HeapType(genTypeID.ObjectStruct)
+        else if (info.isWasmComponentResource)
+          ???
         else
           watpe.HeapType(genTypeID.forClass(className))
 
@@ -125,7 +135,7 @@ object TypeTransformer {
     watpe.RefType(nullable, heapType)
   }
 
-  def transformPrimType(tpe: PrimType): watpe.Type = {
+  def transformPrimType(tpe: PrimType)(implicit ctx: WasmContext): watpe.Type = {
     tpe match {
       case UndefType   => watpe.RefType.any
       case BooleanType => watpe.Int32
@@ -136,7 +146,9 @@ object TypeTransformer {
       case LongType    => watpe.Int64
       case FloatType   => watpe.Float32
       case DoubleType  => watpe.Float64
-      case StringType  => watpe.RefType.extern
+      case StringType  =>
+        if (ctx.coreSpec.wasmFeatures.targetPureWasm) watpe.RefType(genTypeID.i16Array)
+        else watpe.RefType.extern
       case NullType    => watpe.RefType.nullref
 
       case VoidType | NothingType =>

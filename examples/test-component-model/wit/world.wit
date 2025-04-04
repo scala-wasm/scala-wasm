@@ -1,0 +1,104 @@
+package component:testing;
+
+world scala {
+  import wasi:cli/stdout@0.2.0;
+  import basics;
+  import tests;
+  import countable;
+
+  export tests;
+  export test-imports;
+}
+
+world rust-exports {
+  export basics;
+  export tests;
+  export countable;
+}
+
+world rust-run {
+  export wasi:cli/run@0.2.0;
+
+  import tests;
+  import test-imports;
+}
+
+interface basics {
+  roundtrip-u8: func(a: u8) -> u8;
+  roundtrip-s8: func(a: s8) -> s8;
+  roundtrip-u16: func(a: u16) -> u16;
+  roundtrip-s16: func(a: s16) -> s16;
+  roundtrip-u32: func(a: u32) -> u32;
+  roundtrip-s32: func(a: s32) -> s32;
+  roundtrip-u64: func(a: u64) -> u64;
+  roundtrip-s64: func(a: s64) -> s64;
+  roundtrip-f32: func(a: f32) -> f32;
+  roundtrip-f64: func(a: f64) -> f64;
+  roundtrip-char: func(a: char) -> char;
+}
+
+interface countable {
+  resource counter {
+    constructor(i: s32);
+    sum: static func(a: counter, b: counter) -> counter;
+    up: func();
+    down: func();
+    value-of: func() -> s32;
+  }
+}
+
+interface tests {
+  roundtrip-basics0: func(a: tuple<u32, s32>)
+    -> tuple<u32, s32>;
+  roundtrip-basics1: func(a: tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>)
+    -> tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>;
+
+  record point { x: s32, y: s32 }
+  roundtrip-string: func(a: string) -> string;
+  roundtrip-point: func(a: point) -> point;
+
+  roundtrip-list-u16: func(a: list<u16>) -> list<u16>;
+  roundtrip-list-point: func(a: list<point>) -> list<point>;
+  roundtrip-list-variant: func(a: list<c1>) -> list<c1>;
+
+  variant c1 { a(s32), b(f32) }
+  variant z1 { a(s32), b }
+  test-c1: func(a: c1);
+  roundtrip-c1: func(a: c1) -> c1;
+  roundtrip-z1: func(a: z1) -> z1;
+
+  enum e1 { a, b, c }
+  roundtrip-enum: func(a: e1) -> e1;
+
+  roundtrip-tuple: func(a: tuple<c1, z1>) -> tuple<c1, z1>;
+
+  roundtrip-option: func(a: option<string>) -> option<string>;
+  roundtrip-double-option: func(a: option<option<string>>) -> option<option<string>>;
+
+  flags f1 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+  }
+  flags f2 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+    b8, b9, b10, b11, b12, b13, b14, b15,
+  }
+  flags f3 {
+    b0, b1, b2, b3, b4, b5, b6, b7,
+    b8, b9, b10, b11, b12, b13, b14, b15,
+    b16, b17, b18, b19, b20, b21, b22, b23,
+    b24, b25, b26, b27, b28, b29, b30, b31,
+  }
+  roundtrip-f8: func(a: f1) -> f1;
+  roundtrip-f16: func(a: f2) -> f2;
+  roundtrip-f32: func(a: f3) -> f3;
+  roundtrip-flags: func(a: tuple<f1, f1>) -> tuple<f1, f1>;
+
+  roundtrip-result: func(a: result) -> result;
+  roundtrip-string-error: func(a: result<f32, string>) -> result<f32, string>;
+  roundtrip-enum-error: func(a: result<c1, e1>) -> result<c1, e1>;
+
+}
+
+interface test-imports {
+  run: func();
+}

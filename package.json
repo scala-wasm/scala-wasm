@@ -5,5 +5,8 @@
     "jsdom": "16.7.0",
     "jszip": "3.8.0",
     "source-map-support": "0.5.19"
+  },
+  "dependencies": {
+    "@bytecodealliance/preview2-shim": "^0.17.2"
   }
 }

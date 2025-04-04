@@ -72,7 +72,10 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case JSClass | JSModuleClass =>
+        case NativeWasmComponentResourceClass | NativeWasmComponentInterfaceClass =>
+          ??? // TODO
+
+        case JSClass | JSModuleClass  =>
           errorManager.reportError(
               s"found non-native JS class ${tree.className.nameString}")(tree.pos)
       }
@@ -153,7 +156,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
       val preprocessedTree = ClassDef(name, originalName, kind, jsClassCaptures,
           superClass, newInterfaces, jsSuperClass, jsNativeLoadSpec, fields,
           newMethods, jsConstructor, jsMethodProps, jsNativeMembers,
-          topLevelExportDefs)(
+          componentNativeMembers, topLevelExportDefs)(
           optimizerHints)(pos)
 
       // Only validate the hierarchy; do not transform
@@ -291,6 +294,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         classDef.jsConstructor,
         classDef.jsMethodProps,
         classDef.jsNativeMembers,
+        classDef.componentNativeMembers,
         classDef.topLevelExportDefs
       )(classDef.optimizerHints)(classDef.pos)
     }
@@ -367,6 +371,9 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
 
         case IntrinsicCall(LinkingInfoClass, `linkerVersionMethodName`, Nil) =>
           LinkTimeProperty(LinkTimeProperty.LinkerVersion)(StringType)
+
+        case IntrinsicCall(LinkingInfoClass, `targetPureWasmMethodName`, Nil) =>
+          LinkTimeProperty(LinkTimeProperty.TargetPureWasm)(BooleanType)
 
         case _ =>
           tree
@@ -668,6 +675,7 @@ object JavalibIRCleaner {
   private val esVersionMethodName = MethodName("esVersion", Nil, IntRef)
   private val isWebAssemblyMethodName = MethodName("isWebAssembly", Nil, BooleanRef)
   private val linkerVersionMethodName = MethodName("linkerVersion", Nil, ClassRef(BoxedStringClass))
+  private val targetPureWasmMethodName = MethodName("targetPureWasm", Nil, BooleanRef)
 
   private val ClassNameSubstitutions: Map[ClassName, ClassName] = {
     val refBaseNames =

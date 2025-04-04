@@ -107,7 +107,8 @@ private[linker] object LambdaSynthesizer {
     new ClassInfo(className, ClassKind.Class,
         Some(descriptor.superClass), descriptor.interfaces,
         jsNativeLoadSpec = None, referencedFieldClasses = Map.empty, methodInfos,
-        jsNativeMembers = Map.empty, jsMethodProps = Nil, topLevelExports = Nil)
+        jsNativeMembers = Map.empty, componentNativeMembers = Map.empty,
+        jsMethodProps = Nil, topLevelExports = Nil)
   }
 
   /** Synthesizes the `ClassDef` for a lambda class, for use by the `BaseLinker`.
@@ -172,6 +173,7 @@ private[linker] object LambdaSynthesizer {
       jsConstructor = None,
       jsMethodProps = Nil,
       jsNativeMembers = Nil,
+      componentNativeMembers = Nil,
       topLevelExportDefs = Nil
     )(OptimizerHints.empty.withInline(true))
   }
