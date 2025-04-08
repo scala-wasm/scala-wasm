@@ -1,3 +1,13 @@
+# ScalaWasm
+
+[![CI](https://github.com/scala-wasm/scala-wasm/actions/workflows/ci.yml/badge.svg)](https://github.com/scala-wasm/scala-wasm/actions/workflows/ci.yml)
+
+This repository is a [friendly fork](https://github.blog/developer-skills/github/the-friend-zone-friendly-forks-101/) of Scala.js, target stand-alone Wasm leveraging WASI and Component Model.
+
+What follows below is README.md of the upstream scala-js project.
+
+---
+
 <p align="left">
   <a href="http://www.scala-js.org/">
     <img src="http://www.scala-js.org/assets/img/scala-js-logo.svg" height="128">
