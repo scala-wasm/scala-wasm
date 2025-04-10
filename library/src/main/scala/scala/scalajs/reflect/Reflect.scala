@@ -14,11 +14,11 @@ package scala.scalajs.reflect
 
 import scala.collection.mutable
 
-import scala.scalajs.js
+import scala.collection.mutable
 
 final class LoadableModuleClass private[reflect] (
     val runtimeClass: Class[_],
-    loadModuleFun: js.Function0[Any]
+    loadModuleFun: Function0[Any]
 ) {
   /** Loads the module instance and returns it. */
   def loadModule(): Any = loadModuleFun()
@@ -55,36 +55,93 @@ final class InstantiatableClass private[reflect] (
 
 final class InvokableConstructor private[reflect]  (
     val parameterTypes: List[Class[_]],
-    newInstanceFun: js.Function
+    newInstanceFun: Function1[Array[Any], Any]
 ) {
   def newInstance(args: Any*): Any = {
     /* Check the number of actual arguments. We let the casts and unbox
      * operations inside `newInstanceFun` take care of the rest.
      */
     require(args.size == parameterTypes.size)
-    newInstanceFun.asInstanceOf[js.Dynamic].apply(
-        args.asInstanceOf[Seq[js.Any]]: _*)
+    val adaptedArgs = (args zip parameterTypes).map {
+      case (arg, tpe) => wideningPrimConversionIfRequired(arg, tpe)
+    }
+    newInstanceFun.apply(adaptedArgs.toArray)
+  }
+
+ /** Perform a widening primitive conversion if required.
+   *
+   *  According to
+   *  https://docs.oracle.com/javase/specs/jls/se8/html/jls-5.html#jls-5.1.2
+   */
+  private def wideningPrimConversionIfRequired(
+      arg: Any,
+      paramType: Class[_]
+  ): Any = {
+    paramType match {
+      case java.lang.Short.TYPE =>
+        arg match {
+          case arg: Byte => arg.toShort
+          case _         => arg
+        }
+      case java.lang.Integer.TYPE =>
+        arg match {
+          case arg: Byte  => arg.toInt
+          case arg: Short => arg.toInt
+          case arg: Char  => arg.toInt
+          case _          => arg
+        }
+      case java.lang.Long.TYPE =>
+        arg match {
+          case arg: Byte  => arg.toLong
+          case arg: Short => arg.toLong
+          case arg: Int   => arg.toLong
+          case arg: Char  => arg.toLong
+          case _          => arg
+        }
+      case java.lang.Float.TYPE =>
+        arg match {
+          case arg: Byte  => arg.toFloat
+          case arg: Short => arg.toFloat
+          case arg: Int   => arg.toFloat
+          case arg: Long  => arg.toFloat
+          case arg: Char  => arg.toFloat
+          case _          => arg
+        }
+      case java.lang.Double.TYPE =>
+        arg match {
+          case arg: Byte  => arg.toDouble
+          case arg: Short => arg.toDouble
+          case arg: Int   => arg.toDouble
+          case arg: Long  => arg.toDouble
+          case arg: Float => arg.toDouble
+          case arg: Char  => arg.toDouble
+          case _          => arg
+        }
+      case _ =>
+        arg
+    }
   }
 }
 
 object Reflect {
   private val loadableModuleClasses =
-    js.Dictionary.empty[LoadableModuleClass]
+    mutable.Map.empty[String, LoadableModuleClass]
 
   private val instantiatableClasses =
-    js.Dictionary.empty[InstantiatableClass]
+    mutable.Map.empty[String, InstantiatableClass]
 
   // `protected[reflect]` makes it public in the IR
   protected[reflect] def registerLoadableModuleClass[T](
       fqcn: String, runtimeClass: Class[T],
-      loadModuleFun: js.Function0[T]): Unit = {
+      loadModuleFun: Function0[T]): Unit = {
     loadableModuleClasses(fqcn) =
       new LoadableModuleClass(runtimeClass, loadModuleFun)
   }
 
   protected[reflect] def registerInstantiatableClass[T](
       fqcn: String, runtimeClass: Class[T],
-      constructors: js.Array[js.Tuple2[js.Array[Class[_]], js.Function]]): Unit = {
+      // constructors: js.Array[js.Tuple2[js.Array[Class[_]], js.Function]]): Unit = {
+      constructors: Array[(Array[Class[_]], Function1[Array[Any], Any])]): Unit = {
     val invokableConstructors = constructors.map { c =>
       new InvokableConstructor(c._1.toList, c._2)
     }

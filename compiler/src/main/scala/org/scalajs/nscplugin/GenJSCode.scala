@@ -1554,8 +1554,18 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         implicit pos: Position): Option[js.Tree] = {
       val fqcnArg = js.StringLiteral(sym.fullName + "$")
       val runtimeClassArg = js.ClassOf(toTypeRef(sym.info))
+
+      val function0Class = AbstractFunctionClass(0)
+      val sam = function0Class.info.member(nme.apply)
+      val descriptor = js.NewLambda.Descriptor(
+          encodeClassName(function0Class), Nil,
+          encodeMethodSym(sam).name,
+          paramTypes = Nil,
+          resultType = jstpe.AnyType)
+      val closure = js.Closure(js.ClosureFlags.typed, Nil, Nil, None, jstpe.AnyType, genLoadModule(sym), Nil)
+
       val loadModuleFunArg =
-        js.Closure(js.ClosureFlags.arrow, Nil, Nil, None, jstpe.AnyType, genLoadModule(sym), Nil)
+        js.NewLambda(descriptor, closure)(encodeClassType(function0Class).toNonNullable)
 
       val stat = genApplyMethod(
           genLoadModule(ReflectModule),
@@ -1578,7 +1588,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           ctor <- ctors
         } yield {
           withNewLocalNameScope {
-            val (parameterTypes, formalParams, actualParams) = (for {
+            val parameterTypes = (for {
               param <- ctor.tpe.params
             } yield {
               /* Note that we do *not* use `param.tpe` entering posterasure
@@ -1597,24 +1607,52 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                * parameter types is `List(classOf[Int])`, and when invoked
                * reflectively, it must be given an `Int` (or `Integer`).
                */
-              val paramType = js.ClassOf(toTypeRef(param.tpe))
-              val paramDef = genParamDef(param, jstpe.AnyType)
-              val actualParam = fromAny(paramDef.ref, param.tpe)
-              (paramType, paramDef, actualParam)
-            }).unzip3
+               js.ClassOf(toTypeRef(param.tpe))
+            })
 
-            val paramTypesArray = js.JSArrayConstr(parameterTypes)
+            val arrayOfObjectType = jstpe.ArrayType(jstpe.ArrayTypeRef.of(jswkn.ObjectRef), nullable = true)
+            val functionClass = AbstractFunctionClass(1)
+            val sam = functionClass.info.member(nme.apply)
+            val descriptor = js.NewLambda.Descriptor(
+                encodeClassName(functionClass), Nil,
+                encodeMethodSym(sam).name,
+                paramTypes = List(jstpe.AnyType),
+                resultType = jstpe.AnyType)
+            val closureParamDef = js.ParamDef(
+              freshLocalIdent(),
+              NoOriginalName,
+              jstpe.AnyType,
+              false
+            )
+            val ctorArgs = ctor.tpe.params.zipWithIndex.map { case (param, i) =>
+              fromAny(
+                js.ArraySelect(
+                  js.AsInstanceOf(closureParamDef.ref, arrayOfObjectType),
+                  js.IntLiteral(i)
+                )(jstpe.AnyType),
+                param.tpe
+              )
+            }
+            val closure = js.Closure(js.ClosureFlags.typed, Nil,
+              List(closureParamDef), None, jstpe.AnyType, genNew(sym, ctor, ctorArgs), Nil)
+            val newInstanceFun =
+              js.NewLambda(descriptor, closure)(encodeClassType(functionClass).toNonNullable)
 
-            val newInstanceFun = js.Closure(js.ClosureFlags.arrow, Nil,
-              formalParams, None, jstpe.AnyType, genNew(sym, ctor, actualParams), Nil)
+            val paramTypesArray = js.ArrayValue(
+                jstpe.ArrayTypeRef.of(jstpe.ClassRef(jswkn.ClassClass)),
+                parameterTypes)
 
-            js.JSArrayConstr(List(paramTypesArray, newInstanceFun))
+            js.New(
+              ClassName("scala.Tuple2"),
+              js.MethodIdent(MethodName.constructor(List(jswkn.ObjectRef, jswkn.ObjectRef))),
+              List(paramTypesArray, newInstanceFun)
+            )
           }
         }
 
         val fqcnArg = js.StringLiteral(sym.fullName)
         val runtimeClassArg = js.ClassOf(toTypeRef(sym.info))
-        val ctorsInfosArg = js.JSArrayConstr(constructorsInfos)
+        val ctorsInfosArg = js.ArrayValue(jstpe.ArrayTypeRef.of(ClassRef(ClassName("scala.Tuple2"))), constructorsInfos)
 
         val stat = genApplyMethod(
             genLoadModule(ReflectModule),

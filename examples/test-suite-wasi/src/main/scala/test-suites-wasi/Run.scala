@@ -5,5 +5,6 @@ object Run {
     CompilerTest.run()
     JavalibLangTest.run()
     JavalibUtilTest.run()
+    LibraryTest.run()
   }
 }
