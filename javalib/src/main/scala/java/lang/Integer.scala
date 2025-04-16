@@ -17,7 +17,7 @@ import java.util.function._
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf}
 
 /* This is a hijacked class. Its instances are primitive numbers.
  * Constructors are not emitted.
@@ -223,13 +223,23 @@ object Integer {
 
   // Wasm intrinsic
   @inline def divideUnsigned(dividend: Int, divisor: Int): Int =
-    if (divisor == 0) 0 / 0
-    else asInt(asUint(dividend) / asUint(divisor))
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      if (divisor == 0) 0 / 0
+      else asInt(asUint(dividend) / asUint(divisor))
+    }
 
   // Wasm intrinsic
   @inline def remainderUnsigned(dividend: Int, divisor: Int): Int =
-    if (divisor == 0) 0 % 0
-    else asInt(asUint(dividend) % asUint(divisor))
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      if (divisor == 0) 0 % 0
+      else asInt(asUint(dividend) % asUint(divisor))
+    }
 
   @inline def highestOneBit(i: Int): Int = {
     /* The natural way of implementing this is:
@@ -280,8 +290,13 @@ object Integer {
 
   // Intrinsic, fallback on actual code for non-literal in JS
   @inline def numberOfLeadingZeros(i: scala.Int): scala.Int = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) js.Math.clz32(i)
-    else clz32Dynamic(i)
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) js.Math.clz32(i)
+      else clz32Dynamic(i)
+    }
   }
 
   private def clz32Dynamic(i: scala.Int) = {
