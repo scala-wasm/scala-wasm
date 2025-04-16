@@ -127,6 +127,7 @@ object Infos {
     final val FlagUsedOrphanAwait = 1 << 5
     final val FlagUsedClassSuperClass = 1 << 6
     final val FlagNeedsDesugaring = 1 << 7
+    final val FlagUsedJSInPureWasm = 1 << 8
   }
 
   /** Things from a given class that are reached by one method. */
@@ -430,6 +431,9 @@ object Infos {
 
     def markNeedsDesugaring(): this.type =
       setFlag(ReachabilityInfo.FlagNeedsDesugaring)
+
+    def markUsedJSInPureWasm(): this.type =
+      setFlag(ReachabilityInfo.FlagUsedJSInPureWasm)
 
     def addReferencedLinkTimeProperty(linkTimeProperty: LinkTimeProperty): this.type = {
       markNeedsDesugaring()
@@ -799,6 +803,9 @@ object Infos {
     override def traverse(tree: Tree): Unit = {
       builder.maybeAddReferencedClass(tree.tpe)
 
+      if (coreSpec.wasmFeatures.targetPureWasm)
+        checkJSInterop(tree)
+
       tree match {
         /* Do not call super.traverse() so that fields are not also marked as
          * read.
@@ -996,6 +1003,21 @@ object Infos {
           super.traverse(tree)
       }
     }
-  }
 
+    private def checkJSInterop(tree: Tree): Unit = {
+      tree match {
+        case _:JSNew | _:JSSelect | _:JSFunctionApply | _:JSMethodApply |
+            _:JSImportCall | _:JSImportMeta | _:LoadJSConstructor |
+            _:LoadJSModule | _:SelectJSNativeMember | _:JSDelete |
+            _:JSUnaryOp | _:JSBinaryOp | _:JSArrayConstr | _:JSObjectConstr |
+            _:JSGlobalRef | _: JSTypeOfGlobalRef | _:CreateJSClass |
+            _:JSPrivateSelect | _:JSSuperSelect | _:JSSuperMethodCall |
+            _:JSNewTarget | _:JSSuperConstructorCall =>
+          builder.markUsedJSInPureWasm()
+        case closure: Closure if !closure.flags.typed =>
+          builder.markUsedJSInPureWasm()
+        case _ =>
+      }
+    }
+  }
 }
