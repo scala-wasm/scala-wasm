@@ -258,7 +258,7 @@ object LinkingInfo {
   def isWebAssembly: Boolean =
     linkTimePropertyBoolean("core/isWebAssembly")
 
-  @inline
+  @inline @linkTimeProperty("core/targetPureWasm")
   def targetPureWasm: Boolean =
     linkTimePropertyBoolean("core/targetPureWasm")
 
