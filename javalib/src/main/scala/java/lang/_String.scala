@@ -20,6 +20,7 @@ import scala.scalajs.js
 import scala.scalajs.js.annotation._
 import scala.scalajs.js.JSStringOps.enableJSStringOps
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 import scala.scalajs.LinkingInfo.ESVersion
 
 import java.lang.constant.{Constable, ConstantDesc}
@@ -59,10 +60,10 @@ final class _String private () // scalastyle:ignore
 
   // Wasm intrinsic
   def codePointAt(index: Int): Int = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
+    linkTimeIf(LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
       charAt(index) // bounds check
       this.asInstanceOf[js.Dynamic].codePointAt(index).asInstanceOf[Int]
-    } else {
+    } {
       Character.codePointAtImpl(this, index)
     }
   }
@@ -167,13 +168,15 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def endsWith(suffix: String): scala.Boolean = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf(LinkingInfo.targetPureWasm) {
       regionMatches(thisString.length() - suffix.length, suffix, 0, suffix.length)
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      suffix.getClass() // null check
-      thisString.asInstanceOf[js.Dynamic].endsWith(suffix).asInstanceOf[scala.Boolean]
-    } else {
-      thisString.jsSubstring(this.length() - suffix.length()) == suffix
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        suffix.getClass() // null check
+        thisString.asInstanceOf[js.Dynamic].endsWith(suffix).asInstanceOf[scala.Boolean]
+      } else {
+        thisString.jsSubstring(this.length() - suffix.length()) == suffix
+      }
     }
   }
 
@@ -210,15 +213,15 @@ final class _String private () // scalastyle:ignore
     indexOf(Character.toString(ch), fromIndex)
 
   def indexOf(str: String): Int = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf(LinkingInfo.targetPureWasm) {
       indexOf(str, 0)
-    } else {
+    } {
       thisString.jsIndexOf(str)
     }
   }
 
   def indexOf(str: String, fromIndex: Int): Int = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       val strLen = str.length()
 
@@ -243,7 +246,7 @@ final class _String private () // scalastyle:ignore
           found
         }
       }
-    } else {
+    } {
       thisString.jsIndexOf(str, fromIndex)
     }
   }
@@ -267,10 +270,10 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def lastIndexOf(str: String): Int = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       val thisLen = thisString.length()
       lastIndexOf(str, thisLen)
-    } else {
+    } {
       thisString.jsLastIndexOf(str)
     }
 
@@ -279,42 +282,44 @@ final class _String private () // scalastyle:ignore
   @inline
   def lastIndexOf(str: String, fromIndex: Int): Int =
     if (fromIndex < 0) -1
-    else if (LinkingInfo.targetPureWasm) {
-      val thisLen = thisString.length()
-      val strLen = str.length()
+    else {
+      linkTimeIf(LinkingInfo.targetPureWasm) {
+        val thisLen = thisString.length()
+        val strLen = str.length()
 
-      if (fromIndex < 0) {
-        -1
-      } else if (strLen == 0) {
-        Math.min(fromIndex, thisLen)
-      } else {
-        val maxStartIndex = Math.min(fromIndex, thisLen - strLen)
-        var i = maxStartIndex
-        var found = -1
+        if (fromIndex < 0) {
+          -1
+        } else if (strLen == 0) {
+          Math.min(fromIndex, thisLen)
+        } else {
+          val maxStartIndex = Math.min(fromIndex, thisLen - strLen)
+          var i = maxStartIndex
+          var found = -1
 
-        while (i >= 0) {
-          var j = 0
-          var matches = true
+          while (i >= 0) {
+            var j = 0
+            var matches = true
 
-          while (j < strLen && matches) {
-            if (thisString.charAt(i + j) != str.charAt(j)) {
-              matches = false
+            while (j < strLen && matches) {
+              if (thisString.charAt(i + j) != str.charAt(j)) {
+                matches = false
+              }
+              j += 1
             }
-            j += 1
+
+            if (matches) {
+              found = i
+              i = -1  // exit the loop
+            } else {
+              i -= 1
+            }
           }
 
-          if (matches) {
-            found = i
-            i = -1  // exit the loop
-          } else {
-            i -= 1
-          }
+          found
         }
-
-        found
+      } {
+        thisString.jsLastIndexOf(str, fromIndex)
       }
-    } else {
-      thisString.jsLastIndexOf(str, fromIndex)
     }
 
   @inline
@@ -395,27 +400,31 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def startsWith(prefix: String): scala.Boolean = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       regionMatches(0, prefix, 0, prefix.length())
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      prefix.getClass() // null check
-      thisString.asInstanceOf[js.Dynamic].startsWith(prefix).asInstanceOf[scala.Boolean]
-    } else {
-      thisString.jsSubstring(0, prefix.length()) == prefix
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        prefix.getClass() // null check
+        thisString.asInstanceOf[js.Dynamic].startsWith(prefix).asInstanceOf[scala.Boolean]
+      } else {
+        thisString.jsSubstring(0, prefix.length()) == prefix
+      }
     }
   }
 
   @inline
   def startsWith(prefix: String, toffset: Int): scala.Boolean = {
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       regionMatches(toffset, prefix, 0, prefix.length())
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      prefix.getClass() // null check
-      (toffset <= length() && toffset >= 0 &&
-          thisString.asInstanceOf[js.Dynamic].startsWith(prefix, toffset).asInstanceOf[scala.Boolean])
-    } else {
-      (toffset <= length() && toffset >= 0 &&
-          thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix)
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        prefix.getClass() // null check
+        (toffset <= length() && toffset >= 0 &&
+            thisString.asInstanceOf[js.Dynamic].startsWith(prefix, toffset).asInstanceOf[scala.Boolean])
+      } else {
+        (toffset <= length() && toffset >= 0 &&
+            thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix)
+      }
     }
   }
 
@@ -430,8 +439,11 @@ final class _String private () // scalastyle:ignore
     if (beginIndex < 0 || beginIndex > length())
       charAt(beginIndex)
 
-    if (LinkingInfo.targetPureWasm) this.substring(beginIndex, thisString.length)
-    else thisString.jsSubstring(beginIndex)
+    linkTimeIf (LinkingInfo.targetPureWasm) {
+      this.substring(beginIndex, thisString.length)
+    } {
+      thisString.jsSubstring(beginIndex)
+    }
   }
 
   // Wasm intrinsic
@@ -445,7 +457,7 @@ final class _String private () // scalastyle:ignore
     if (endIndex < beginIndex)
       charAt(-1)
 
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       val length = thisString.length
       val builder = new StringBuilder(endIndex - beginIndex)
       var i = beginIndex
@@ -454,7 +466,7 @@ final class _String private () // scalastyle:ignore
         i += 1
       }
       builder.toString
-    } else {
+    } {
       thisString.jsSubstring(beginIndex, endIndex)
     }
   }
@@ -637,10 +649,11 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def toLowerCase(): String =
-    if (LinkingInfo.targetPureWasm)
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       this.asInstanceOf[_String].toLowerCaseImpl()
-    else
+    } {
       this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
+    }
 
   private def toLowerCaseImpl(): String = {
     replaceCharsAtIndex { i =>
@@ -735,13 +748,13 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
 
   @inline
   def toUpperCase(): String =
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       replaceCharsAtIndex { i =>
         val c = this.charAt(i)
         if (c < 0x80) null // fast-forward ASCII characters
         else StringSpecialCasing.toUpperCase.get(c)
       }.asInstanceOf[_String].toCase(true)
-    } else {
+    } {
       this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
     }
 
