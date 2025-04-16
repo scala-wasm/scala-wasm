@@ -17,6 +17,7 @@ import scala.scalajs.js
 import js.Dynamic.{ global => g }
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 import scala.scalajs.LinkingInfo.ESVersion
 
 object Math {
@@ -30,8 +31,16 @@ object Math {
   @inline def abs(a: scala.Long): scala.Long = if (a < 0) -a else a
 
   // Wasm intrinsics
-  @inline def abs(a: scala.Float): scala.Float = js.Math.abs(a).toFloat
-  @inline def abs(a: scala.Double): scala.Double = js.Math.abs(a)
+  @inline def abs(a: scala.Float): scala.Float = linkTimeIf(LinkingInfo.targetPureWasm) {
+      throw new AssertionError("Not implemented.")
+    } {
+      js.Math.abs(a).toFloat
+    }
+  @inline def abs(a: scala.Double): scala.Double = linkTimeIf(LinkingInfo.targetPureWasm) {
+      throw new AssertionError("Not implemented.")
+    } {
+      js.Math.abs(a).toFloat
+    }
 
   @inline def max(a: scala.Int, b: scala.Int): scala.Int = if (a > b) a else b
   @inline def max(a: scala.Long, b: scala.Long): scala.Long = if (a > b) a else b

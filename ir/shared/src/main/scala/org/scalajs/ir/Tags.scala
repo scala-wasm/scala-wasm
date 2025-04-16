@@ -134,9 +134,10 @@ private[ir] object Tags {
   final val TagApplyTypedClosure = TagLinkTimeProperty + 1
   final val TagNewLambda = TagApplyTypedClosure + 1
   final val TagJSAwait = TagNewLambda + 1
+  final val TagLinkTimeIf = TagJSAwait + 1
 
   // New in Component Model
-  final val TagComponentFunctionApply = TagJSAwait + 1
+  final val TagComponentFunctionApply = TagLinkTimeIf + 1
 
   // Tags for member defs
 

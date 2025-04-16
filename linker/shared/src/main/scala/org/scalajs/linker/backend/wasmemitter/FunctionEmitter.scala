@@ -638,7 +638,8 @@ private class FunctionEmitter private (
       // Component Model
       case t: ComponentFunctionApply => genComponentFunctionApply(t)
 
-      case _:JSSuperConstructorCall | _:LinkTimeProperty | _:NewLambda =>
+      case _:JSSuperConstructorCall | _:LinkTimeProperty | _:LinkTimeIf |
+          _:NewLambda =>
         throw new AssertionError(s"Invalid tree: $tree")
 
       case _ =>

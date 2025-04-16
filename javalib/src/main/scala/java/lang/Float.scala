@@ -16,6 +16,8 @@ import java.lang.constant.{Constable, ConstantDesc}
 import java.math.BigInteger
 
 import scala.scalajs.js
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 /* This is a hijacked class. Its instances are primitive numbers.
  * Constructors are not emitted.
@@ -373,11 +375,21 @@ object Float {
 
   // Wasm intrinsic
   @inline def intBitsToFloat(bits: scala.Int): scala.Float =
-    FloatingPointBits.intBitsToFloat(bits)
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      FloatingPointBits.intBitsToFloat(bits)
+    }
 
   // Wasm intrinsic
   @inline def floatToIntBits(value: scala.Float): scala.Int =
-    FloatingPointBits.floatToIntBits(value)
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      FloatingPointBits.floatToIntBits(value)
+    }
 
   @inline def sum(a: scala.Float, b: scala.Float): scala.Float =
     a + b

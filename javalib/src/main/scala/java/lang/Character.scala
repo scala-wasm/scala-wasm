@@ -16,7 +16,7 @@ import scala.annotation.{tailrec, switch}
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf}
 
 import java.lang.constant.Constable
 import java.util.{ArrayList, Arrays, HashMap}
@@ -128,7 +128,7 @@ object Character {
     if (!isValidCodePoint(codePoint))
       throw new IllegalArgumentException()
 
-    if (LinkingInfo.targetPureWasm) {
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       if (isBmpCodePoint(codePoint)) {
         Character.toString(codePoint.toChar)
       } else {
@@ -136,17 +136,19 @@ object Character {
         toSurrogate(codePoint, dst, 0)
         new String(dst)
       }
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      js.Dynamic.global.String.fromCodePoint(codePoint).asInstanceOf[String]
-    } else {
-      if (codePoint < MIN_SUPPLEMENTARY_CODE_POINT) {
-        js.Dynamic.global.String
-          .fromCharCode(codePoint)
-          .asInstanceOf[String]
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        js.Dynamic.global.String.fromCodePoint(codePoint).asInstanceOf[String]
       } else {
-        js.Dynamic.global.String
-          .fromCharCode(highSurrogate(codePoint).toInt, lowSurrogate(codePoint).toInt)
-          .asInstanceOf[String]
+        if (codePoint < MIN_SUPPLEMENTARY_CODE_POINT) {
+          js.Dynamic.global.String
+            .fromCharCode(codePoint)
+            .asInstanceOf[String]
+        } else {
+          js.Dynamic.global.String
+            .fromCharCode(highSurrogate(codePoint).toInt, lowSurrogate(codePoint).toInt)
+            .asInstanceOf[String]
+        }
       }
     }
   }

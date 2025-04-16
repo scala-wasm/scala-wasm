@@ -17,6 +17,8 @@ import scala.annotation.{switch, tailrec}
 import java.lang.constant.{Constable, ConstantDesc}
 
 import scala.scalajs.js
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 /* This is a hijacked class. Its instances are the representation of scala.Longs.
  * Constructors are not emitted.
@@ -458,17 +460,27 @@ object Long {
   // Wasm intrinsic
   @inline
   def numberOfLeadingZeros(l: scala.Long): Int = {
-    val hi = (l >>> 32).toInt
-    if (hi != 0) Integer.numberOfLeadingZeros(hi)
-    else         Integer.numberOfLeadingZeros(l.toInt) + 32
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      val hi = (l >>> 32).toInt
+      if (hi != 0) Integer.numberOfLeadingZeros(hi)
+      else         Integer.numberOfLeadingZeros(l.toInt) + 32
+    }
   }
 
   // Wasm intrinsic
   @inline
   def numberOfTrailingZeros(l: scala.Long): Int = {
-    val lo = l.toInt
-    if (lo != 0) Integer.numberOfTrailingZeros(lo)
-    else         Integer.numberOfTrailingZeros((l >>> 32).toInt) + 32
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      // TODO: implement for Wasm without intrinsic?
+      throw new AssertionError("Not implemented.")
+    } {
+      val lo = l.toInt
+      if (lo != 0) Integer.numberOfTrailingZeros(lo)
+      else         Integer.numberOfTrailingZeros((l >>> 32).toInt) + 32
+    }
   }
 
   @inline def toBinaryString(l: scala.Long): String =
