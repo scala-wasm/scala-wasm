@@ -16,6 +16,7 @@ import java.io._
 
 import scala.scalajs.js
 import scala.scalajs.js.Dynamic.global
+import scala.scalajs.LinkingInfo.linkTimeIf
 import scala.scalajs.LinkingInfo
 
 import java.{util => ju}
@@ -383,10 +384,9 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    if (LinkingInfo.targetPureWasm) { // isWASI
+    linkTimeIf (LinkingInfo.targetPureWasm) {
       // TODO
-
-    } else {
+    } {
       import js.DynamicImplicits.truthValue
 
       if (js.typeOf(global.console) != "undefined") {

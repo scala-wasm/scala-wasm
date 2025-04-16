@@ -2,6 +2,9 @@ package scala.runtime
 
 import scala.math.ScalaNumber
 
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
+
 /* The declaration of the class is only to make the JVM back-end happy when
  * compiling the scalalib.
  */
@@ -49,9 +52,9 @@ object BoxesRunTime {
   def unboxToDouble(d: Any): Double = d.asInstanceOf[Double]
 
   def equals(x: Object, y: Object): Boolean =
-    if (scala.scalajs.LinkingInfo.targetPureWasm) {
+    linkTimeIf(LinkingInfo.targetPureWasm) {
       equals2(x, y)
-    } else {
+    } {
       if (scala.scalajs.js.special.strictEquals(x, y)) true
       else equals2(x, y)
     }
