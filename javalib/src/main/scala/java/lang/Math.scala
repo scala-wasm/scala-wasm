@@ -31,15 +31,21 @@ object Math {
   @inline def abs(a: scala.Long): scala.Long = if (a < 0) -a else a
 
   // Wasm intrinsics
-  @inline def abs(a: scala.Float): scala.Float = linkTimeIf(LinkingInfo.targetPureWasm) {
-      throw new AssertionError("Not implemented.")
+  @inline def abs(a: scala.Float): scala.Float =
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      if (a == -0.0) 0.0f
+      else if (a < 0.0) -a
+      else a
     } {
       js.Math.abs(a).toFloat
     }
-  @inline def abs(a: scala.Double): scala.Double = linkTimeIf(LinkingInfo.targetPureWasm) {
-      throw new AssertionError("Not implemented.")
+  @inline def abs(a: scala.Double): scala.Double =
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      if (a == -0.0) 0.0
+      else if (a < 0.0) -a
+      else a
     } {
-      js.Math.abs(a).toFloat
+      js.Math.abs(a)
     }
 
   @inline def max(a: scala.Int, b: scala.Int): scala.Int = if (a > b) a else b

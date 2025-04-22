@@ -387,18 +387,15 @@ object Double {
   // Wasm intrinsic
   @inline def longBitsToDouble(bits: scala.Long): scala.Double =
     linkTimeIf(LinkingInfo.targetPureWasm) {
-      // TODO: implement for Wasm without intrinsic?
-      throw new AssertionError("Not implemented.")
+      FloatingPointBitsWasm.longBitsToDouble(bits)
     } {
       FloatingPointBits.longBitsToDouble(bits)
     }
 
-
   // Wasm intrinsic
   @inline def doubleToLongBits(value: scala.Double): scala.Long =
     linkTimeIf(LinkingInfo.targetPureWasm) {
-      // TODO: implement for Wasm without intrinsic?
-      throw new AssertionError("Not implemented.")
+      FloatingPointBitsWasm.doubleToLongBits(value)
     } {
       FloatingPointBits.doubleToLongBits(value)
     }

@@ -36,11 +36,8 @@ class Throwable protected (s: String, private var e: Throwable,
    */
   private[this] var suppressed: Array[Throwable] = _
 
-
-  linkTimeIf(!LinkingInfo.targetPureWasm) {
-    if (writableStackTrace)
-      fillInStackTrace()
-  } {}
+  if (writableStackTrace)
+    fillInStackTrace()
 
   def initCause(cause: Throwable): Throwable = {
     e = cause
@@ -52,7 +49,9 @@ class Throwable protected (s: String, private var e: Throwable,
   def getLocalizedMessage(): String = getMessage()
 
   def fillInStackTrace(): Throwable = {
-    if (!LinkingInfo.targetPureWasm) jsErrorForStackTrace = StackTrace.captureJSError(this)
+    linkTimeIf(!LinkingInfo.targetPureWasm) {
+      jsErrorForStackTrace = StackTrace.captureJSError(this)
+    } {}
     this
   }
 

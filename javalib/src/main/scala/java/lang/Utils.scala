@@ -18,6 +18,8 @@ import java.util.function._
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
+import scala.scalajs.LinkingInfo.linkTimeIf
+import scala.scalajs.LinkingInfo
 
 private[java] object Utils {
   @inline
@@ -189,7 +191,15 @@ private[java] object Utils {
   }
 
   @inline def toUint(x: scala.Double): scala.Double = {
-    import js.DynamicImplicits.number2dynamic
-    (x >>> 0).asInstanceOf[scala.Double]
+    linkTimeIf (LinkingInfo.targetPureWasm) {
+      if (Double.isNaN(x) || Double.isInfinite(x)) 0.0
+      else {
+        val number = x.toLong
+        (number & 0xFFFFFFFFL).toDouble
+      }
+    } {
+      import js.DynamicImplicits.number2dynamic
+      (x >>> 0).asInstanceOf[scala.Double]
+    }
   }
 }

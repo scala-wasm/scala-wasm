@@ -224,8 +224,8 @@ object Integer {
   // Wasm intrinsic
   @inline def divideUnsigned(dividend: Int, divisor: Int): Int =
     linkTimeIf(LinkingInfo.targetPureWasm) {
-      // TODO: implement for Wasm without intrinsic?
-      throw new AssertionError("Not implemented.")
+      if (divisor == 0) 0 / 0
+      else (toUnsignedLong(dividend) / toUnsignedLong(divisor)).toInt
     } {
       if (divisor == 0) 0 / 0
       else asInt(asUint(dividend) / asUint(divisor))
@@ -235,7 +235,8 @@ object Integer {
   @inline def remainderUnsigned(dividend: Int, divisor: Int): Int =
     linkTimeIf(LinkingInfo.targetPureWasm) {
       // TODO: implement for Wasm without intrinsic?
-      throw new AssertionError("Not implemented.")
+      if (divisor == 0) 0 % 0
+      else (toUnsignedLong(dividend) % toUnsignedLong(divisor)).toInt
     } {
       if (divisor == 0) 0 % 0
       else asInt(asUint(dividend) % asUint(divisor))
@@ -291,8 +292,19 @@ object Integer {
   // Intrinsic, fallback on actual code for non-literal in JS
   @inline def numberOfLeadingZeros(i: scala.Int): scala.Int = {
     linkTimeIf(LinkingInfo.targetPureWasm) {
-      // TODO: implement for Wasm without intrinsic?
-      throw new AssertionError("Not implemented.")
+      // Copied from clz32Dynamic
+      // See Hacker's Delight, Section 5-3
+      var x = i
+      if (x == 0) {
+        32
+      } else {
+        var r = 1
+        if ((x & 0xffff0000) == 0) { x <<= 16; r += 16 }
+        if ((x & 0xff000000) == 0) { x <<= 8; r += 8 }
+        if ((x & 0xf0000000) == 0) { x <<= 4; r += 4 }
+        if ((x & 0xc0000000) == 0) { x <<= 2; r += 2 }
+        r + (x >> 31)
+      }
     } {
       if (LinkingInfo.esVersion >= ESVersion.ES2015) js.Math.clz32(i)
       else clz32Dynamic(i)
