@@ -119,6 +119,7 @@ object VarGen {
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
     final case object itoa extends FunctionID
+    final case object hijackedValueToString extends FunctionID
     final case object stringLiteral extends FunctionID
 
     final case object malloc extends FunctionID

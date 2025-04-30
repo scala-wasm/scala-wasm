@@ -1182,23 +1182,10 @@ private class FunctionEmitter private (
         if (methodName == toStringMethodName) {
           // By spec, toString() is special
           assert(argsLocals.isEmpty)
-          if (targetPureWasm) {
-            fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType(genTypeID.wasmString)))) { exit =>
-              fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType(genTypeID.wasmString)))) { labelString =>
-                fb.block(Sig(List(watpe.RefType.any), List(watpe.RefType.i31))) { labelI31 =>
-                  fb += wa.BrOnCast(labelI31, watpe.RefType.any, watpe.RefType.i31)
-                  fb += wa.BrOnCast(labelString, watpe.RefType.any, watpe.RefType(genTypeID.wasmString))
-                  fb += wa.Unreachable
-                } // end block of labelI31
-                fb += wa.I31GetS
-                fb += wa.Call(genFunctionID.itoa)
-                fb += wa.Br(exit)
-              }
-              fb += wa.Br(exit)
-            }
-          } else {
+          if (targetPureWasm)
+            fb += wa.Call(genFunctionID.hijackedValueToString)
+          else
             fb += wa.Call(genFunctionID.jsValueToString)
-          }
         } else if (receiverClassName == JLNumberClass) {
           // the value must be a `number`, hence we can unbox to `double`
           genUnbox(DoubleType)
@@ -2194,13 +2181,11 @@ private class FunctionEmitter private (
             fb += wa.RefNull(watpe.HeapType.Any)
           } // end block labelNotOurObject
 
-          if (targetPureWasm) {
-            fb += wa.Drop // there shouldn't be a js value
-            fb ++= ctx.stringPool.getConstantStringInstr("null")
-          } else {
-            // Now we have a value that is not one of our objects; the anyref is still on the stack
+          // Now we have a value that is not one of our objects; the anyref is still on the stack
+          if (targetPureWasm)
+            fb += wa.Call(genFunctionID.hijackedValueToString)
+          else
             fb += wa.Call(genFunctionID.jsValueToStringForConcat)
-          }
         } // end block labelDone
       }
     }

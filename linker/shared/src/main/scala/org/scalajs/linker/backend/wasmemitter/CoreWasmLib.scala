@@ -232,6 +232,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       genUndefinedAndIsUndef()
       genNaiveFmod()
       genItoa()
+      genHijackedValueToString()
       // genPrintlnInt()
       // genPrintMemory()
     }
@@ -4890,6 +4891,29 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += ArraySet(genTypeID.i16Array)
     }
     SWasmGen.genWasmStringFromArray(fb, result)
+
+    fb.buildAndAddToModule
+  }
+
+  private def genHijackedValueToString()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.hijackedValueToString)
+    val value = fb.addParam("value", anyref)
+    fb.setResultType(stringType)
+
+    fb.block(RefType(genTypeID.wasmString)) { labelString =>
+      fb.block(RefType.i31) { labelI31 =>
+        fb += LocalGet(value)
+        fb += BrOnCast(labelI31, anyref, RefType.i31)
+        fb += BrOnCast(labelString, anyref, RefType(genTypeID.wasmString))
+
+        // if none of the above, it must be null
+        fb ++= ctx.stringPool.getConstantStringInstr("null")
+        fb += Return
+      } // end block of labelI31
+
+      fb += I31GetS
+      fb += Call(genFunctionID.itoa)
+    }
 
     fb.buildAndAddToModule
   }
