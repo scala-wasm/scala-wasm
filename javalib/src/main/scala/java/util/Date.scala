@@ -27,7 +27,7 @@ class Date(private var millis: Long) extends Object
     /* No need to check for overflow. If SJS lives that long (~year 275760),
      * it's OK to have a bug ;-)
      */
-    this(js.Date.now().toLong)
+    this(System.currentTimeMillis())
   }
 
   @Deprecated

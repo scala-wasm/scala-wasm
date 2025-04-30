@@ -270,6 +270,16 @@ object VarGen {
       case object charCodeAt extends FunctionID
     }
     case object scalaValueType extends FunctionID
+
+    // Wasm essentials
+
+    object wasmEssentials {
+      // Extend JSHelperFunctionID although these have nothing to do with JS
+      case object print extends JSHelperFunctionID
+      case object nanoTime extends JSHelperFunctionID
+      case object currentTimeMillis extends JSHelperFunctionID
+      case object random extends JSHelperFunctionID
+    }
   }
 
   object genFieldID {

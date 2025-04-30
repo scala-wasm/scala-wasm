@@ -40,6 +40,9 @@ object EmbeddedConstants {
   /** Imported modules for WTF-16 strings, which cannot use the JS string builtins. */
   final val WTF16StringConstantsModule = "wtf16Strings"
 
+  /** Module for the essential externs for testing without the component model, defined by hand in `LoaderContent`. */
+  final val EssentialExternsModule = "essentialExterns"
+
   /* Values returned by the `jsValueType` helper.
    *
    * 0: false
