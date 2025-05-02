@@ -153,7 +153,9 @@ object Math {
   @inline def atan(a: scala.Double): scala.Double = js.Math.atan(a)
   @inline def atan2(y: scala.Double, x: scala.Double): scala.Double = js.Math.atan2(y, x)
 
-  @inline def random(): scala.Double = js.Math.random()
+  @inline def random(): scala.Double =
+    if (LinkingInfo.targetPureWasm) WasmSystem.random()
+    else js.Math.random()
 
   @inline def toDegrees(a: scala.Double): scala.Double = a * 180.0 / PI
   @inline def toRadians(a: scala.Double): scala.Double = a / 180.0 * PI

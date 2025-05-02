@@ -14,6 +14,8 @@ package org.scalajs.linker.backend.wasmemitter
 
 import java.nio.charset.StandardCharsets
 
+import scala.collection.mutable
+
 import EmbeddedConstants._
 
 /** Contents of the `__loader.js` file that we emit in every output. */
@@ -235,11 +237,139 @@ export function load(wasmFileURL, exportSetters, customJSHelpers, wtf16Strings) 
   }
 
   private def pureWasmStringContent: String = {
+    import org.scalajs.ir.OriginalName.NoOriginalName
+    import org.scalajs.ir.OriginalName
+    import org.scalajs.ir.Position.{NoPosition => NoPos}
+
+    import org.scalajs.linker.backend.webassembly.{BinaryWriter, FunctionBuilder, ModuleBuilder}
+    import org.scalajs.linker.backend.webassembly.Identitities._
+    import org.scalajs.linker.backend.webassembly.Instructions._
+    import org.scalajs.linker.backend.webassembly.Modules._
+    import org.scalajs.linker.backend.webassembly.Types._
+
+    import VarGen.genTypeID.i16Array
+
+    lazy val arrayModuleBuilder: ModuleBuilder = new ModuleBuilder(new ModuleBuilder.FunctionTypeProvider {
+      private val functionTypes = mutable.LinkedHashMap.empty[FunctionType, TypeID]
+
+      def functionTypeToTypeID(sig: FunctionType): TypeID = {
+        functionTypes.getOrElseUpdate(
+          sig, {
+            val typeID = VarGen.genTypeID.forFunction(functionTypes.size)
+            arrayModuleBuilder.addRecType(typeID, NoOriginalName, sig)
+            typeID
+          }
+        )
+      }
+    })
+
+    arrayModuleBuilder.addRecType(i16Array,
+        OriginalName(i16Array.toString()), ArrayType(FieldType(Int16, true)))
+
+    object create extends FunctionID
+    object length extends FunctionID
+    object get extends FunctionID
+    object set extends FunctionID
+
+    def newFunctionBuilder(functionID: FunctionID): FunctionBuilder =
+      new FunctionBuilder(arrayModuleBuilder, functionID, OriginalName(functionID.toString()), NoPos)
+
+    locally {
+      val fb = newFunctionBuilder(create)
+      val lengthParam = fb.addParam("length", Int32)
+      fb.setResultType(RefType(i16Array))
+
+      fb += LocalGet(lengthParam)
+      fb += ArrayNewDefault(i16Array)
+
+      fb.buildAndAddToModule()
+    }
+
+    locally {
+      val fb = newFunctionBuilder(length)
+      val arrayParam = fb.addParam("array", RefType(i16Array))
+      fb.setResultType(Int32)
+
+      fb += LocalGet(arrayParam)
+      fb += ArrayLen
+
+      fb.buildAndAddToModule()
+    }
+
+    locally {
+      val fb = newFunctionBuilder(get)
+      val arrayParam = fb.addParam("array", RefType(i16Array))
+      val indexParam = fb.addParam("index", Int32)
+      fb.setResultType(Int32)
+
+      fb += LocalGet(arrayParam)
+      fb += LocalGet(indexParam)
+      fb += ArrayGetU(i16Array)
+
+      fb.buildAndAddToModule()
+    }
+
+    locally {
+      val fb = newFunctionBuilder(set)
+      val arrayParam = fb.addParam("array", RefType(i16Array))
+      val indexParam = fb.addParam("index", Int32)
+      val valueParam = fb.addParam("value", Int32)
+
+      fb += LocalGet(arrayParam)
+      fb += LocalGet(indexParam)
+      fb += LocalGet(valueParam)
+      fb += ArraySet(i16Array)
+
+      fb.buildAndAddToModule()
+    }
+
+    arrayModuleBuilder.addExport(Export("create", ExportDesc.Func(create)))
+    arrayModuleBuilder.addExport(Export("length", ExportDesc.Func(length)))
+    arrayModuleBuilder.addExport(Export("get", ExportDesc.Func(get)))
+    arrayModuleBuilder.addExport(Export("set", ExportDesc.Func(set)))
+
+    val arrayModule = arrayModuleBuilder.build()
+
+    val arrayModuleBytes = BinaryWriter.write(arrayModule, emitDebugInfo = false)
+    val bytesArray = new Array[Byte](arrayModuleBytes.remaining())
+    arrayModuleBytes.get(bytesArray)
+
     raw"""
+const arrayModuleBytes = new Uint8Array([${bytesArray.map(_ & 0xff).mkString(",")}]);
+
+const wasmArray = (await WebAssembly.instantiate(arrayModuleBytes)).instance.exports;
+
+function wasmArrayToString(strArray) {
+  var str = "";
+  var len = wasmArray.length(strArray);
+  for (var i = 0; i !== len; i++)
+    str += String.fromCharCode(wasmArray.get(strArray, i));
+  return str;
+}
+
+function stringToWasmArray(str) {
+  var len = str.length;
+  var strArray = wasmArray.create(len);
+  for (var i = 0; i !== len; i++)
+    wasmArray.set(strArray, i, str.charCodeAt(i));
+  return strArray;
+}
+
+// Essential external features to test everything without the component model
+const essentialExterns = {
+  print: (strArray) => console.log(wasmArrayToString(strArray)),
+  nanoTime: () => performance.now(),
+  currentTimeMillis: () => Date.now(),
+  random: () => Math.random(),
+};
+
 $doLoadFunctionContent
 
 export function load(wasmFileURL) {
-  return doLoad(wasmFileURL, {}, {});
+  const importsObj = {
+    "$EssentialExternsModule": essentialExterns,
+  }
+  return doLoad(wasmFileURL, importsObj, {});
 }
     """
   }

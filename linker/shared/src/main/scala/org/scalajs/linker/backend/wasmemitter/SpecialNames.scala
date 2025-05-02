@@ -50,6 +50,9 @@ object SpecialNames {
   val WasmRuntimeClass =
     ClassName("org.scalajs.linker.runtime.WasmRuntime")
 
+  val WasmSystemClass =
+    ClassName("java.lang.WasmSystem$")
+
   // Field names
 
   val valueFieldSimpleName = SimpleFieldName("value")

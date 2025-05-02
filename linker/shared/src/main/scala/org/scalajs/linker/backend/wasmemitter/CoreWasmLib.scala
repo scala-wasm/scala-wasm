@@ -174,6 +174,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     if (!targetPureWasm) genImports()
     else {
+      genWasmEssentialsImports()
+
       if (coreSpec.wasmFeatures.exceptionHandling) {
         val exceptionSig = FunctionType(List(RefType.anyref), Nil)
         val typeID = ctx.moduleBuilder.functionTypeToTypeID(exceptionSig)
@@ -715,6 +717,26 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       List(anyref, anyref, anyref, anyref),
       Nil
     )
+  }
+
+  private def genWasmEssentialsImports()(implicit ctx: WasmContext): Unit = {
+    def addEssentialImport(id: genFunctionID.JSHelperFunctionID,
+        params: List[Type], results: List[Type]): Unit = {
+      val sig = FunctionType(params, results)
+      val typeID = ctx.moduleBuilder.functionTypeToTypeID(sig)
+      ctx.moduleBuilder.addImport(
+        Import(
+          EssentialExternsModule,
+          id.toString(), // import name, guaranteed by JSHelperFunctionID
+          ImportDesc.Func(id, OriginalName(id.toString()), typeID)
+        )
+      )
+    }
+
+    addEssentialImport(genFunctionID.wasmEssentials.print, List(RefType(genTypeID.i16Array)), Nil)
+    addEssentialImport(genFunctionID.wasmEssentials.nanoTime, Nil, List(Float64))
+    addEssentialImport(genFunctionID.wasmEssentials.currentTimeMillis, Nil, List(Float64))
+    addEssentialImport(genFunctionID.wasmEssentials.random, Nil, List(Float64))
   }
 
   // --- Global definitions ---

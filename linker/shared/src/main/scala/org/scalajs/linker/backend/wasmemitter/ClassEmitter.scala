@@ -1410,17 +1410,30 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val body = method.body.getOrElse(throw new Exception("abstract method cannot be transformed"))
 
     // Emit the function
-    FunctionEmitter.emitFunction(
-      functionID,
-      originalName,
-      Some(className),
-      captureParamDefs = None,
-      receiverType,
-      method.args,
-      restParam = None,
-      body,
-      method.resultType
-    )
+    if (className == SpecialNames.WasmSystemClass &&
+        namespace == MemberNamespace.Public && !methodName.isReflectiveProxy) {
+      emitSpecialMethod(
+        functionID,
+        originalName,
+        className,
+        methodName,
+        receiverType.get,
+        method.args,
+        method.resultType
+      )
+    } else {
+      FunctionEmitter.emitFunction(
+        functionID,
+        originalName,
+        Some(className),
+        captureParamDefs = None,
+        receiverType,
+        method.args,
+        restParam = None,
+        body,
+        method.resultType
+      )
+    }
 
     if (namespace == MemberNamespace.Public && !isHijackedClass) {
       /* Also generate the bridge that is stored in the table entries. In table
@@ -1464,6 +1477,48 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
       fb.buildAndAddToModule()
     }
+  }
+
+  private def emitSpecialMethod(
+      functionID: wanme.FunctionID,
+      originalName: OriginalName,
+      enclosingClassName: ClassName,
+      methodName: MethodName,
+      receiverType: watpe.Type,
+      paramDefs: List[ParamDef],
+      resultType: Type
+  )(implicit ctx: WasmContext, pos: Position): Unit = {
+    val fb = new FunctionBuilder(ctx.moduleBuilder, functionID, originalName, pos)
+    val receiverParam = fb.addParam("this", receiverType)
+    val paramLocals = paramDefs.map { paramDef =>
+      fb.addParam(paramDef.originalName.orElse(paramDef.name.name),
+          transformParamType(paramDef.ptpe))
+    }
+    fb.setResultTypes(transformResultType(resultType))
+
+    methodName.simpleName.nameString match {
+      case "print" =>
+        fb += wa.LocalGet(paramLocals(0))
+        fb += wa.RefAsNonNull
+        fb += wa.Call(genFunctionID.wasmString.getWholeChars)
+        fb += wa.Call(genFunctionID.wasmEssentials.print)
+
+      case "nanoTime" =>
+        fb += wa.Call(genFunctionID.wasmEssentials.nanoTime)
+        fb += wa.I64TruncSatF64S
+
+      case "currentTimeMillis" =>
+        fb += wa.Call(genFunctionID.wasmEssentials.currentTimeMillis)
+        fb += wa.I64TruncSatF64S
+
+      case "random" =>
+        fb += wa.Call(genFunctionID.wasmEssentials.random)
+
+      case _ =>
+        throw new AssertionError(s"Unknown WasmSystem method ${methodName.nameString}")
+    }
+
+    fb.buildAndAddToModule()
   }
 
   private def makeDebugName(namespace: UTF8String, exportedName: String): OriginalName =

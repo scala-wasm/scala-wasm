@@ -6,5 +6,7 @@ object Run {
     JavalibLangTest.run()
     JavalibUtilTest.run()
     LibraryTest.run()
+
+    println("Test suite completed")
   }
 }
