@@ -108,6 +108,55 @@ object JavalibUtilTest {
     }
 
     locally {
+      val test = new ArrayListTest
+      import test._
+      ensureCapacity()
+      constructor()
+      constructorInt()
+      constructorCollectionInteger()
+      constructorCollectionString()
+      constructorNullThrowsNullPointerException()
+      equalsForEmptyLists()
+
+      equalsForNonEmptyLists()
+      trimToSizeForNonEmptyListsWithDifferentCapacities()
+      trimToSizeForEmptyLists()
+      trimToSizeForNonEmptyLists()
+      size()
+      isEmpty()
+      indexOfAny()
+      lastIndexOfAny()
+      testClone()
+      cloneWithSizeNotEqualCapacity()
+      toArray()
+      toArrayDefaultInitialCapacityThenAddElements()
+      toArrayArrayWhenArrayIsShorter()
+      toArrayArrayWhenArrayIsWithTheSameLengthOrLonger()
+      arrayEToArrayTWhenTSubE()
+      arrayEToArrayTShouldThrowArrayStoreExceptionWhenNotTSubE()
+      toArrayNullThrowsNull()
+      getInt()
+      setInt()
+      add()
+      addInt()
+      addIntWhenTheCapacityHasToBeExpanded()
+      addAll()
+      removeInt()
+      removeAny()
+      removeRangeFromToIndenticalInvalidIndices()
+      removeRangeFromToInvalidIndices()
+      removeRangeFromToFirstTwoElements()
+      removeRangeFromToFirstTwoElementsAtHead()
+      removeRangeFromToTwoElementsFromMiddle()
+      removeRangeFromToLastTwoElementsAtTail()
+      removeRangeFromToEntireListAllElements()
+      clearTest()
+      shouldThrowAnErrorWithNegativeInitialCapacity()
+      containsAny()
+      testToString()
+    }
+
+    locally {
       val test = new ObjectsTest
       import test._
       testEquals()
