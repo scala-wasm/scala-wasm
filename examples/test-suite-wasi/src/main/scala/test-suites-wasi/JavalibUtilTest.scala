@@ -1,6 +1,7 @@
 package testSuiteWASI
 
 import org.scalajs.testsuite.javalib.util._
+import org.scalajs.testsuite.javalib.lang.IterableTest
 
 object JavalibUtilTest {
   def run(): Unit = {
@@ -108,6 +109,59 @@ object JavalibUtilTest {
     }
 
     locally {
+      val test = new ArrayListTest
+      runListTests(test)
+      runCollectionTest(test)
+      runIterableTest(test)
+
+      import test._
+      ensureCapacity()
+      constructor()
+      constructorInt()
+      constructorCollectionInteger()
+      constructorCollectionString()
+      constructorNullThrowsNullPointerException()
+      equalsForEmptyLists()
+
+      equalsForNonEmptyLists()
+      trimToSizeForNonEmptyListsWithDifferentCapacities()
+      trimToSizeForEmptyLists()
+      trimToSizeForNonEmptyLists()
+      size()
+      isEmpty()
+      indexOfAny()
+      lastIndexOfAny()
+      testClone()
+      cloneWithSizeNotEqualCapacity()
+      toArray()
+      toArrayDefaultInitialCapacityThenAddElements()
+      toArrayArrayWhenArrayIsShorter()
+      toArrayArrayWhenArrayIsWithTheSameLengthOrLonger()
+      arrayEToArrayTWhenTSubE()
+      arrayEToArrayTShouldThrowArrayStoreExceptionWhenNotTSubE()
+      toArrayNullThrowsNull()
+      getInt()
+      setInt()
+      add()
+      addInt()
+      addIntWhenTheCapacityHasToBeExpanded()
+      addAll()
+      removeInt()
+      removeAny()
+      removeRangeFromToIndenticalInvalidIndices()
+      removeRangeFromToInvalidIndices()
+      removeRangeFromToFirstTwoElements()
+      removeRangeFromToFirstTwoElementsAtHead()
+      removeRangeFromToTwoElementsFromMiddle()
+      removeRangeFromToLastTwoElementsAtTail()
+      removeRangeFromToEntireListAllElements()
+      clearTest()
+      shouldThrowAnErrorWithNegativeInitialCapacity()
+      containsAny()
+      testToString()
+    }
+
+    locally {
       val test = new ObjectsTest
       import test._
       testEquals()
@@ -120,5 +174,63 @@ object JavalibUtilTest {
       isNull()
       nonNull()
     }
+  }
+
+  private def runListTests(test: ListTest) = {
+    import test._
+    addStringGetIndex()
+    addIntGetIndex()
+    addDoubleGetIndex()
+    addCustomObjectsGetIndex()
+    removeStringRemoveIndex()
+    removeDoubleOnCornerCases()
+    clearList()
+    containsStringList()
+    // containedDoubleOnCornerCases()
+    setString()
+    test.iterator()
+    toArrayObjectForList()
+    toArraySpecificForList()
+    listIterator()
+    listIteratorPreviousThrowsNoSuchElementException()
+    addIndex()
+    indexOf()
+    lastIndexOf()
+    // indexOfLastIndexOfDoubleCornerCases()
+    subListBackedByList()
+    iteratorSetRemoveIfAllowed()
+    replaceAll()
+    sortWithNaturalOrdering()
+    sortWithComparator()
+  }
+
+  private def runCollectionTest(test: CollectionTest) = {
+    import test._
+    testWithString()
+    testWithInt()
+    // testWithDouble()
+    testWithCustomClass()
+    removeString()
+    removeDoubleCornerCases()
+    clear()
+    containsString()
+    // containsDoubleCornerCases()
+    iteratorString()
+    toArrayObject()
+    toArraySpecific()
+    removeIf()
+    // TODO: float to string
+    // toStringCollectionDoubleEmpty()
+    // toStringCollectionDoubleOneElement()
+    // toStringCollectionDoubleHasCommaSpace()
+    toStringCollectionAnyWithNull()
+    toStringCollectionCustomClass()
+  }
+
+  private def runIterableTest(test: IterableTest) = {
+    import test._
+    empty()
+    simpleSum()
+    iteratorThrowsNoSuchElementException()
   }
 }
