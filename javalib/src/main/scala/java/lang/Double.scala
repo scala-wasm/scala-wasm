@@ -16,6 +16,7 @@ import java.lang.constant.{Constable, ConstantDesc}
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 import Utils._
 
@@ -365,10 +366,11 @@ object Double {
     !isNaN(d) && !isInfinite(d)
 
   @inline def hashCode(value: scala.Double): Int = {
-    if (LinkingInfo.isWebAssembly)
+    linkTimeIf(LinkingInfo.isWebAssembly) {
       hashCodeForWasm(value)
-    else
+    } {
       FloatingPointBits.numberHashCode(value)
+    }
   }
 
   // See FloatingPointBits for the spec of this computation
@@ -384,11 +386,19 @@ object Double {
 
   // Wasm intrinsic
   @inline def longBitsToDouble(bits: scala.Long): scala.Double =
-    FloatingPointBits.longBitsToDouble(bits)
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      FloatingPointBitsWasm.longBitsToDouble(bits)
+    } {
+      FloatingPointBits.longBitsToDouble(bits)
+    }
 
   // Wasm intrinsic
   @inline def doubleToLongBits(value: scala.Double): scala.Long =
-    FloatingPointBits.doubleToLongBits(value)
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      FloatingPointBitsWasm.doubleToLongBits(value)
+    } {
+      FloatingPointBits.doubleToLongBits(value)
+    }
 
   @inline def sum(a: scala.Double, b: scala.Double): scala.Double =
     a + b

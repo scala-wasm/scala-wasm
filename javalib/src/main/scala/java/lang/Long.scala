@@ -17,6 +17,8 @@ import scala.annotation.{switch, tailrec}
 import java.lang.constant.{Constable, ConstantDesc}
 
 import scala.scalajs.js
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 /* This is a hijacked class. Its instances are the representation of scala.Longs.
  * Constructors are not emitted.

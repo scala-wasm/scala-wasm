@@ -17,6 +17,7 @@ import java.util.function._
 import scala.scalajs.js
 import scala.scalajs.js.annotation.JSExport
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 class Throwable protected (s: String, private var e: Throwable,
     enableSuppression: scala.Boolean, writableStackTrace: scala.Boolean)
@@ -35,7 +36,7 @@ class Throwable protected (s: String, private var e: Throwable,
    */
   private[this] var suppressed: Array[Throwable] = _
 
-  if (writableStackTrace && !LinkingInfo.targetPureWasm)
+  if (writableStackTrace)
     fillInStackTrace()
 
   def initCause(cause: Throwable): Throwable = {
@@ -48,7 +49,9 @@ class Throwable protected (s: String, private var e: Throwable,
   def getLocalizedMessage(): String = getMessage()
 
   def fillInStackTrace(): Throwable = {
-    if (!LinkingInfo.targetPureWasm) jsErrorForStackTrace = StackTrace.captureJSError(this)
+    linkTimeIf(!LinkingInfo.targetPureWasm) {
+      jsErrorForStackTrace = StackTrace.captureJSError(this)
+    } {}
     this
   }
 

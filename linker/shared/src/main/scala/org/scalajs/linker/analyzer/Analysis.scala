@@ -227,6 +227,8 @@ object Analysis {
     from: From
   ) extends Error
 
+  final case class JSInteropInPureWasm(from: From) extends Error
+
   sealed trait From
   final case class FromMethod(methodInfo: MethodInfo) extends From
   final case class FromDispatch(classInfo: ClassInfo, methodName: MethodName) extends From
@@ -291,6 +293,8 @@ object Analysis {
         "Uses an orphan await (outside of an async block) without targeting WebAssembly"
       case InvalidLinkTimeProperty(name, tpe, _) =>
         s"Uses invalid link-time property ${name} of type ${tpe}"
+      case JSInteropInPureWasm(_) =>
+        s"Uses JS interop with targetPureWasm = true"
     }
 
     logger.log(level, headMsg)
