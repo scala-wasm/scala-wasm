@@ -44,7 +44,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     /** Export at the top-level. */
     case class TopLevel(moduleID: String) extends ExportDestination
 
-    case object WasmComponent extends ExportDestination
+    case class WasmComponent(moduleID: String) extends ExportDestination
 
     /** Export as a static member of the companion class. */
     case object Static extends ExportDestination
@@ -125,13 +125,12 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       jsInterop.registerStaticExports(sym, static)
 
     val wasmComponent = exports.collect {
-      case info @ ExportInfo(name, ExportDestination.WasmComponent) if sym.isMethod =>
+      case info @ ExportInfo(name, ExportDestination.WasmComponent(moduleID)) =>
         val signature = jsInterop.ComponentFunctionType(
           (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
           sym.tpe.resultType
         )
-        val methodName = sym.encodedName.replaceAll("([a-z])([A-Z])", "$1-$2").toLowerCase()
-        jsInterop.WasmComponentExportInfo(s"$name#$methodName", signature)(info.pos)
+        jsInterop.WasmComponentExportInfo(moduleID, name, signature)(info.pos)
     }
 
     if (sym.isMethod && wasmComponent.nonEmpty)
@@ -175,8 +174,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       }
 
       if (useExportAll)
-        symOwner.annotations.filter(a =>
-          a.symbol == JSExportAllAnnotation || a.symbol == ComponentExportAnnotation)
+        symOwner.annotations.filter(a => a.symbol == JSExportAllAnnotation)
       else
         Nil
     }
@@ -204,7 +202,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       assert(!isTopLevelExport || hasExplicitName,
           "Found a top-level export without an explicit name at " + annot.pos)
       assert(!isWasmComponentExport || hasExplicitName,
-          "Found a top-level wasm component export without an explicit name at " + annot.pos)
+          "Found a wasm component export without an explicit name at " + annot.pos)
 
       val name = {
         if (hasExplicitName) {
@@ -240,7 +238,12 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
 
           ExportDestination.TopLevel(moduleID)
         } else if (isWasmComponentExport) {
-          ExportDestination.WasmComponent
+          val moduleID = annot.stringArg(1).getOrElse {
+            reporter.error(annot.args(1).pos,
+                "moduleID must be a literal string")
+            DefaultModuleID // dummy
+          }
+          ExportDestination.WasmComponent(moduleID)
         } else if (isStaticExport) {
           ExportDestination.Static
         } else {
@@ -300,8 +303,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
             }
           }
 
-        case _: ExportDestination.TopLevel | ExportDestination.WasmComponent =>
-          val isWasmComponentExport = destination == ExportDestination.WasmComponent
+        case _: ExportDestination.TopLevel =>
           if (sym.isLazy) {
             reporter.error(annot.pos,
                 "You may not export a lazy val to the top level")
@@ -317,10 +319,21 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           }
 
           // The top-level name must be a valid JS identifier
-          if (!isWasmComponentExport && !isValidTopLevelExportName(name)) {
+          if (!isValidTopLevelExportName(name)) {
             reporter.error(annot.pos,
                 "The top-level export name must be a valid JavaScript " +
                 "identifier name")
+          }
+
+        case _: ExportDestination.WasmComponent =>
+          if (sym.isLazy) {
+            reporter.error(annot.pos,
+                "You may not export a lazy val to the Wasm Component")
+          }
+          // Disallow non-static definitions.
+          if (!symOwner.isStatic || !symOwner.isModuleClass || !sym.isMethod) {
+            reporter.error(annot.pos,
+                "Only static objects may export their function to the Wasm Component")
           }
 
         case ExportDestination.Static =>
@@ -391,7 +404,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
                 "Fields (val or var) cannot be exported as static more " +
                 "than once")
 
-          case _: ExportDestination.TopLevel | ExportDestination.WasmComponent =>
+          case _: ExportDestination.TopLevel | _: ExportDestination.WasmComponent =>
             reporter.error(duplicate.pos,
                 "Fields (val or var) cannot be exported both as static " +
                 "and at the top-level")
@@ -588,7 +601,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
   private lazy val isDirectMemberAnnot = Set[Symbol](
       JSExportAnnotation,
       JSExportTopLevelAnnotation,
-      JSExportStaticAnnotation
+      JSExportStaticAnnotation,
+      ComponentExportAnnotation
   )
 
 }

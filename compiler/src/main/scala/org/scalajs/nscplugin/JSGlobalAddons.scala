@@ -125,7 +125,8 @@ trait JSGlobalAddons extends JSDefinitions
         val pos: Position) extends ExportInfo
     case class StaticExportInfo(jsName: String)(val pos: Position)
         extends ExportInfo
-    case class WasmComponentExportInfo(name: String, signature: ComponentFunctionType)(
+    case class WasmComponentExportInfo(moduleName: String, name: String,
+        signature: ComponentFunctionType)(
         val pos: Position) extends ExportInfo
     case class ComponentFunctionType(
       params: List[Type],
@@ -290,13 +291,11 @@ trait JSGlobalAddons extends JSDefinitions
       staticExports.put(sym, infos)
     }
 
-    def wasmComponentExportOf(sym: Symbol): WasmComponentExportInfo = {
-      wasmComponentExports(sym)
-    }
+    def wasmComponentExportOf(sym: Symbol): Option[WasmComponentExportInfo] =
+      wasmComponentExports.get(sym)
 
     def registerWasmComponentExport(sym: Symbol, info: WasmComponentExportInfo): Unit = {
       assert(!wasmComponentExports.contains(sym), s"symbol exported twice: $sym")
-      // assert(sym.isMethod)
       wasmComponentExports.put(sym, info)
     }
 

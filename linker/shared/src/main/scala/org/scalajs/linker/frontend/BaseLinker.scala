@@ -166,7 +166,7 @@ private[frontend] object BaseLinker {
       .filter(m => classInfo.jsNativeMembersUsed.contains(m.name.name))
 
     val wasmComponentNativeMembers = classDef.componentNativeMembers
-      .filter(m => classInfo.wasmComponentNativeMembersUsed.contains(m.name.name))
+      .filter(m => classInfo.wasmComponentNativeMembersUsed.contains(m.method.name))
 
     val allMethods = methods ++ syntheticMethodDefs
 

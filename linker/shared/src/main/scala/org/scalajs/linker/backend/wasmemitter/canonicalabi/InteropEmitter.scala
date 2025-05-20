@@ -1,9 +1,12 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
-import org.scalajs.ir.OriginalName
+import org.scalajs.ir.{
+  OriginalName,
+  Trees => js,
+  WasmInterfaceTypes => wit,
+}
 import org.scalajs.ir.OriginalName.NoOriginalName
-import org.scalajs.ir.Trees.{ComponentNativeMemberDef, MemberNamespace, WasmComponentExportDef}
-import org.scalajs.ir.{WasmInterfaceTypes => wit}
+import org.scalajs.ir.Trees.WasmComponentFunctionName._
 
 import org.scalajs.linker.standard.LinkedClass
 
@@ -12,49 +15,62 @@ import org.scalajs.linker.backend.wasmemitter.WasmContext
 import org.scalajs.linker.backend.wasmemitter.TypeTransformer._
 import org.scalajs.linker.backend.wasmemitter.FunctionEmitter
 
-import org.scalajs.linker.backend.webassembly.FunctionBuilder
-import org.scalajs.linker.backend.webassembly.{Instructions => wa}
-import org.scalajs.linker.backend.webassembly.{Modules => wamod}
-import org.scalajs.linker.backend.webassembly.{Identitities => wanme}
-import org.scalajs.linker.backend.webassembly.{Types => watpe}
+import org.scalajs.linker.backend.webassembly.{
+  FunctionBuilder,
+  Instructions => wa,
+  Modules => wamod,
+  Identitities => wanme,
+  Types => watpe,
+}
 import org.scalajs.linker.backend.webassembly.component.Flatten
 import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueIterator
 
 
 object InteropEmitter {
+  /** https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md#import-and-export-definitions */
+  private def toWasmImportExportName(name: js.WasmComponentFunctionName): String =
+    name match {
+      case Function(func) => func
+      case ResourceMethod(func, resource) => s"[method]$resource.$func"
+      case ResourceStaticMethod(func, resource) => s"[static]$resource.$func"
+      case ResourceConstructor(resource) => s"[constructor]$resource"
+      case ResourceDrop(resource) => s"[resource-drop]$resource"
+    }
 
-
-  def genComponentNativeInterop(clazz: LinkedClass, member: ComponentNativeMemberDef)(
+  def genComponentNativeInterop(clazz: LinkedClass, member: js.ComponentNativeMemberDef)(
     implicit ctx: WasmContext
   ): Unit = {
-    val importFunctionID = genFunctionID.forComponentFunction(member.importModule, member.importName)
+    val importFunctionID = genFunctionID.forComponentFunction(
+        member.moduleName, member.name)
+    val importName = toWasmImportExportName(member.name)
     val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
+    genComponentAdapterFunction(clazz, member, importFunctionID)
     ctx.moduleBuilder.addImport(
       wamod.Import(
-        member.importModule,
-        member.importName,
+        member.moduleName,
+        importName,
         wamod.ImportDesc.Func(
           importFunctionID,
-          OriginalName(s"${member.importModule}#${member.importName}"),
+          OriginalName(s"${member.moduleName}#$importName"),
           ctx.moduleBuilder.functionTypeToTypeID(loweredFuncType.funcType)
         )
       )
     )
-    genComponentAdapterFunction(clazz, member, importFunctionID)
   }
 
-  private def genComponentAdapterFunction(clazz: LinkedClass, member: ComponentNativeMemberDef,
+  private def genComponentAdapterFunction(clazz: LinkedClass, member: js.ComponentNativeMemberDef,
       importFunctionID: wanme.FunctionID)(
       implicit ctx: WasmContext): wanme.FunctionID = {
     val functionID = genFunctionID.forMethod(
-      MemberNamespace.PublicStatic,
+      js.MemberNamespace.PublicStatic,
       clazz.className,
-      member.name.name
+      member.method.name
     )
+    val importName = toWasmImportExportName(member.name)
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,
       functionID,
-      OriginalName(s"${member.importModule}#${member.importName}-adapter"),
+      OriginalName(s"${member.moduleName}#$importName-adapter"),
       member.pos,
     )
 
@@ -127,35 +143,29 @@ object InteropEmitter {
 
 
   // Export
-  def genWasmComponentExportDef(exportDef: WasmComponentExportDef)(
+  def genWasmComponentExportDef(exportDef: js.WasmComponentExportDef)(
       implicit ctx: WasmContext): Unit = {
     implicit val pos = exportDef.pos
 
+    // internal function generation
+
+    // convention of wasm-tools
+    // see: https://github.com/WebAssembly/component-model/issues/422
+    val exportName = s"${exportDef.moduleName}#${toWasmImportExportName(exportDef.name)}"
+    val internalFunctionID = genFunctionID.forExport(exportName + "$internal")
     val method = exportDef.methodDef
-    val internalMethodName = exportDef.exportName + "$internal"
-    val internalFunctionID = genFunctionID.forExport(internalMethodName)
-    FunctionEmitter.emitFunction(
-      internalFunctionID,
-      OriginalName(internalMethodName),
-      enclosingClassName = None,
-      captureParamDefs = None,
-      receiverType = None,
-      method.args,
-      None,
-      method.body.get,
-      method.resultType
-    )
+    FunctionEmitter.emitFunction(internalFunctionID,
+        OriginalName(exportName + "$internal"), None, None, None,
+        method.args, None, method.body.get, method.resultType)
 
     // gen export adapter func
-    val exportFunctionID = genFunctionID.forExport(exportDef.exportName)
+    val exportFunctionID = genFunctionID.forExport(exportName)
     val flatFuncType = Flatten.liftFlattenFuncType(exportDef.signature)
-
-
     locally {
       val fb = new FunctionBuilder(
         ctx.moduleBuilder,
         exportFunctionID,
-        OriginalName(exportDef.exportName),
+        OriginalName(exportName),
         pos,
       )
       fb.setResultTypes(flatFuncType.funcType.results)
@@ -190,7 +200,6 @@ object InteropEmitter {
             CABIToScalaJS.genLoadStack(fb, paramTy, iterator)
           }
       }
-
       fb += wa.Call(internalFunctionID)
 
       returnOffsetOpt match {
@@ -209,7 +218,7 @@ object InteropEmitter {
       fb.buildAndAddToModule()
       ctx.moduleBuilder.addExport(
         wamod.Export(
-          exportDef.exportName,
+          exportName,
           wamod.ExportDesc.Func(exportFunctionID)
         )
       )
@@ -220,7 +229,7 @@ object InteropEmitter {
       // wasm-tools convention: prefixed with cabi_post_${func} will be post-return of $func
       // https://github.com/alexcrichton/wasm-tools/blob/da3e9730810c2e8782eb30db9a450aaa5fce881b/crates/wit-parser/src/resolve.rs#L2339-L2341
       // In future, we'd like to follow the spec https://github.com/WebAssembly/component-model/pull/378
-      val postReturnName = "cabi_post_" + exportDef.exportName
+      val postReturnName = "cabi_post_" + exportName
       val postReturnFunctionID = genFunctionID.forExport(postReturnName)
 
       val fb = new FunctionBuilder(

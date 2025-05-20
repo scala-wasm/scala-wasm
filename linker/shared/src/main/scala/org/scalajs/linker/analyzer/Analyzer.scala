@@ -598,7 +598,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
             }
           }
 
-        case NativeWasmComponentResourceClass | ClassKind.NativeWasmComponentInterfaceClass =>
+        case NativeWasmComponentResourceClass =>
           assert(superClass.isEmpty)
           None
       }
@@ -611,8 +611,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
         case ClassKind.Class | ClassKind.ModuleClass |
             ClassKind.HijackedClass | ClassKind.Interface =>
           ClassKind.Interface
-        case ClassKind.NativeWasmComponentResourceClass |
-            ClassKind.NativeWasmComponentInterfaceClass =>
+        case ClassKind.NativeWasmComponentResourceClass =>
           ClassKind.Interface
         case ClassKind.JSClass | ClassKind.JSModuleClass |
             ClassKind.NativeJSClass | ClassKind.NativeJSModuleClass |

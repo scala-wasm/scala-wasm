@@ -611,7 +611,7 @@ object Infos {
     private var inAsync: Boolean = false
 
     def generateComponentNativeMember(member: ComponentNativeMemberDef): MethodInfo = {
-      val methodName = member.name.name
+      val methodName = member.method.name
       methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
       builder.maybeAddReferencedClass(methodName.resultTypeRef)
       generateForWIT(member.signature)
@@ -822,8 +822,6 @@ object Infos {
               builder.addJSNativeMemberUsed(className, member.name)
 
             case Apply(flags, receiver, method, _) =>
-              // if (receiver.tpe.show.contains("NumValue"))
-              //   println(s"called $receiver.$method")
               builder.addMethodCalled(receiver.tpe, method.name)
             case ApplyStatically(flags, _, className, method, _) =>
               val namespace = MemberNamespace.forNonStaticCall(flags)

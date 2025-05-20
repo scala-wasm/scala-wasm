@@ -975,7 +975,6 @@ object Printers {
         case ClassKind.NativeJSClass       => print("native js class ")
         case ClassKind.NativeJSModuleClass => print("native js module class ")
         case ClassKind.NativeWasmComponentResourceClass => print("native wasm resource class ")
-        case ClassKind.NativeWasmComponentInterfaceClass => print("native wasm interface class ")
       }
       print(name)
       print(originalName)
@@ -1089,15 +1088,8 @@ object Printers {
           print(" loadfrom ")
           print(jsNativeLoadSpec)
 
-        case ComponentNativeMemberDef(flags, name, importModule, importName, tpe) =>
-          print(flags.namespace.prefixString)
-          print("component ")
-          print(name)
-          print(" importfrom \"")
-          print(importModule)
-          print("\" \"")
-          print(importName)
-          print("\"")
+        case ComponentNativeMemberDef(flags, module, name,
+            method, tpe) =>
           // TODO
       }
     }
@@ -1128,11 +1120,8 @@ object Printers {
           printEscapeJS(exportName, out)
           print("\"")
 
-        case WasmComponentExportDef(_, exportName, methodDef, signature) =>
-          print("wasm \"")
-          printEscapeJS(exportName, out)
-          print("\" :")
-          // TODO: print signature
+        case WasmComponentExportDef(moduleName, name, methodDef, signature) =>
+          // TODO
           // var first = true
           // for (ty <- paramTypes) {
           //   if (first) first = false
@@ -1144,14 +1133,6 @@ object Printers {
           // print(" = ")
           // print(methodDef)
       }
-    }
-
-    def print(wasmExport: WasmComponentExportDef): Unit = {
-      print("(export \"")
-      print(wasmExport.exportName)
-      print("\" ")
-      print(wasmExport.methodDef)
-      print(")")
     }
 
     def print(typeRef: TypeRef): Unit = typeRef match {

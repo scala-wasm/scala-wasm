@@ -157,7 +157,6 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       checkInternalAnnotations(sym)
 
       val isComponentVariantCase = sym.isSubClass(ComponentVariantClass) && sym.isConcreteClass
-      val isComponentNative = sym.hasAnnotation(ComponentNativeAnnotation) // TODO
       if (isComponentVariantCase)
         checkComponentVariant(sym)
       if (sym.hasAnnotation(ComponentRecordAnnotation))
@@ -176,6 +175,11 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         checkJSNativeSpecificAnnotsOnNonJSNative(tree)
 
       checkJSCallingConventionAnnots(sym)
+
+      if (WasmComponentFunctionAnnots.exists(sym.hasAnnotation(_)))
+        checkWasmComponentFunction(tree.pos, sym)
+      if (sym.hasAnnotation(ComponentResourceImportAnnotation))
+        checkWasmComponentResourceImport(tree.pos, sym)
 
       // @unchecked needed because MemberDef is not marked `sealed`
       val transformedTree: Tree = (tree: @unchecked) match {
@@ -212,10 +216,6 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
               exporters.getOrElseUpdate(target, mutable.ListBuffer.empty) ++= exports
             }
-            if (
-              (sym.isMethod && sym.owner.hasAnnotation(ComponentImportAnnotation)) ||
-              (sym.isMethod && sym.hasAnnotation(ComponentNativeAnnotation))
-            ) checkWasmComponentImport(sym)
           }
 
           if (sym.isLocalToBlock) {
@@ -781,14 +781,60 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       }
     }
 
-    private def checkWasmComponentImport(sym: Symbol): Unit = {
-      if (sym.isMethod && !sym.isConstructor) {
-        val funcType = jsInterop.ComponentFunctionType(
-          (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
-          sym.tpe.resultType
-        )
-        jsInterop.storeComponentFunctionType(sym, funcType)
-      }
+    private def checkWasmComponentFunction(pos: Position, sym: Symbol): Unit =
+      checkAndGetWasmComponentFunctionAnnotOf(pos, sym).foreach { annot =>
+        val isFunction = annot.symbol == ComponentImportAnnotation
+        val isResourceMethod = annot.symbol == ComponentResourceMethodAnnotation
+        val isStaticMethod = annot.symbol == ComponentResourceStaticMethodAnnotation
+        val isConstructor = annot.symbol == ComponentResourceConstructorAnnotation
+        val isDrop = annot.symbol == ComponentResourceDropAnnotation
+
+        if (sym.isLocalToBlock) {
+          reporter.error(pos,
+              s"$annot is not allowed on local definitions")
+        } else if (!sym.isMethod) {
+          reporter.error(pos,
+              s"$annot is allowed on static method definition")
+        } else if (sym.isConstructor) {
+          reporter.error(pos,
+              s"$annot is not allowed on constructor")
+        } else {
+          if ((isResourceMethod || isDrop) && (
+              !sym.owner.isTraitOrInterface ||
+              !sym.owner.hasAnnotation(ComponentResourceImportAnnotation))) {
+            reporter.error(pos,
+                s"$annot is allowed in trait annotated with @ComponentResourceImport")
+          } else if ((isStaticMethod || isConstructor) && (
+              !sym.owner.isModuleClass ||
+              sym.owner.companionClass == NoSymbol ||
+              !sym.owner.companionClass.isTraitOrInterface ||
+              !sym.owner.companionClass.hasAnnotation(ComponentResourceImportAnnotation))) {
+            reporter.error(pos,
+                s"$annot is allowed in companion object of trait annotated with @ComponentResourceImport")
+          } else if (isConstructor && sym.name != nme.apply) {
+             reporter.error(pos,
+                 s"@ComponentResourceConstructor is allowed only on an apply method")
+          } else {
+            for (overridden <- sym.allOverriddenSymbols.headOption) {
+              val verb = if (overridden.isDeferred) "implement" else "override"
+              reporter.error(pos,
+                  s"An $annot member cannot $verb the inherited member " +
+                  overridden.fullName)
+            }
+            val funcType = jsInterop.ComponentFunctionType(
+              (if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head).map(_.tpe),
+              sym.tpe.resultType
+            )
+            jsInterop.storeComponentFunctionType(sym, funcType)
+          }
+        }
+    }
+
+    private def checkWasmComponentResourceImport(pos: Position, sym: Symbol): Unit = {
+      if (!sym.isTrait) {
+        reporter.error(pos,
+            "@ComponentResourceImport is allowed for traits")
+      } // what else?
     }
 
     private def checkComponentVariant(sym: Symbol): Unit = {
@@ -1716,6 +1762,36 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
   private def moduleToModuleClass(sym: Symbol): Symbol =
     if (sym.isModule) sym.moduleClass
     else sym
+
+  // Wasm Component related
+
+  private def checkAndGetWasmComponentFunctionAnnotOf(
+      pos: Position, sym: Symbol): Option[Annotation] = {
+    val annots = sym.annotations.filter { annot =>
+      WasmComponentFunctionAnnots.contains(annot.symbol)
+    }
+
+    annots match {
+      case Nil => None
+      case head :: Nil =>
+        Some(head)
+      case head :: tail =>
+        reporter.error(pos,
+            "Wasm Component function must have exactly one annotation among " +
+            "@ComponentImport, @ComponentResourceMethod, @ComponentResourceStaticMethod " +
+            "@ComponentResourceConstructor, and @ComponentResourceDrop")
+        None
+    }
+
+  }
+
+  private lazy val WasmComponentFunctionAnnots: Set[Symbol] = {
+    Set(ComponentImportAnnotation,
+        ComponentResourceMethodAnnotation,
+        ComponentResourceStaticMethodAnnotation,
+        ComponentResourceConstructorAnnotation,
+        ComponentResourceDropAnnotation)
+  }
 }
 
 object PrepJSInterop {

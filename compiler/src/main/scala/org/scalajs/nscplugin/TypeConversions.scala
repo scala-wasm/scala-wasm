@@ -73,11 +73,11 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
       makeArrayTypeRef(base, arrayDepth)
   }
 
-  def toWIT(tpe: Type): Option[wit.ValType] = {
-    unsigned2WIT.get(tpe.typeSymbolDirect).orElse {
-      primitiveIRWIT.get(toIRType(tpe))
-    }
-  }
+  // def toWIT(tpe: Type): Option[wit.ValType] = {
+  //   unsigned2WIT.get(tpe.typeSymbolDirect).orElse {
+  //     primitiveIRWIT.get(toIRType(tpe))
+  //   }
+  // }
 
   private lazy val primitiveIRWIT: Map[Types.Type, wit.ValType] = Map(
     Types.VoidType -> wit.VoidType,

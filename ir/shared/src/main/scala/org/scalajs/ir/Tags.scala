@@ -253,4 +253,11 @@ private[ir] object Tags {
   final val TagWITResourceType = TagWITFlagsType + 1
   final val TagWITFuncType = TagWITResourceType + 1
 
+  // Tags for wasm Component Function kind
+
+  final val TagWasmComponentFunction = 0
+  final val TagWasmComponentResourceMethod = TagWasmComponentFunction + 1
+  final val TagWasmComponentResourceStaticMethod = TagWasmComponentResourceMethod + 1
+  final val TagWasmComponentResourceConstructor = TagWasmComponentResourceStaticMethod + 1
+  final val TagWasmComponentResourceDrop = TagWasmComponentResourceConstructor + 1
 }

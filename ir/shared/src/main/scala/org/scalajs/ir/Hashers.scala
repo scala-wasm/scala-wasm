@@ -114,8 +114,8 @@ object Hashers {
     case TopLevelMethodExportDef(moduleID, methodDef) =>
       TopLevelMethodExportDef(moduleID, hashJSMethodDef(methodDef))(tle.pos)
 
-    case WasmComponentExportDef(moduleID, exportName, methodDef, signature) =>
-      WasmComponentExportDef(moduleID, exportName, hashMethodDef(methodDef), signature)(tle.pos)
+    case WasmComponentExportDef(moduleID, name, methodDef, signature) =>
+      WasmComponentExportDef(moduleID, name, hashMethodDef(methodDef), signature)(tle.pos)
 
     case _:TopLevelFieldExportDef | _:TopLevelModuleExportDef |
         _:TopLevelJSClassExportDef =>

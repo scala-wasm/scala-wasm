@@ -105,9 +105,8 @@ object ScalaJSToCABI {
         for ((f, i) <- fields.zipWithIndex) {
           genAlignTo(fb, wit.alignment(f), ptr)
           fb += wa.LocalGet(ptr)
-          val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
-
           if (isSpecialized) {
+            val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
             genVTableDispatch(fb, className, methodName, tuple)
           } else {
             fb += wa.LocalGet(tuple)
@@ -247,9 +246,8 @@ object ScalaJSToCABI {
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(tuple)
         for ((f, i) <- fields.zipWithIndex) {
-          val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
-
           if (isSpecialized) {
+            val methodName = MethodName(s"_${i + 1}", Nil, ClassRef(ObjectClass))
             genVTableDispatch(fb, className, methodName, tuple)
           } else {
             fb += wa.LocalGet(tuple)

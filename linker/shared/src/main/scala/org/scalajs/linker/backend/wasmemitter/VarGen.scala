@@ -18,6 +18,7 @@ import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker.backend.webassembly.Identitities._
+import org.scalajs.ir.Trees.WasmComponentFunctionName
 
 /** Manages generation of non-local IDs.
  *
@@ -114,7 +115,8 @@ object VarGen {
 
     case object start extends FunctionID
 
-    final case class forComponentFunction(module: String, name: String) extends FunctionID
+    final case class forComponentFunction(module: String,
+        name: WasmComponentFunctionName) extends FunctionID
 
     final case object f32Fmod extends FunctionID
     final case object f64Fmod extends FunctionID
