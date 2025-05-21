@@ -1409,7 +1409,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val body = method.body.getOrElse(throw new Exception("abstract method cannot be transformed"))
 
     // Emit the function
-    if (className == SpecialNames.WasmSystemClass &&
+    if (!ctx.coreSpec.wasmFeatures.componentModel &&
+        className == SpecialNames.WasmSystemClass &&
         namespace == MemberNamespace.Public && !methodName.isReflectiveProxy) {
       emitSpecialMethod(
         functionID,

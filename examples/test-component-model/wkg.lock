@@ -10,3 +10,21 @@ registry = "warg.wa.dev"
 requirement = "=0.2.0"
 version = "0.2.0"
 digest = "sha256:e7e85458e11caf76554b724ebf4f113259decf0f3b1ee2e2930de096f72114a7"
+
+[[packages]]
+name = "wasi:clocks"
+registry = "warg.wa.dev"
+
+[[packages.versions]]
+requirement = "=0.2.0"
+version = "0.2.0"
+digest = "sha256:51911098e929732f65d1d84f8dc393299f18a9e8de632d854714f37142efe97b"
+
+[[packages]]
+name = "wasi:io"
+registry = "warg.wa.dev"
+
+[[packages.versions]]
+requirement = "=0.2.0"
+version = "0.2.0"
+digest = "sha256:c33b1dbf050f64229ff4decbf9a3d3420e0643a86f5f0cea29f81054820020a6"

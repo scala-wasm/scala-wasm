@@ -78,6 +78,7 @@ object TestImports {
     import Basics._
     import Tests._
     import Countable._
+    val start = System.currentTimeMillis()
     assert(1 == roundtripU8(1))
     assert(0 == roundtripS8(0))
     assert(0 == roundtripU16(0))
@@ -169,6 +170,8 @@ object TestImports {
       // unknown handle index 1 (?)
       assert(100 == Counter.sum(c1, c2).valueOf())
     }
+    val end = System.currentTimeMillis()
+    println(s"elapsed: ${(end - start).toInt} ms")
   }
 }
 

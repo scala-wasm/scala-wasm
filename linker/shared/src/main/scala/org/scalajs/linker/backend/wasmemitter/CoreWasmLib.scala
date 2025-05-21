@@ -174,7 +174,8 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
 
     if (!targetPureWasm) genImports()
     else {
-      genWasmEssentialsImports()
+      if (!coreSpec.wasmFeatures.componentModel)
+        genWasmEssentialsImports()
 
       if (coreSpec.wasmFeatures.exceptionHandling) {
         val exceptionSig = FunctionType(List(RefType.anyref), Nil)

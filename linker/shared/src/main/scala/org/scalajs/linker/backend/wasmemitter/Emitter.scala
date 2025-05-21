@@ -230,7 +230,11 @@ final class Emitter(config: Emitter.Config) {
       for (c <- message)
         fb += wa.I32Const(c.toInt)
       fb += wa.ArrayNewFixed(genTypeID.i16Array, message.length())
-      fb += wa.Call(genFunctionID.wasmEssentials.print)
+
+      if (coreSpec.wasmFeatures.componentModel)
+        fb += wa.Drop // TODO
+      else
+        fb += wa.Call(genFunctionID.wasmEssentials.print)
 
       // In any case, fail the execution
       fb += wa.Unreachable

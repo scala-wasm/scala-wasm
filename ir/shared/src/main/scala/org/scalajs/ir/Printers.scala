@@ -937,7 +937,11 @@ object Printers {
           print(")")
 
         case ComponentFunctionApply(receiver, className, method, args) =>
-          print(className)
+          print("<component-function-apply>")
+          receiver match {
+            case Some(receiver) => print(receiver)
+            case None => print(className)
+          }
           print(".")
           print(method)
           printArgs(args)

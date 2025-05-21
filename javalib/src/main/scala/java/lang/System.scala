@@ -385,8 +385,8 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    if (LinkingInfo.targetPureWasm) { // isWASI
-      WasmSystem.print(line)
+    if (LinkingInfo.targetPureWasm) {
+      WasmSystem.print(line + "\n")
     } else {
       import js.DynamicImplicits.truthValue
 

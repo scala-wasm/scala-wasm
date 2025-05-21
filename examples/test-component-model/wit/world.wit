@@ -1,7 +1,10 @@
 package component:testing;
 
 world scala {
+  import wasi:clocks/wall-clock@0.2.0;
   import wasi:cli/stdout@0.2.0;
+  import wasi:io/streams@0.2.0;
+
   import basics;
   import tests;
   import countable;
@@ -17,8 +20,6 @@ world rust-exports {
 }
 
 world rust-run {
-  export wasi:cli/run@0.2.0;
-
   import tests;
   import test-imports;
 }
@@ -48,8 +49,8 @@ interface countable {
 }
 
 interface tests {
-  roundtrip-basics0: func(a: tuple<u32, s32>)
-    -> tuple<u32, s32>;
+  /// roundtrip-basics0: func(a: tuple<u32, s32>)
+  ///   -> tuple<u32, s32>;
   roundtrip-basics1: func(a: tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>)
     -> tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>;
 
