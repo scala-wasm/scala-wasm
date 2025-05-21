@@ -197,6 +197,7 @@ object TestIRBuilder {
   implicit def methodName2MethodIdent(name: MethodName): MethodIdent =
     MethodIdent(name)
 
+  def bool(x: Boolean): BooleanLiteral = BooleanLiteral(x)
   def int(x: Int): IntLiteral = IntLiteral(x)
   def str(x: String): StringLiteral = StringLiteral(x)
 }
