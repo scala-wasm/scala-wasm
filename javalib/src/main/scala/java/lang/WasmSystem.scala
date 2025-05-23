@@ -9,7 +9,8 @@ import java.lang.wasi.io.Streams.StreamError
 protected[lang] object WasmSystem {
   @noinline
   def print(s: String): Unit = {
-    cli.Stdout.getStdout().blockingWriteAndFlush(s.getBytes())
+    val stdout = cli.Stdout.getStdout()
+    stdout.blockingWriteAndFlush(s.getBytes())
     // if (!result.isOk) {
     //   val err = result.value.asInstanceOf[StreamError]
     //   err match {

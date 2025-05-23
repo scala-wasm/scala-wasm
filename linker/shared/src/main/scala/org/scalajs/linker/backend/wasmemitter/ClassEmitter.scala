@@ -78,10 +78,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
         genMethod(clazz, method)
     }
 
-    if (ctx.coreSpec.wasmFeatures.targetPureWasm) {
-      for (member <- clazz.componentNativeMembers) {
-        canonicalabi.InteropEmitter.genComponentNativeInterop(clazz, member)
-      }
+    for (member <- clazz.componentNativeMembers) {
+      canonicalabi.InteropEmitter.genComponentNativeInterop(clazz, member)
     }
 
     // maybe better to Component Interface to be an another ClassKind?

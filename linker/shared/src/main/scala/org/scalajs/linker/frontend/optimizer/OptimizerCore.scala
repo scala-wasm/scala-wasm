@@ -684,12 +684,16 @@ private[optimizer] abstract class OptimizerCore(
       case LoadJSConstructor(className) =>
         transformJSLoadCommon(ImportTarget.Class(className), tree)
 
+      case tree: ComponentFunctionApply =>
+        trampoline {
+          pretransformComponentFunctionApply(tree)(finishTransform(isStat))
+        }
+
       // Trees that need not be transformed
 
       case _:Skip | _:Debugger | _:StoreModule |
           _:SelectStatic | _:JSNewTarget | _:JSImportMeta |
-          _:JSGlobalRef | _:JSTypeOfGlobalRef | _:Literal |
-          _:ComponentFunctionApply =>
+          _:JSGlobalRef | _:JSTypeOfGlobalRef | _:Literal =>
         tree
 
       case _:LinkTimeProperty | _:NewLambda | _:RecordSelect | _:Transient =>
@@ -971,6 +975,9 @@ private[optimizer] abstract class OptimizerCore(
       case tree: JSFunctionApply =>
         pretransformJSFunctionApply(tree, isStat = false,
             usePreTransform = true)(cont)
+
+      case tree: ComponentFunctionApply =>
+        pretransformComponentFunctionApply(tree)(cont)
 
       case JSArrayConstr(items) =>
         /* Trying to virtualize more than 64 items in a JS array is probably
@@ -2430,6 +2437,25 @@ private[optimizer] abstract class OptimizerCore(
                 argsNoSpread.map(transformExpr)).toPreTransform)
         }
       }
+    }
+  }
+
+  private def pretransformComponentFunctionApply(tree: ComponentFunctionApply)(
+      cont: PreTransCont)(implicit scope: Scope): TailRec[Tree] = {
+    val ComponentFunctionApply(optReceiver, className, methodIdent, args) = tree
+    implicit val pos = tree.pos
+
+    optReceiver match {
+      case Some(receiver) =>
+        pretransformExprs(receiver, args) { (treceiver, targs) =>
+          cont(PreTransTree(ComponentFunctionApply(Some(finishTransformExpr(treceiver)),
+              className, methodIdent, targs.map(finishTransformExpr))(tree.tpe)))
+        }
+      case None =>
+        pretransformExprs(args) { targs =>
+          cont(PreTransTree(ComponentFunctionApply(None, className,
+              methodIdent, targs.map(finishTransformExpr))(tree.tpe)))
+        }
     }
   }
 
