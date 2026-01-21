@@ -87,37 +87,39 @@ object Double {
 
   @inline def valueOf(s: String): Double = valueOf(parseDouble(s))
 
+  // scalafmt: { align.tokens."+" = [{ code = "+" }, { code = "//" }] }
+
   private[this] lazy val doubleStrPat = RegExpImpl.impl.compile(
-      "^" +
-      "[\\x00-\\x20]*" + // optional whitespace
-      "(" + // 1: entire input
-      "([+-]?)" + // 2: optional sign
-      "(?:" +
-      "(NaN)|" + // 3: NaN
-      "(Infinity)|" + // 4: Infinity
-      "(?:" +
-      "(" + // 5: decimal notation
+      "^"                        +
+      "[\\x00-\\x20]*"           + // optional whitespace
+      "("                        + // 1: entire input
+      "([+-]?)"                  + // 2: optional sign
+      "(?:"                      +
+      "(NaN)|"                   + // 3: NaN
+      "(Infinity)|"              + // 4: Infinity
+      "(?:"                      +
+      "("                        + // 5: decimal notation
       "(?:(\\d+)(?:\\.(\\d*))?|" + // 6-7: w/ digit before .
-      "\\.(\\d+))" + // 8: w/o digit before .
-      "(?:[eE]([+-]?\\d+))?" + // 9: optional exponent with sign
-      ")" +
-      ")" +
-      "[fFdD]?" + // optional float / double specifier (ignored)
-      ")" +
-      ")" +
-      "[\\x00-\\x20]*" + // optional whitespace
+      "\\.(\\d+))"               + // 8: w/o digit before .
+      "(?:[eE]([+-]?\\d+))?"     + // 9: optional exponent with sign
+      ")"                        +
+      ")"                        +
+      "[fFdD]?"                  + // optional float / double specifier (ignored)
+      ")"                        +
+      ")"                        +
+      "[\\x00-\\x20]*"           + // optional whitespace
       "$")
 
   private[this] lazy val doubleStrHexPat = RegExpImpl.impl.compile(
-      "^" +
-      "[\\x00-\\x20]*" + // optional whitespace
-      "([+-]?)" + // optional sign
-      "0[xX]" + // hex marker
-      "([0-9A-Fa-f]*)" + // integral part
+      "^"                  +
+      "[\\x00-\\x20]*"     + // optional whitespace
+      "([+-]?)"            + // optional sign
+      "0[xX]"              + // hex marker
+      "([0-9A-Fa-f]*)"     + // integral part
       "\\.?([0-9A-Fa-f]*)" + // fractional part
-      "[pP]([+-]?\\d+)" + // binary exponent
-      "[fFdD]?" + // optional float / double specifier (ignored)
-      "[\\x00-\\x20]*" + // optional whitespace
+      "[pP]([+-]?\\d+)"    + // binary exponent
+      "[fFdD]?"            + // optional float / double specifier (ignored)
+      "[\\x00-\\x20]*"     + // optional whitespace
       "$")
 
   // scalafmt: {}
