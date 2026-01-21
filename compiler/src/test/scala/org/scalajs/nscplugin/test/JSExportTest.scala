@@ -18,8 +18,6 @@ import org.scalajs.nscplugin.test.util.VersionDependentUtils.methodSig
 import org.junit.Assume._
 import org.junit.Test
 
-// scalastyle:off line.size.limit
-
 class JSExportTest extends DirectTest with TestHelpers {
 
   override def extraArgs: List[String] =
@@ -1897,12 +1895,12 @@ class JSExportTest extends DirectTest with TestHelpers {
   def noExportStaticFieldAfterStatOrNonStaticField(): Unit = {
     for {
       offendingDecl <- Seq(
-          "val a: Int = 1",
-          "var a: Int = 1",
-          """println("foo")"""
+        "val a: Int = 1",
+        "var a: Int = 1",
+        """println("foo")"""
       )
-    }
-    s"""
+    } {
+      s"""
     class StaticContainer extends js.Object
 
     object StaticContainer {
@@ -1924,7 +1922,7 @@ class JSExportTest extends DirectTest with TestHelpers {
       def e(): Int = 1
     }
     """ hasErrors
-    """
+      """
       |newSource1.scala:9: error: @JSExportStatic vals and vars must be defined before any other val/var, and before any constructor statement.
       |      val b: Int = 1
       |          ^
@@ -1932,6 +1930,7 @@ class JSExportTest extends DirectTest with TestHelpers {
       |      var c: Int = 1
       |          ^
     """
+    }
 
     for {
       validDecl <- Seq(
@@ -1949,8 +1948,8 @@ class JSExportTest extends DirectTest with TestHelpers {
           "trait A",
           "type A = Int"
       )
-    }
-    s"""
+    } {
+      s"""
     class StaticContainer extends js.Object
 
     object StaticContainer {
@@ -1963,5 +1962,6 @@ class JSExportTest extends DirectTest with TestHelpers {
       var c: Int = 1
     }
     """.succeeds()
+    }
   }
 }

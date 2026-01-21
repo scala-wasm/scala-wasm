@@ -20,9 +20,7 @@ import org.scalajs.ir.Types._
 
 import org.junit.Test
 
-// scalastyle:off line.size.limit
-
-class BinaryCompatTest extends JSASTTest  {
+class BinaryCompatTest extends JSASTTest {
 
   @Test
   def emitDefaultAccessorsOfJSNativeDefs(): Unit = {

@@ -16,27 +16,22 @@ import org.scalajs.nscplugin.test.util._
 
 import org.junit._
 
-// scalastyle:off line.size.limit
-
 class InternalAnnotationsTest extends DirectTest with TestHelpers {
 
   override def preamble: String =
     "import scala.scalajs.js, js.annotation._, js.annotation.internal._"
 
   @Test
-  def exposedJSMember(): Unit = {
+  def exposedJSMember(): Unit =
     test("ExposedJSMember")
-  }
 
   @Test
-  def jsType(): Unit = {
+  def jsType(): Unit =
     test("JSType")
-  }
 
   @Test
-  def jsOptional(): Unit = {
+  def jsOptional(): Unit =
     test("JSOptional")
-  }
 
   private def test(annotation: String): Unit =
     test(annotation, s"scala.scalajs.js.annotation.internal.$annotation")

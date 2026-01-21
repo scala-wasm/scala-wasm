@@ -79,7 +79,7 @@ class TupleTest {
     assertEquals("foobar", obj._2)
   }
 
-  // scalastyle:off line.size.limit
+  // scalafmt: { maxColumn = 1000 }
 
   @Test def testTuple2(): Unit = {
     val jsObj = js.Tuple2("1", 2)
@@ -332,6 +332,6 @@ class TupleTest {
     assertJSArrayEquals(js.Array("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", 22), jsObj.asInstanceOf[js.Array[Any]])
   }
 
-  // scalastyle:on line.size.limit
+  // scalafmt: {}
 
 }

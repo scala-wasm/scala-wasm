@@ -117,7 +117,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
     val sigFromName = inferMethodType(name, static)
     if (advertizedSig != sigFromName) {
       reportError(
-          i"The signature of ${classDef.name.name}.$name, which is "+
+          i"The signature of ${classDef.name.name}.$name, which is " +
           i"$advertizedSig, does not match its name (should be $sigFromName).")
     }
 
@@ -136,7 +136,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
   }
 
   private def checkJSConstructorDef(ctorDef: JSConstructorDef,
-      clazz: LinkedClass): Unit =  {
+      clazz: LinkedClass): Unit = {
     val JSConstructorDef(flags, params, restParam, body) = ctorDef
     implicit val ctx = ErrorContext(ctorDef)
 
@@ -153,7 +153,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
   }
 
   private def checkJSMethodDef(methodDef: JSMethodDef,
-      clazz: LinkedClass): Unit =  {
+      clazz: LinkedClass): Unit = {
     val JSMethodDef(flags, pName, params, restParam, body) = methodDef
     implicit val ctx = ErrorContext(methodDef)
 
@@ -165,7 +165,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
   }
 
   private def checkJSPropertyDef(propDef: JSPropertyDef,
-      clazz: LinkedClass): Unit =  {
+      clazz: LinkedClass): Unit = {
     val JSPropertyDef(flags, pName, getterBody, setterArgAndBody) = propDef
     implicit val ctx = ErrorContext(propDef)
 
@@ -194,8 +194,8 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
     typecheck(tree, env)
 
     if (!isSubtype(tree.tpe, expectedType)) {
-      reportError(i"$expectedType expected but ${tree.tpe} found "+
-          i"for tree of type ${tree.getClass.getName}")
+      reportError(i"$expectedType expected but ${tree.tpe} found " +
+        i"for tree of type ${tree.getClass.getName}")
     }
   }
 
@@ -223,8 +223,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
       for ((actual, formal) <- args zip methodParams) {
         typecheckExpect(actual, env, formal)
       }
-      if (tpe != resultType)
-        reportError(i"Call to $receiverTypeForError.$methodName of type $resultType typed as ${tree.tpe}")
+      if (tpe != resultType) {
+        reportError(
+            i"Call to $receiverTypeForError.$methodName of type $resultType typed as ${tree.tpe}")
+      }
     }
 
     tree match {
@@ -246,8 +248,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
       case Assign(lhs, rhs) =>
         def checkNonStaticField(receiver: Tree, name: FieldName): Unit = {
           receiver match {
-            case This() if (featureSet.supports(FeatureSet.RelaxedCtorBodies) && env.inConstructorOf.isDefined) ||
-                env.inConstructorOf == Some(name.className) =>
+            case This()
+                if (featureSet.supports(
+                    FeatureSet.RelaxedCtorBodies) && env.inConstructorOf.isDefined) ||
+                  env.inConstructorOf == Some(name.className) =>
               /* ctors can write immutable fields of the class they are constructing.
                * postOptimizer, due to ctor inlining, we may write immutable parent class fields as well.
                * IR checking of the lhs makes sure this field is actually in the parent class chain
@@ -419,9 +423,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
             c.lookupField(item).fold[Unit] {
               reportError(i"Class $className does not have a field $item")
             } { fieldDef =>
-              if (fieldDef.tpe != tree.tpe)
-                reportError(i"Select $className.$item of type "+
-                    i"${fieldDef.tpe} typed as ${tree.tpe}")
+              if (fieldDef.tpe != tree.tpe) {
+                reportError(i"Select $className.$item of type " +
+                  i"${fieldDef.tpe} typed as ${tree.tpe}")
+              }
             }
           }
         }
@@ -435,9 +440,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
           checkedClass.lookupStaticField(item).fold[Unit] {
             reportError(i"Class $className does not have a static field $item")
           } { fieldDef =>
-            if (fieldDef.tpe != tree.tpe)
-              reportError(i"SelectStatic $className.$item of type "+
-                  i"${fieldDef.tpe} typed as ${tree.tpe}")
+            if (fieldDef.tpe != tree.tpe) {
+              reportError(i"SelectStatic $className.$item of type " +
+                i"${fieldDef.tpe} typed as ${tree.tpe}")
+            }
           }
         }
 
@@ -622,8 +628,8 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
         typecheckExpect(index, env, IntType)
         typecheckExpr(array, env)
         array.tpe match {
-          case NothingType => // ok
-          case NullType => // will NPE, but allowed.
+          case NothingType          => // ok
+          case NullType             => // will NPE, but allowed.
           case arrayType: ArrayType =>
             if (tree.tpe != arrayElemType(arrayType))
               reportError(i"Array select of array type $arrayType typed as ${tree.tpe}")
@@ -704,12 +710,14 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
           case ClassKind.NativeJSClass => true
           case _                       => false
         }
-        if (!valid)
+        if (!valid) {
           reportError(i"JS class type expected but $className found")
-        else if (clazz.jsClassCaptures.nonEmpty)
+        } else if (clazz.jsClassCaptures.nonEmpty) {
           reportError(i"Cannot load JS constructor of non-top-level class $className")
-        else if (clazz.kind == ClassKind.NativeJSClass && clazz.jsNativeLoadSpec.isEmpty)
-          reportError(i"Cannot load JS constructor of native JS class $className without native load spec")
+        } else if (clazz.kind == ClassKind.NativeJSClass && clazz.jsNativeLoadSpec.isEmpty) {
+          reportError(
+              i"Cannot load JS constructor of native JS class $className without native load spec")
+        }
 
       case LoadJSModule(className) =>
         val clazz = lookupClass(className)
@@ -718,10 +726,12 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
           case ClassKind.NativeJSModuleClass => true
           case _                             => false
         }
-        if (!valid)
+        if (!valid) {
           reportError(i"JS module class type expected but $className found")
-        else if (clazz.kind == ClassKind.NativeJSModuleClass && clazz.jsNativeLoadSpec.isEmpty)
-          reportError(i"Cannot load JS module of native JS module class $className without native load spec")
+        } else if (clazz.kind == ClassKind.NativeJSModuleClass && clazz.jsNativeLoadSpec.isEmpty) {
+          reportError(
+              i"Cannot load JS module of native JS module class $className without native load spec")
+        }
 
       case JSDelete(qualifier, item) =>
         typecheckAny(qualifier, env)
@@ -779,7 +789,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
         } { captureParams =>
           if (captureParams.size != captureValues.size) {
             reportError("Mismatched size for class captures: " +
-                i"${captureParams.size} params vs ${captureValues.size} values")
+              i"${captureParams.size} params vs ${captureValues.size} values")
           }
 
           for ((ParamDef(_, _, ctpe, _), value) <- captureParams.zip(captureValues))

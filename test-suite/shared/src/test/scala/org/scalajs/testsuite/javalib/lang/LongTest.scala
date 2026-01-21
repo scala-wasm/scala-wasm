@@ -224,9 +224,8 @@ class LongTest {
   }
 
   @Test def testDecodeBase8(): Unit = {
-    def test(s: String, v: Long): Unit = {
+    def test(s: String, v: Long): Unit =
       assertEquals(v, JLong.decode(s))
-    }
 
     test("00", 0L)
     test("012345670", 2739128L)
@@ -474,14 +473,14 @@ class LongTest {
   }
 
   @Test def signum(): Unit = {
-    //check a few ints
+    // check a few ints
     assertEquals(-1, JLong.signum(-11))
     assertEquals(-1, JLong.signum(-1))
     assertEquals(0, JLong.signum(0))
     assertEquals(1, JLong.signum(1))
     assertEquals(1, JLong.signum(11))
 
-    //check a few longs
+    // check a few longs
     assertEquals(-1, JLong.signum(Long.MinValue))
     assertEquals(-1, JLong.signum(-98765432158845L))
     assertEquals(-1, JLong.signum(-49575304457780L))

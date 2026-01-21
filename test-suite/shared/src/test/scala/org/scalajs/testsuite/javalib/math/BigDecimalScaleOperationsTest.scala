@@ -10,12 +10,10 @@
  * additional information regarding copyright ownership.
  */
 
-// scalastyle:off line.size.limit
 /*
  * Ported by Alistair Johnson from
  * https://github.com/gwtproject/gwt/blob/master/user/test/com/google/gwt/emultest/java/math/BigDecimalScaleOperationsTest.java
  */
-// scalastyle:on line.size.limit
 
 package org.scalajs.testsuite.javalib.math
 
@@ -24,7 +22,7 @@ import java.math._
 import org.junit.Test
 import org.junit.Assert._
 
-class  BigDecimalScaleOperationsTest {
+class BigDecimalScaleOperationsTest {
 
   @Test def testScaleByPowerOfTen(): Unit = {
     val bd = BigDecimal.ONE.scaleByPowerOfTen(1)
@@ -67,7 +65,7 @@ class  BigDecimalScaleOperationsTest {
     val aScale = 100
     val bNumber = new BigInteger(a)
     val aNumber = new BigDecimal(bNumber, aScale)
-    val aNumberUnscaledValue:BigInteger = aNumber.unscaledValue()
+    val aNumberUnscaledValue: BigInteger = aNumber.unscaledValue()
     assertTrue(aNumberUnscaledValue == bNumber)
     assertTrue(aNumber.unscaledValue() == bNumber)
   }
@@ -105,11 +103,11 @@ class  BigDecimalScaleOperationsTest {
     val newScale = 18
     val aNumber = new BigDecimal(new BigInteger(a), aScale)
     try {
-    aNumber.setScale(newScale)
-    fail()
-  } catch {
-     case _: Throwable => // As expected
-  }
+      aNumber.setScale(newScale)
+      fail()
+    } catch {
+      case _: Throwable => // As expected
+    }
   }
 
   @Test def testSetScaleSame(): Unit = {
@@ -273,11 +271,11 @@ class  BigDecimalScaleOperationsTest {
     val shift = -18
     val aNumber = new BigDecimal(new BigInteger(a), aScale)
     try {
-    aNumber.movePointRight(shift)
-    fail()
-  } catch {
-     case _: Throwable => // As expected
-  }
+      aNumber.movePointRight(shift)
+      fail()
+    } catch {
+      case _: Throwable => // As expected
+    }
   }
 
   @Test def testPrecision(): Unit = {
@@ -288,7 +286,6 @@ class  BigDecimalScaleOperationsTest {
     assertEquals(prec, 68)
   }
 
-  @Test def testStripTrailingZeros(): Unit = {
+  @Test def testStripTrailingZeros(): Unit =
     assertEquals(0, java.math.BigDecimal.valueOf(0, 9).stripTrailingZeros().scale())
-  }
 }

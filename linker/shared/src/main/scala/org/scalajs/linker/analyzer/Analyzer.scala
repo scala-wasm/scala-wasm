@@ -31,7 +31,12 @@ import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker._
 import org.scalajs.linker.checker.CheckingPhase
-import org.scalajs.linker.frontend.{IRLoader, LambdaSynthesizer, LinkTimeProperties, SyntheticClassKind}
+import org.scalajs.linker.frontend.{
+  IRLoader,
+  LambdaSynthesizer,
+  LinkTimeProperties,
+  SyntheticClassKind
+}
 import org.scalajs.linker.interface._
 import org.scalajs.linker.interface.unstable.ModuleInitializerImpl
 import org.scalajs.linker.standard._
@@ -55,7 +60,8 @@ final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
         config.coreSpec.wasmFeatures.targetPureWasm)
 
   def computeReachability(moduleInitializers: Seq[ModuleInitializer],
-      symbolRequirements: SymbolRequirement, logger: Logger)(implicit ec: ExecutionContext): Future[Analysis] = {
+      symbolRequirements: SymbolRequirement, logger: Logger)(
+      implicit ec: ExecutionContext): Future[Analysis] = {
 
     infoLoader.update(logger)
 
@@ -126,8 +132,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
    * `ClassName` is a bit expensive. The constructor names are not expensive,
    * but we might as well cache them together.
    */
-  private val syntheticLambdaNamesCache: mutable.Map[NewLambda.Descriptor, (ClassName, MethodName)] =
+  private val syntheticLambdaNamesCache: mutable.Map[NewLambda.Descriptor,
+      (ClassName, MethodName)] = {
     emptyThreadSafeMap
+  }
 
   private val _classSuperClassUsed = new AtomicBoolean(false)
   def isClassSuperClassUsed: Boolean = _classSuperClassUsed.get()
@@ -138,8 +146,11 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
   private val fromAnalyzer = FromCore("analyzer")
 
-  private[this] val _topLevelExportInfos: mutable.Map[(ModuleID, String), TopLevelExportInfo] = emptyThreadSafeMap
-  def topLevelExportInfos: scala.collection.Map[(ModuleID, String), Analysis.TopLevelExportInfo] = _topLevelExportInfos
+  private[this] val _topLevelExportInfos: mutable.Map[(ModuleID, String), TopLevelExportInfo] =
+    emptyThreadSafeMap
+
+  def topLevelExportInfos: scala.collection.Map[(ModuleID, String), Analysis.TopLevelExportInfo] =
+    _topLevelExportInfos
 
   def computeReachability(moduleInitializers: Seq[ModuleInitializer],
       symbolRequirements: SymbolRequirement): Future[Unit] = {
@@ -205,8 +216,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     if (isNoModule) {
       // Check there is only a single module.
       val publicModuleIDs = (
-         _topLevelExportInfos.keys.map(_._1).toList ++
-         moduleInitializers.map(i => ModuleID(i.moduleID))
+        _topLevelExportInfos.keys.map(_._1).toList ++
+          moduleInitializers.map(i => ModuleID(i.moduleID))
       ).distinct
 
       if (publicModuleIDs.size > 1)
@@ -244,7 +255,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
       case InstanceTests(origin, className) =>
         implicit val from = FromCore(origin)
-        lookupClass(className){ clazz =>
+        lookupClass(className) { clazz =>
           objectClassInfo.addStaticDependency(clazz.className)
           clazz.useInstanceTests()
         }
@@ -501,9 +512,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
   private final case object InheritanceCycle extends LoadingResult
 
   private final class LoadingClass(
-    val className: ClassName,
-    val info: Future[Infos.ClassInfo],
-    val result: Future[LoadingResult]
+      val className: ClassName,
+      val info: Future[Infos.ClassInfo],
+      val result: Future[LoadingResult]
   )
 
   private case class CycleInfo(cycle: List[ClassName], root: ClassName)
@@ -530,11 +541,13 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
     val isAnyModuleClass =
       data.kind.hasModuleAccessor || data.kind == ClassKind.NativeJSModuleClass
+
     val isInterface = data.kind == ClassKind.Interface
     val isScalaClass = data.kind.isClass || data.kind == ClassKind.HijackedClass
     val isJSClass = data.kind.isJSClass
     val isJSType = data.kind.isJSType
     val isAnyClass = isScalaClass || isJSClass
+
     val isNativeJSClass =
       kind == ClassKind.NativeJSClass || kind == ClassKind.NativeJSModuleClass
 
@@ -721,7 +734,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     private[this] val _instantiatedFrom = new GrowingList[From]
     def instantiatedFrom: List[From] = _instantiatedFrom.get()
 
-    private[this] val _dispatchCalledFrom: mutable.Map[MethodName, GrowingList[From]] = emptyThreadSafeMap
+    private[this] val _dispatchCalledFrom: mutable.Map[MethodName, GrowingList[From]] =
+      emptyThreadSafeMap
+
     def dispatchCalledFrom(methodName: MethodName): Option[List[From]] =
       _dispatchCalledFrom.get(methodName).map(_.get())
 
@@ -761,8 +776,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     val publicMethodInfos: mutable.Map[MethodName, MethodInfo] =
       methodInfos(MemberNamespace.Public)
 
-    def anyJSMemberNeedsDesugaring: Boolean =
-      data.jsMethodProps.exists(info => (info.globalFlags & ReachabilityInfo.FlagNeedsDesugaring) != 0)
+    def anyJSMemberNeedsDesugaring: Boolean = {
+      data.jsMethodProps.exists(
+          info => (info.globalFlags & ReachabilityInfo.FlagNeedsDesugaring) != 0)
+    }
 
     def lookupAbstractMethod(methodName: MethodName): MethodInfo = {
       val candidatesIterator = for {
@@ -977,7 +994,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
           !m.isReflectiveProxy && !m.isDefaultBridge && !m.isAbstract && !m.nonExistent
         }
         if (include) {
-          val proxyName = MethodName.reflectiveProxy(m.methodName.simpleName, m.methodName.paramTypeRefs)
+          val proxyName =
+            MethodName.reflectiveProxy(m.methodName.simpleName, m.methodName.paramTypeRefs)
           val prev = result.getOrElse(proxyName, Nil)
           result.update(proxyName, m :: prev)
         }
@@ -1059,7 +1077,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
         case (ClassRef(leftCls), ClassRef(rightCls)) =>
           classIsMoreSpecific(leftCls, rightCls)
         case (ArrayTypeRef(ClassRef(leftBaseCls), leftDepth),
-            ArrayTypeRef(ClassRef(rightBaseCls), rightDepth)) =>
+                ArrayTypeRef(ClassRef(rightBaseCls), rightDepth)) =>
           if (leftDepth != rightDepth) Future.successful(false)
           else classIsMoreSpecific(leftBaseCls, rightBaseCls)
         case (ArrayTypeRef(_, _), ClassRef(ObjectClass)) =>
@@ -1228,9 +1246,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       }
     }
 
-    def useInstanceTests()(implicit from: From): Unit = {
+    def useInstanceTests()(implicit from: From): Unit =
       _areInstanceTestsUsed.set(true)
-    }
 
     def accessData()(implicit from: From): Unit = {
       if (!_isDataAccessed.getAndSet(true)) {
@@ -1367,12 +1384,12 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
   }
 
   private class MethodInfo(
-    val owner: ClassInfo,
-    val namespace: MemberNamespace,
-    val methodName: MethodName,
-    data: Infos.MethodInfo,
-    val nonExistent: Boolean = false,
-    val syntheticKind: MethodSyntheticKind = MethodSyntheticKind.None
+      val owner: ClassInfo,
+      val namespace: MemberNamespace,
+      val methodName: MethodName,
+      data: Infos.MethodInfo,
+      val nonExistent: Boolean = false,
+      val syntheticKind: MethodSyntheticKind = MethodSyntheticKind.None
   ) extends Analysis.MethodInfo {
 
     val isAbstract = data.isAbstract
@@ -1484,9 +1501,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
     def addStaticDependency(clazz: ClassName): Unit = _staticDependencies.update(clazz, ())
     def addExternalDependency(module: String): Unit = _externalDependencies.update(module, ())
+
     def addDynamicDependency(clazz: ClassName): Unit = {
       throw new AssertionError("dynamic dependency for top level export " +
-          s"$moduleID.$exportName (owned by $owningClass) on $clazz")
+        s"$moduleID.$exportName (owned by $owningClass) on $clazz")
     }
 
     def staticDependencies: scala.collection.Set[ClassName] = _staticDependencies.keySet
@@ -1575,13 +1593,15 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     if (data.lambdaDescriptorsUsed.nonEmpty) {
       for (descriptor <- data.lambdaDescriptorsUsed) {
         val (className, ctorName) = syntheticLambdaNamesCache.getOrElseUpdate(descriptor, {
-          (LambdaSynthesizer.makeClassName(descriptor), LambdaSynthesizer.makeConstructorName(descriptor))
+          (LambdaSynthesizer.makeClassName(descriptor),
+              LambdaSynthesizer.makeConstructorName(descriptor))
         })
 
-        lookupOrSynthesizeClass(className, SyntheticClassKind.Lambda(descriptor)) { lambdaClassInfo =>
-          lambdaClassInfo.instantiated()
-          lambdaClassInfo.callMethodStatically(MemberNamespace.Constructor, ctorName)
-          moduleUnit.addStaticDependency(lambdaClassInfo.className)
+        lookupOrSynthesizeClass(className, SyntheticClassKind.Lambda(descriptor)) {
+          lambdaClassInfo =>
+            lambdaClassInfo.instantiated()
+            lambdaClassInfo.callMethodStatically(MemberNamespace.Constructor, ctorName)
+            moduleUnit.addStaticDependency(lambdaClassInfo.className)
         }
       }
     }
@@ -1659,11 +1679,12 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       if (className == ObjectClass) None
       else Some(ObjectClass)
 
-    val methods = Array.tabulate[Map[MethodName, Infos.MethodInfo]](MemberNamespace.Count) { nsOrdinal =>
-      if (nsOrdinal == MemberNamespace.Constructor.ordinal)
-        Map(NoArgConstructorName -> makeSyntheticMethodInfo())
-      else
-        Map.empty
+    val methods = Array.tabulate[Map[MethodName, Infos.MethodInfo]](MemberNamespace.Count) {
+      nsOrdinal =>
+        if (nsOrdinal == MemberNamespace.Constructor.ordinal)
+          Map(NoArgConstructorName -> makeSyntheticMethodInfo())
+        else
+          Map.empty
     }
 
     new Infos.ClassInfo(className, ClassKind.Class, syntheticKind = None, nonExistent = true,
@@ -1693,6 +1714,7 @@ private object AnalyzerRun {
     MethodName("getSuperclass", Nil, ClassRef(ClassClass))
 
   private class WorkTracker(implicit ec: ExecutionContext) {
+
     /** The number of tasks that have started but not completed, `+ 1` until
      *  `allowComplete()` gets called.
      */

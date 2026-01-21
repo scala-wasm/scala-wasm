@@ -613,9 +613,8 @@ class IntegerTest {
   }
 
   @Test def decodeStringBase8(): Unit = {
-    def test(s: String, v: Int): Unit = {
+    def test(s: String, v: Int): Unit =
       assertEquals(v, Integer.decode(s))
-    }
 
     test("00", 0)
     test("012345670", 2739128)
@@ -708,9 +707,8 @@ class IntegerTest {
   }
 
   @Test def parseUnsignedIntRadix(): Unit = {
-    def test(s: String, v: Int, radix: Int = 10): Unit = {
+    def test(s: String, v: Int, radix: Int = 10): Unit =
       assertEquals(v, Integer.parseUnsignedInt(s, radix))
-    }
 
     test("0", 0)
     test("5", 5)
@@ -721,8 +719,8 @@ class IntegerTest {
     test("+42", 42)
     test("+0", 0)
     test("FF", 255, 16)
-    test("4000000000", 0xEE6B2800)
-    test("4294967295", 0xFFFFFFFF)
+    test("4000000000", 0xee6b2800)
+    test("4294967295", 0xffffffff)
   }
 
   @Test def parseUnsignedIntRadixInvalidThrows(): Unit = {
@@ -741,9 +739,8 @@ class IntegerTest {
   }
 
   @Test def parseUnsignedIntBase16(): Unit = {
-    def test(s: String, v: Int): Unit = {
+    def test(s: String, v: Int): Unit =
       assertEquals(v, Integer.parseUnsignedInt(s, 16))
-    }
 
     test("0", 0x0)
     test("5", 0x5)
@@ -751,8 +748,8 @@ class IntegerTest {
     test("24", 0x24)
     test("30000", 0x30000)
     test("90000", 0x90000)
-    test("EE6B2800", 0xEE6B2800)
-    test("FFFFFFFF", 0xFFFFFFFF)
+    test("EE6B2800", 0xee6b2800)
+    test("FFFFFFFF", 0xffffffff)
   }
 
   @Test def compareUnsigned(): Unit = {
@@ -762,11 +759,11 @@ class IntegerTest {
     assertTrue(compare(0, 5) < 0)
     assertTrue(compare(10, 9) > 0)
     assertEquals(0, compare(3, 3))
-    assertEquals(0, compare(0xFFFFFFFF, 0xFFFFFFFF))
-    assertTrue(compare(0xEE6B2800, 0xFFFFFFFF) < 0)
-    assertTrue(compare(0xFFFFFFFF, 0xEE6B2800) > 0)
-    assertTrue(compare(0xEE6B2800, 3) > 0)
-    assertTrue(compare(3, 0xEE6B2800) < 0)
+    assertEquals(0, compare(0xffffffff, 0xffffffff))
+    assertTrue(compare(0xee6b2800, 0xffffffff) < 0)
+    assertTrue(compare(0xffffffff, 0xee6b2800) > 0)
+    assertTrue(compare(0xee6b2800, 3) > 0)
+    assertTrue(compare(3, 0xee6b2800) < 0)
   }
 
   @Test def toUnsignedLong(): Unit = {
@@ -776,8 +773,8 @@ class IntegerTest {
     test(0, 0L)
     test(5, 5L)
     test(43345, 43345L)
-    test(0xEE6B2800, 0xEE6B2800L)
-    test(0xFFFFFFFF, 0xFFFFFFFFL)
+    test(0xee6b2800, 0xee6b2800L)
+    test(0xffffffff, 0xffffffffL)
   }
 
   @Test def divideUnsigned(): Unit = {
@@ -787,9 +784,9 @@ class IntegerTest {
     test(1, 1, 1)
     test(4, 2, 2)
     test(3, 2, 1)
-    test(0xFFFFFFFF, 7, 613566756)
-    test(0xFFFFFFFF, 0xEE6B2800, 1)
-    test(0xEE6B2800, 2, 2000000000)
+    test(0xffffffff, 7, 613566756)
+    test(0xffffffff, 0xee6b2800, 1)
+    test(0xee6b2800, 2, 2000000000)
 
     assertThrows(classOf[ArithmeticException], Integer.divideUnsigned(5, 0))
   }
@@ -801,9 +798,9 @@ class IntegerTest {
     test(1, 1, 0)
     test(4, 2, 0)
     test(3, 2, 1)
-    test(0xFFFFFFFF, 7, 3)
-    test(0xFFFFFFFF, 0xEE6B2800, 294967295)
-    test(0xEE6B2800, 2, 0)
+    test(0xffffffff, 7, 3)
+    test(0xffffffff, 0xee6b2800, 294967295)
+    test(0xee6b2800, 2, 0)
 
     assertThrows(classOf[ArithmeticException], Integer.remainderUnsigned(5, 0))
   }

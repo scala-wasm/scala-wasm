@@ -325,22 +325,22 @@ class ClassEmitter(coreSpec: CoreSpec) {
         // strictAncestors
         strictAncestorsTypeData
       ) :::
-      List(
-        // componentType - always `null` since this method is not used for array types
-        wa.RefNull(watpe.HeapType(genTypeID.typeData)),
-        // the classOf instance - initially `null`; filled in by the `createClassOf` helper
-        wa.RefNull(watpe.HeapType(genTypeID.ClassStruct)),
-        // arrayOf, the typeData of an array of this type - initially `null`; filled in by `specificArrayTypeData`
-        wa.RefNull(watpe.HeapType(genTypeID.ObjectVTable)),
-        // clonefFunction - will be invoked from `clone()` method invokaion on the class
-        cloneFunction,
-        // isJSClassInstance - invoked from the `isInstance()` helper for JS types
-        isJSClassInstance
-      ) :::
-      // reflective proxies - used to reflective call on the class at runtime.
-      // Generated instructions create an array of reflective proxy structs, where each struct
-      // contains the ID of the reflective proxy and a reference to the actual method implementation.
-      reflectiveProxiesInstrs
+        List(
+          // componentType - always `null` since this method is not used for array types
+          wa.RefNull(watpe.HeapType(genTypeID.typeData)),
+          // the classOf instance - initially `null`; filled in by the `createClassOf` helper
+          wa.RefNull(watpe.HeapType(genTypeID.ClassStruct)),
+          // arrayOf, the typeData of an array of this type - initially `null`; filled in by `specificArrayTypeData`
+          wa.RefNull(watpe.HeapType(genTypeID.ObjectVTable)),
+          // clonefFunction - will be invoked from `clone()` method invokaion on the class
+          cloneFunction,
+          // isJSClassInstance - invoked from the `isInstance()` helper for JS types
+          isJSClassInstance
+        ) :::
+        // reflective proxies - used to reflective call on the class at runtime.
+        // Generated instructions create an array of reflective proxy structs, where each struct
+        // contains the ID of the reflective proxy and a reference to the actual method implementation.
+        reflectiveProxiesInstrs
     )
   }
 
@@ -531,7 +531,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
     // itable and vtable slots
     val objectClassInfo = ctx.getClassInfo(ObjectClass)
-    val itableSlots = ClassEmitter.genItableSlots(objectClassInfo, List(SerializableClass, CloneableClass))
+    val itableSlots =
+      ClassEmitter.genItableSlots(objectClassInfo, List(SerializableClass, CloneableClass))
     val vtableSlots = objectClassInfo.tableEntries.map { methodName =>
       ctx.refFuncWithDeclaration(objectClassInfo.resolvedMethodInfos(methodName).tableEntryID)
     }
@@ -626,7 +627,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         isMutable = false
       )
     }.toList
-    val vtableFields =
+    val vtableFields = {
       classInfo.tableEntries.map { methodName =>
         watpe.StructField(
           genFieldID.forMethodTableEntry(methodName),
@@ -635,11 +636,13 @@ class ClassEmitter(coreSpec: CoreSpec) {
           isMutable = false
         )
       }
+    }
     val superType = clazz.superClass match {
       case None    => genTypeID.typeData
       case Some(s) => genTypeID.forVTable(s.name)
     }
-    val structType = watpe.StructType(ctx.coreLib.typeDataStructFields ::: itableSlotFields ::: vtableFields)
+    val structType =
+      watpe.StructType(ctx.coreLib.typeDataStructFields ::: itableSlotFields ::: vtableFields)
     val subType = watpe.SubType(
       typeID,
       makeDebugName(ns.VTable, className),
@@ -1154,8 +1157,10 @@ class ClassEmitter(coreSpec: CoreSpec) {
       val superArgsFunctionRef = helperBuilder.addWasmInput("superArgs", watpe.RefType.func) {
         fb += ctx.refFuncWithDeclaration(superArgsFunctionID)
       }
-      val postSuperStatsFunctionRef = helperBuilder.addWasmInput("postSuperStats", watpe.RefType.func) {
-        fb += ctx.refFuncWithDeclaration(postSuperStatsFunctionID)
+      val postSuperStatsFunctionRef = {
+        helperBuilder.addWasmInput("postSuperStats", watpe.RefType.func) {
+          fb += ctx.refFuncWithDeclaration(postSuperStatsFunctionID)
+        }
       }
 
       def genDefineProperty(obj: js.Tree, name: js.Tree, value: js.Tree): js.Tree = {
@@ -1177,10 +1182,10 @@ class ClassEmitter(coreSpec: CoreSpec) {
       }
 
       def toJSPropertyName(tree: js.Tree): js.PropertyName = tree match {
-        case js.StringLiteral("constructor")                                  => js.ComputedName(tree)
+        case js.StringLiteral("constructor") => js.ComputedName(tree)
         case js.StringLiteral(name) if js.Ident.isValidJSIdentifierName(name) => js.Ident(name)
         case tree: js.StringLiteral                                           => tree
-        case _                                                                => js.ComputedName(tree)
+        case _ => js.ComputedName(tree)
       }
 
       val jsClassIdent = helperBuilder.newLocalIdent("cls")
@@ -1193,8 +1198,9 @@ class ClassEmitter(coreSpec: CoreSpec) {
           val preSuperEnv = helperBuilder.newLocalIdent("preSuperEnv")
           js.Block(
             // var preSuperEnv = preSuperStats(data, new.target, ...allParamRefs);
-            js.VarDef(preSuperEnv, Some(js.Apply(preSuperStatsFunctionRef,
-                dataRef :: js.NewTarget() :: allParamRefs))),
+            js.VarDef(preSuperEnv,
+                Some(js.Apply(preSuperStatsFunctionRef,
+                    dataRef :: js.NewTarget() :: allParamRefs))),
             // super(...superArgs(data, preSuperEnv, new.target, ...args));
             js.Apply(
               js.Super(),
@@ -1255,11 +1261,11 @@ class ClassEmitter(coreSpec: CoreSpec) {
             val (argsParamDefs, restParamDef) = helperBuilder.genJSParamDefs(params, restParam)
             val jsMethodDef = js.MethodDef(isStatic, nameRef, argsParamDefs, restParamDef, {
               js.Return(js.Apply(
-                  fRef,
-                  dataRef ::
-                  jsThisUnlessStatic :::
-                  argsParamDefs.map(_.ref) :::
-                  restParamDef.map(_.ref).toList
+                fRef,
+                dataRef ::
+                jsThisUnlessStatic :::
+                argsParamDefs.map(_.ref) :::
+                restParamDef.map(_.ref).toList
               ))
             })
 
@@ -1329,7 +1335,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
           case FieldDef(_, name, _, _) =>
             throw new AssertionError(
               s"Unexpected private static field ${name.name.nameString} "
-                + s"in JS class ${className.nameString}"
+              + s"in JS class ${className.nameString}"
             )
           case JSFieldDef(_, nameTree, _) =>
             helperBuilder.addInput(nameTree)
@@ -1519,13 +1525,14 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
     val isHijackedClass = clazz.kind == ClassKind.HijackedClass
 
-    val receiverType =
+    val receiverType = {
       if (namespace.isStatic)
         None
       else if (isHijackedClass)
         Some(transformPrimType(BoxedClassToPrimType(className)))
       else
         Some(transformClassType(className, nullable = false))
+    }
 
     val body = method.body.getOrElse(throw new Exception("abstract method cannot be transformed"))
 

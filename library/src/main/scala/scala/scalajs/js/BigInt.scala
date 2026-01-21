@@ -43,11 +43,9 @@ final class BigInt private[this] () extends js.Object {
   @JSOperator def >>(other: BigInt): BigInt = js.native
   // no >>> since BigInt is always signed
 
-  // scalastyle:off disallow.space.before.token
   @JSOperator def unary_- : BigInt = js.native
   @JSOperator def unary_~ : BigInt = js.native
   // unary_+ is not supported by BigInts
-  // scalastyle:on disallow.space.before.token
 
   @JSOperator def <(x: BigInt): Boolean = js.native
   @JSOperator def <=(x: BigInt): Boolean = js.native
@@ -82,7 +80,6 @@ final class BigInt private[this] () extends js.Object {
   def toString(radix: Int): String = js.native
 }
 
-
 /** <span class="badge badge-ecma2020" style="float: right;">ECMAScript 2020</span>
  *
  *  A companion object of BigInt class.
@@ -92,6 +89,7 @@ final class BigInt private[this] () extends js.Object {
 @js.native
 @JSGlobal
 object BigInt extends js.Object {
+
   /** Returns a BigInt from a whole Double.
    *
    *  This overload is exposed to allow users to create a BigInt from a Double
@@ -114,12 +112,10 @@ object BigInt extends js.Object {
   /** @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt/asUintN */
   def asUintN(width: Int, bigint: BigInt): BigInt = js.native
 
-  // scalastyle:off line.size.limit
   /** Type of the `options` parameter of [[BigInt.toLocaleString]].
    *
    *  @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/BigInt/toLocaleString#Parameters
    */
-  // scalastyle:on line.size.limit
   trait ToLocaleStringOptions extends Object {
     var localeMatcher: js.UndefOr[String] = js.undefined
     var style: js.UndefOr[String] = js.undefined

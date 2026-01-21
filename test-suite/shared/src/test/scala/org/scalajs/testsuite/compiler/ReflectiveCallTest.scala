@@ -58,14 +58,13 @@ class ReflectiveCallTest {
       def e(x: Tata): Tata = new Tata("iei")
     }
 
-    def m[T](r: Object { def e(x: Tata): T}): T =
+    def m[T](r: Object { def e(x: Tata): T }): T =
       r.e(new Tata("foo"))
 
     assertEquals("Tata(iei)", m[Tata](Rec).toString)
   }
 
   @Test def unaryMethodsOnPrimitiveTypes(): Unit = {
-    // scalastyle:off disallow.space.before.token
     def fInt(x: Any { def unary_- : Int }): Int = -x
     assertEquals(-1, fInt(1.toByte))
     assertEquals(-1, fInt(1.toShort))
@@ -75,7 +74,7 @@ class ReflectiveCallTest {
     def fLong(x: Any { def unary_- : Long }): Long = -x
     assertEquals(-1L, fLong(1L))
 
-    def fFloat(x: Any { def unary_- : Float}): Float = -x
+    def fFloat(x: Any { def unary_- : Float }): Float = -x
     assertEquals(-1.5f, fFloat(1.5f), 1e-5f)
 
     def fDouble(x: Any { def unary_- : Double }): Double = -x
@@ -84,7 +83,6 @@ class ReflectiveCallTest {
     def fBoolean(x: Any { def unary_! : Boolean }): Boolean = !x
     assertTrue(fBoolean(false))
     assertFalse(fBoolean(true))
-    // scalastyle:on disallow.space.before.token
   }
 
   @Test def binaryOperatorsOnPrimitiveTypes(): Unit = {
@@ -107,7 +105,7 @@ class ReflectiveCallTest {
     assertEquals(31, fShort(25.toChar))
     assertEquals(-34, fShort(-40))
 
-    def fFloat(x: Any { def %(x: Float): Float}): Float = x % 3.4f
+    def fFloat(x: Any { def %(x: Float): Float }): Float = x % 3.4f
     assertEquals(2.1f, fFloat(5.5f), 1e-5f)
 
     def fDouble(x: Any { def /(x: Double): Double }): Double = x / 1.4
@@ -220,38 +218,38 @@ class ReflectiveCallTest {
     type LEN = { def length: Int }
     type CLONE = Any { def clone(): Object }
 
-    def upd(obj: UPD, i: Int, x: String): Unit = obj.update(i,x)
+    def upd(obj: UPD, i: Int, x: String): Unit = obj.update(i, x)
     def apl(obj: APL, i: Int): String = obj.apply(i)
     def len(obj: LEN): Int = obj.length
     def clone(obj: CLONE): Object = obj.clone
 
-    val x = Array("asdf","foo","bar")
+    val x = Array("asdf", "foo", "bar")
     val y = clone(x).asInstanceOf[Array[String]]
 
     assertEquals(3, len(x))
-    assertEquals("asdf", apl(x,0))
-    upd(x,1,"2foo")
+    assertEquals("asdf", apl(x, 0))
+    upd(x, 1, "2foo")
     assertEquals("2foo", x(1))
     assertEquals("foo", y(1))
   }
 
   @Test def arraysOfPrimitiveValues(): Unit = {
     type UPD = { def update(i: Int, x: Int): Unit }
-    type APL = { def apply(i: Int): Int}
+    type APL = { def apply(i: Int): Int }
     type LEN = { def length: Int }
     type CLONE = Any { def clone(): Object }
 
-    def upd(obj: UPD, i: Int, x: Int): Unit = obj.update(i,x)
+    def upd(obj: UPD, i: Int, x: Int): Unit = obj.update(i, x)
     def apl(obj: APL, i: Int): Int = obj.apply(i)
     def len(obj: LEN): Int = obj.length
     def clone(obj: CLONE): Object = obj.clone
 
-    val x = Array(5,2,8)
+    val x = Array(5, 2, 8)
     val y = clone(x).asInstanceOf[Array[Int]]
 
     assertEquals(3, len(x))
-    assertEquals(5, apl(x,0))
-    upd(x,1,1000)
+    assertEquals(5, apl(x, 0))
+    upd(x, 1, 1000)
     assertEquals(1000, x(1))
     assertEquals(2, y(1))
   }
@@ -440,7 +438,7 @@ class ReflectiveCallTest {
     }
 
     assertEquals(4, pimpIt(1).foo(2))
-    assertEquals(8, pimpIt(2).foo(2,4))
+    assertEquals(8, pimpIt(2).foo(2, 4))
   }
 
   @Test def unboxAllTypesOfArguments_Issue899(): Unit = {
@@ -458,11 +456,11 @@ class ReflectiveCallTest {
      */
 
     def test(foo: {
-      def makeInt: Int
-      def testInt(x: Int): Unit
-      def makeRef: Option[String]
-      def testRef(x: Option[String]): Unit
-    }): Unit = {
+          def makeInt: Int
+          def testInt(x: Int): Unit
+          def makeRef: Option[String]
+          def testRef(x: Option[String]): Unit
+        }): Unit = {
       foo.testInt(foo.makeInt)
       foo.testRef(foo.makeRef)
     }

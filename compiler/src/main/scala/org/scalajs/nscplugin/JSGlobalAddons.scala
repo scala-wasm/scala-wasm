@@ -23,8 +23,7 @@ import org.scalajs.ir.{Trees => js}
  *
  *  @author Sébastien Doeraene
  */
-trait JSGlobalAddons extends JSDefinitions
-                        with CompatComponent {
+trait JSGlobalAddons extends JSDefinitions with CompatComponent {
   val global: Global
 
   import global._
@@ -34,6 +33,7 @@ trait JSGlobalAddons extends JSDefinitions
   /** JavaScript primitives, used in jscode */
   object jsPrimitives extends JSPrimitives {
     val global: JSGlobalAddons.this.global.type = JSGlobalAddons.this.global
+
     val jsAddons: ThisJSGlobalAddons =
       JSGlobalAddons.this.asInstanceOf[ThisJSGlobalAddons]
   }
@@ -122,8 +122,7 @@ trait JSGlobalAddons extends JSDefinitions
      * "The outer reference in this type test cannot be checked at run time."
      */
     case class TopLevelExportInfo(moduleID: String, jsName: String)(
-        val pos: Position) extends ExportInfo
-    case class StaticExportInfo(jsName: String)(val pos: Position)
+        val pos: Position)
         extends ExportInfo
     case class WitExportInfo(moduleName: String, name: String,
         signature: WitFunctionType)(
@@ -132,6 +131,8 @@ trait JSGlobalAddons extends JSDefinitions
       params: List[Type],
       resultType: Type
     )
+
+    case class StaticExportInfo(jsName: String)(val pos: Position) extends ExportInfo
 
     sealed abstract class JSName {
       def displayName: String
@@ -253,7 +254,7 @@ trait JSGlobalAddons extends JSDefinitions
         nme.LSL -> (js.JSBinaryOp.<<, true),
         nme.ASR -> (js.JSBinaryOp.>>, true),
         nme.LSR -> (js.JSBinaryOp.>>>, true),
-        nme.OR  -> (js.JSBinaryOp.|, true),
+        nme.OR -> (js.JSBinaryOp.|, true),
         nme.AND -> (js.JSBinaryOp.&, true),
         nme.XOR -> (js.JSBinaryOp.^, true),
 
@@ -263,7 +264,7 @@ trait JSGlobalAddons extends JSDefinitions
         nme.GE -> (js.JSBinaryOp.>=, true),
 
         nme.ZAND -> (js.JSBinaryOp.&&, true),
-        nme.ZOR  -> (js.JSBinaryOp.||, true),
+        nme.ZOR -> (js.JSBinaryOp.||, true),
 
         global.encode("**") -> (js.JSBinaryOp.**, false)
       )
@@ -320,7 +321,7 @@ trait JSGlobalAddons extends JSDefinitions
      *  is a property
      */
     def jsExportInfo(name: Name): (String, Boolean) = {
-      def dropPrefix(prefix: String) ={
+      def dropPrefix(prefix: String) = {
         if (name.startsWith(prefix)) {
           // We can't decode right away due to $ separators
           val enc = name.toString.substring(prefix.length)
@@ -328,8 +329,8 @@ trait JSGlobalAddons extends JSDefinitions
         } else None
       }
 
-      dropPrefix(methodExportPrefix).map((_,false)).orElse {
-        dropPrefix(propExportPrefix).map((_,true))
+      dropPrefix(methodExportPrefix).map((_, false)).orElse {
+        dropPrefix(propExportPrefix).map((_, true))
       }.getOrElse {
         throw new IllegalArgumentException(
             "non-exported name passed to jsExportInfo")
@@ -406,8 +407,7 @@ trait JSGlobalAddons extends JSDefinitions
     def storeJSNativeLoadSpec(sym: Symbol, spec: JSNativeLoadSpec): Unit =
       jsNativeLoadSpecs(sym) = spec
 
-    /** Gets the JS native load spec of a symbol in the current compilation run.
-     */
+    /** Gets the JS native load spec of a symbol in the current compilation run. */
     def jsNativeLoadSpecOf(sym: Symbol): JSNativeLoadSpec =
       jsNativeLoadSpecs(sym)
 

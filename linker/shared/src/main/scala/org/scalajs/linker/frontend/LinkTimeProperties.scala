@@ -29,13 +29,13 @@ final class LinkTimeProperties private (
 
   private val linkTimeProperties: Map[String, LinkTimeValue] = Map(
     ESVersion ->
-      LinkTimeInt(esFeatures.esVersion.edition),
+    LinkTimeInt(esFeatures.esVersion.edition),
     UseECMAScript2015Semantics ->
-      LinkTimeBoolean(esFeatures.useECMAScript2015Semantics),
+    LinkTimeBoolean(esFeatures.useECMAScript2015Semantics),
     IsWebAssembly ->
-      LinkTimeBoolean(targetIsWebAssembly),
+    LinkTimeBoolean(targetIsWebAssembly),
     ProductionMode ->
-      LinkTimeBoolean(semantics.productionMode),
+    LinkTimeBoolean(semantics.productionMode),
     LinkerVersion ->
       LinkTimeString(ScalaJSVersions.current),
     TargetPureWasm ->

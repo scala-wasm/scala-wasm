@@ -120,6 +120,8 @@ object Double {
       "[\\x00-\\x20]*"      + // optional whitespace
       "$")
 
+  // scalafmt: {}
+
   def parseDouble(s: String): scala.Double = {
     import RegExpImpl.impl
     val groups = impl.exec(doubleStrPat, s)
@@ -333,8 +335,8 @@ object Double {
       if (a == b) {
         // -0.0 must be smaller than 0.0
         if (a == 0.0) {
-          val ainf = 1.0/a
-          if (ainf == 1.0/b) 0
+          val ainf = 1.0 / a
+          if (ainf == 1.0 / b) 0
           else if (ainf < 0) -1
           else 1
         } else {
@@ -394,7 +396,7 @@ object Double {
   @inline
   private def hashCodeForJS(value: scala.Double): Int = {
     val valueInt = (value.asInstanceOf[js.Dynamic] | 0.asInstanceOf[js.Dynamic]).asInstanceOf[Int]
-    if (valueInt.toDouble == value && 1.0/value != scala.Double.NegativeInfinity)
+    if (valueInt.toDouble == value && 1.0 / value != scala.Double.NegativeInfinity)
       valueInt
     else if (value != value)
       Long.hashCode(CanonicalNaNBits)

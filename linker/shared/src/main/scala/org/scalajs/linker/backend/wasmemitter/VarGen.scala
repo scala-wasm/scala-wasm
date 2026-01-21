@@ -88,8 +88,7 @@ object VarGen {
         className: ClassName, methodName: MethodName)
         extends FunctionID
 
-    final case class forTableEntry(className: ClassName, methodName: MethodName)
-        extends FunctionID
+    final case class forTableEntry(className: ClassName, methodName: MethodName) extends FunctionID
 
     final case class forExport(exportedName: String) extends FunctionID
     final case class forTopLevelExportSetter(exportedName: String) extends FunctionID
@@ -235,7 +234,8 @@ object VarGen {
     case object identityHashCode extends FunctionID
     case object searchReflectiveProxy extends FunctionID
 
-    private final case class SpecializedArrayCopyID(arrayBaseRef: NonArrayTypeRef) extends FunctionID
+    private final case class SpecializedArrayCopyID(arrayBaseRef: NonArrayTypeRef)
+        extends FunctionID
 
     def specializedArrayCopy(arrayTypeRef: ArrayTypeRef): FunctionID = {
       val baseRef = arrayTypeRef match {
@@ -443,6 +443,7 @@ object VarGen {
     case object classData extends FieldID
 
     object typedClosure {
+
       /** The `data` field of a typed closure struct. */
       case object data extends FieldID
 

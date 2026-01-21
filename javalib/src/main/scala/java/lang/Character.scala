@@ -35,8 +35,7 @@ import java.util.{ArrayList, Arrays, HashMap}
  * Constructors are not emitted.
  */
 class Character private ()
-    extends AnyRef with java.io.Serializable with Comparable[Character]
-    with Constable {
+    extends AnyRef with java.io.Serializable with Comparable[Character] with Constable {
 
   def this(value: scala.Char) = this()
 
@@ -159,6 +158,7 @@ object Character {
 
   // Low-level code point and code unit manipulations -------------------------
 
+  // scalafmt: { align.tokens."+" = [{ code = "=" }, { code = "//" }] }
   private final val HighSurrogateMask       = 0xfc00 // 111111 00  00000000
   private final val HighSurrogateID         = 0xd800 // 110110 00  00000000
   private final val LowSurrogateMask        = 0xfc00 // 111111 00  00000000
@@ -166,6 +166,7 @@ object Character {
   private final val SurrogateMask           = 0xf800 // 111110 00  00000000
   private final val SurrogateID             = 0xd800 // 110110 00  00000000
   private final val SurrogateUsefulPartMask = 0x03ff // 000000 11  11111111
+  // scalafmt: {}
 
   private final val SurrogatePairMask = (HighSurrogateMask << 16) | LowSurrogateMask
   private final val SurrogatePairID = (HighSurrogateID << 16) | LowSurrogateID
@@ -199,7 +200,7 @@ object Character {
 
   @inline def toCodePoint(high: Char, low: Char): Int = {
     (((high & SurrogateUsefulPartMask) + HighSurrogateAddValue) << HighSurrogateShift) |
-      (low & SurrogateUsefulPartMask)
+    (low & SurrogateUsefulPartMask)
   }
 
   @inline def highSurrogate(codePoint: Int): Char =
@@ -353,7 +354,8 @@ object Character {
   }
 
   @inline
-  private[lang] def offsetByCodePointsImpl(seq: CharSequence, index: Int, codePointOffset: Int): Int = {
+  private[lang] def offsetByCodePointsImpl(seq: CharSequence, index: Int,
+      codePointOffset: Int): Int = {
     val len = seq.length() // implicit null check
 
     // Bounds check
@@ -492,9 +494,8 @@ object Character {
 
   def isISOControl(c: scala.Char): scala.Boolean = isISOControl(c.toInt)
 
-  def isISOControl(codePoint: Int): scala.Boolean = {
-    (0x00 <= codePoint && codePoint <= 0x1F) || (0x7F <= codePoint && codePoint <= 0x9F)
-  }
+  def isISOControl(codePoint: Int): scala.Boolean =
+    (0x00 <= codePoint && codePoint <= 0x1f) || (0x7f <= codePoint && codePoint <= 0x9f)
 
   @deprecated("Replaced by isWhitespace(char)", "")
   def isSpace(c: scala.Char): scala.Boolean =
@@ -621,8 +622,8 @@ object Character {
   def isAlphabetic(codePoint: Int): scala.Boolean = {
     val tpe = getType(codePoint)
     tpe == UPPERCASE_LETTER || tpe == LOWERCASE_LETTER ||
-    tpe == TITLECASE_LETTER || tpe == MODIFIER_LETTER ||
-    tpe == OTHER_LETTER || tpe == LETTER_NUMBER
+      tpe == TITLECASE_LETTER || tpe == MODIFIER_LETTER ||
+      tpe == OTHER_LETTER || tpe == LETTER_NUMBER
   }
 
   def isIdeographic(c: Int): scala.Boolean = {
@@ -707,7 +708,7 @@ object Character {
     (indexOfRange & 1) != 0
   }
 
-  //def getDirectionality(c: scala.Char): scala.Byte
+  // def getDirectionality(c: scala.Char): scala.Byte
 
   /* Conversions */
   def toUpperCase(ch: Char): Char = toUpperCase(ch.toInt).toChar
@@ -837,13 +838,13 @@ object Character {
       case 0x10fd => 0x10fd
       case 0x10fe => 0x10fe
       case 0x10ff => 0x10ff
-      // END GENERATED: [titlecase-mappings]
 
+      // END GENERATED: [titlecase-mappings]
       case _ => toUpperCase(codePoint)
     }
   }
 
-  //def getNumericValue(c: scala.Char): Int
+  // def getNumericValue(c: scala.Char): Int
 
   // Miscellaneous ------------------------------------------------------------
 
@@ -862,7 +863,8 @@ object Character {
   }
 
   final class UnicodeBlock private (name: String,
-      private val start: Int, private val end: Int) extends Subset(name)
+      private val start: Int, private val end: Int)
+      extends Subset(name)
 
   object UnicodeBlock {
     // BEGIN GENERATED: [unicode-block-constants]
@@ -881,7 +883,7 @@ object Character {
       blocksByNormalizedName.put(lower.replace(" ", ""), block)
     }
 
-    private[this] def addUnicodeBlock(properName: String, start: Int, end: Int): UnicodeBlock =  {
+    private[this] def addUnicodeBlock(properName: String, start: Int, end: Int): UnicodeBlock = {
       val jvmName = properName.toUpperCase()
         .replace(' ', '_')
         .replace('-', '_')
@@ -895,7 +897,7 @@ object Character {
     }
 
     private[this] def addUnicodeBlock(properName: String, historicalName: String,
-        start: Int, end: Int): UnicodeBlock =  {
+        start: Int, end: Int): UnicodeBlock = {
       val jvmName = historicalName.toUpperCase()
         .replace(' ', '_')
         .replace('-', '_')
@@ -913,7 +915,7 @@ object Character {
     val SURROGATES_AREA = new UnicodeBlock("SURROGATES_AREA", 0x0, 0x0)
     blocksByNormalizedName.put("surrogates_area", SURROGATES_AREA)
 
-    // scalastyle:off line.size.limit
+    // scalafmt: { maxColumn = 1000 }
 
     // BEGIN GENERATED: [unicode-blocks]
     val BASIC_LATIN = addUnicodeBlock("Basic Latin", 0x0000, 0x007f)
@@ -1245,7 +1247,7 @@ object Character {
     val SUPPLEMENTARY_PRIVATE_USE_AREA_B = addUnicodeBlock("Supplementary Private Use Area-B", 0x100000, 0x10ffff)
     // END GENERATED: [unicode-blocks]
 
-    // scalastyle:on line.size.limit
+    // scalafmt: {}
 
     def forName(blockName: String): UnicodeBlock = {
       val key: String = blockName.toLowerCase()
@@ -1265,7 +1267,8 @@ object Character {
     }
 
     @tailrec
-    private[this] def binarySearch(codePoint: scala.Int, lo: scala.Int, hi: scala.Int): UnicodeBlock = {
+    private[this] def binarySearch(codePoint: scala.Int, lo: scala.Int,
+        hi: scala.Int): UnicodeBlock = {
       if (lo < hi) {
         val mid = lo + (hi - lo) / 2
         val block = allBlocks.get(mid)
@@ -1281,20 +1284,21 @@ object Character {
 
   // Types of characters from 0 to 255
   private[this] lazy val charTypesFirst256: Array[Int] = Array(
-    // BEGIN GENERATED: [char-types-first-256]
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 24, 24, 24, 26, 24,
-    24, 24, 21, 22, 24, 25, 24, 20, 24, 24, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 24,
-    24, 25, 25, 25, 24, 24, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 21, 24, 22, 27, 23, 27, 2, 2, 2, 2, 2, 2, 2, 2,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 21, 25, 22, 25, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-    15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 24, 26, 26, 26, 26,
-    28, 24, 27, 28, 5, 29, 25, 16, 28, 27, 28, 25, 11, 11, 27, 2, 24, 24, 27,
-    11, 5, 30, 11, 11, 11, 24, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 25, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 25, 2, 2, 2, 2, 2, 2, 2, 2
-    // END GENERATED: [char-types-first-256]
+      // BEGIN GENERATED: [char-types-first-256]
+      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 12, 24, 24, 24,
+      26, 24, 24, 24, 21, 22, 24, 25, 24, 20, 24, 24, 9, 9, 9, 9, 9, 9, 9, 9,
+      9, 9, 24, 24, 25, 25, 25, 24, 24, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 21, 24, 22, 27, 23, 27, 2, 2, 2,
+      2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 21,
+      25, 22, 25, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+      15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+      12, 24, 26, 26, 26, 26, 28, 24, 27, 28, 5, 29, 25, 16, 28, 27, 28, 25,
+      11, 11, 27, 2, 24, 24, 27, 11, 5, 30, 11, 11, 11, 24, 1, 1, 1, 1, 1, 1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 25, 1, 1, 1, 1, 1, 1,
+      1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+      2, 25, 2, 2, 2, 2, 2, 2, 2, 2
+      // END GENERATED: [char-types-first-256]
   )
 
   /* Character type data by ranges of types

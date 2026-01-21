@@ -162,6 +162,7 @@ class ArrayList[E] private (innerInit: AnyRef, private var _size: Int)
     } {
       innerJS.length = 0
     }
+  }
 
   override def addAll(index: Int, c: Collection[_ <: E]): Boolean = {
     c match {
@@ -196,12 +197,10 @@ class ArrayList[E] private (innerInit: AnyRef, private var _size: Int)
   }
 
   // Wasm only
-  private def expand(): Unit = {
+  private def expand(): Unit =
     resizeTo(Math.max(innerWasm.length * 2, 16))
-  }
 
   // Wasm only
-  private def resizeTo(newCapacity: Int): Unit = {
+  private def resizeTo(newCapacity: Int): Unit =
     innerWasm = Arrays.copyOf(innerWasm, newCapacity)
-  }
 }

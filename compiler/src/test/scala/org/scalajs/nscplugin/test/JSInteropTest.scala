@@ -17,8 +17,6 @@ import org.scalajs.nscplugin.test.util._
 import org.junit.Test
 import org.junit.Ignore
 
-// scalastyle:off line.size.limit
-
 class JSInteropTest extends DirectTest with TestHelpers {
 
   override def preamble: String =
@@ -28,11 +26,11 @@ class JSInteropTest extends DirectTest with TestHelpers {
     """
 
   private val JSNativeLoadSpecAnnots = Seq(
-      "JSGlobal" -> "@JSGlobal",
-      "JSGlobal" -> "@JSGlobal(\"foo\")",
-      "JSImport" -> "@JSImport(\"foo\", \"bar\")",
-      "JSImport" -> "@JSImport(\"foo\", \"bar\", globalFallback = \"baz\")",
-      "JSGlobalScope" -> "@JSGlobalScope"
+    "JSGlobal" -> "@JSGlobal",
+    "JSGlobal" -> "@JSGlobal(\"foo\")",
+    "JSImport" -> "@JSImport(\"foo\", \"bar\")",
+    "JSImport" -> "@JSImport(\"foo\", \"bar\", globalFallback = \"baz\")",
+    "JSGlobalScope" -> "@JSGlobalScope"
   )
 
   private def version = scala.util.Properties.versionNumberString
@@ -413,6 +411,7 @@ class JSInteropTest extends DirectTest with TestHelpers {
     """
 
   }
+
   @Test def noJSNameAnnotOnClass: Unit = {
     """
     @js.native

@@ -26,13 +26,13 @@ package java
 package lang
 
 import scala.scalajs.js
-import js.Dynamic.{ global => g }
+import js.Dynamic.{global => g}
 
 import scala.scalajs.LinkingInfo
 import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf}
 
 object Math {
-  final val E  = 2.718281828459045
+  final val E = 2.718281828459045
   final val PI = 3.141592653589793
 
   @inline private def assumingES6: scala.Boolean =
@@ -615,7 +615,7 @@ object Math {
         a
       // Power Series http://en.wikipedia.org/wiki/Power_series
       // for small values of a, exp(a) = 1 + a + (a*a)/2
-      else if (abs(a) < 1E-5)
+      else if (abs(a) < 1e-5)
         a + 0.5 * a * a
       else
         exp(a) - 1.0
@@ -650,17 +650,17 @@ object Math {
     if (assumingES6 || !Utils.isUndefined(g.Math.tanh)) {
       js.Math.tanh(a)
     } else {
-      if (Double.isNaN(a) || a == 0.0)
+      if (Double.isNaN(a) || a == 0.0) {
         a
-      else if (abs(a) == scala.Double.PositiveInfinity)
+      } else if (abs(a) == scala.Double.PositiveInfinity) {
         signum(a)
-      else {
+      } else {
         // sinh(a) / cosh(a) =
         // 1 - 2 * (exp(-a)/ (exp(-a) + exp (a)))
         val expma = exp(-a)
-        if (expma == scala.Double.PositiveInfinity) //Infinity / Infinity
+        if (expma == scala.Double.PositiveInfinity) { // Infinity / Infinity
           -1.0
-        else {
+        } else {
           val expa = exp(a)
           val ret = expma / (expa + expma)
           1.0 - (2.0 * ret)
