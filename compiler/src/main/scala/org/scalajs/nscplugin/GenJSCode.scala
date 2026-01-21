@@ -41,7 +41,7 @@ import org.scalajs.ir.Names.{
   FieldName,
   SimpleMethodName,
   MethodName,
-  ClassName,
+  ClassName
 }
 import org.scalajs.ir.WellKnownNames.{BoxedStringClass, DefaultModuleID}
 import org.scalajs.ir.OriginalName.NoOriginalName
@@ -60,9 +60,8 @@ import org.scalajs.ir.Types.ArrayType
  *  @author Sébastien Doeraene
  */
 abstract class GenJSCode[G <: Global with Singleton](val global: G)
-    extends plugins.PluginComponent with TypeConversions[G] with JSEncoding[G]
-    with GenJSExports[G] with GenJSFiles[G] with CompatComponent
-    with GenWitInterop[G] {
+    extends plugins.PluginComponent with TypeConversions[G] with JSEncoding[G] with GenJSExports[G]
+    with GenJSFiles[G] with CompatComponent with GenWitInterop[G] {
 
   import GenJSCode._
 
@@ -162,8 +161,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val paramSyms: List[Symbol])
       extends EnclosingLabelDefInfo
 
-  class JSCodePhase(prev: Phase) extends StdPhase(prev) with JSExportsPhase
-      with WasmComponentModelInteropPhase {
+  class JSCodePhase(prev: Phase)
+      extends StdPhase(prev) with JSExportsPhase with WasmComponentModelInteropPhase {
 
     override def name: String = phaseName
     override def description: String = GenJSCode.this.description
@@ -766,21 +765,21 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             val forwarders = genStaticForwardersFromModuleClass(Nil, sym)
             if (forwarders.nonEmpty) {
               val forwardersClassDef = js.ClassDef(
-                  js.ClassIdent(ClassName(classIdent.name.nameString.stripSuffix("$"))),
-                  originalName,
-                  ClassKind.Class,
-                  None,
-                  Some(js.ClassIdent(jswkn.ObjectClass)),
-                  Nil,
-                  None,
-                  None,
-                  fields = Nil,
-                  methods = forwarders,
-                  jsConstructor = None,
-                  jsMethodProps = Nil,
-                  jsNativeMembers = Nil,
-                  witNativeMembers = Nil,
-                  topLevelExportDefs = Nil
+                js.ClassIdent(ClassName(classIdent.name.nameString.stripSuffix("$"))),
+                originalName,
+                ClassKind.Class,
+                None,
+                Some(js.ClassIdent(jswkn.ObjectClass)),
+                Nil,
+                None,
+                None,
+                fields = Nil,
+                methods = forwarders,
+                jsConstructor = None,
+                jsMethodProps = Nil,
+                jsNativeMembers = Nil,
+                witNativeMembers = Nil,
+                topLevelExportDefs = Nil
               )(js.OptimizerHints.empty)
               generatedStaticForwarderClasses += sym -> forwardersClassDef
             }
@@ -3646,7 +3645,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           genApplyJSClassMethod(genExpr(receiver), sym, genActualArgs(sym, args))
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
-      // Wasm Component Model
+        // Wasm Component Model
       } else if (sym.hasAnnotation(WitResourceMethodAnnotation) ||
           sym.hasAnnotation(WitResourceDropAnnotation)) {
         genWitNativeMemberCall(sym, tree, Some(receiver), isStat)

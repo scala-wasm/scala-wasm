@@ -17,7 +17,10 @@ package object random {
    *  data.
    */
   @scala.scalajs.wit.annotation.WitImport("wasi:random/random@0.2.0", "get-random-bytes")
-  def getRandomBytes(len: scala.scalajs.wit.unsigned.ULong): Array[scala.scalajs.wit.unsigned.UByte] = scala.scalajs.wit.native
+  def getRandomBytes(
+      len: scala.scalajs.wit.unsigned.ULong): Array[scala.scalajs.wit.unsigned.UByte] = {
+    scala.scalajs.wit.native
+  }
 
   /** Return a cryptographically-secure random or pseudo-random `u64` value.
    *

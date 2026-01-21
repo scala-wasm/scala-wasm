@@ -14,8 +14,7 @@ package scala.scalajs
 
 import scala.annotation.meta._
 
-/** Types, methods and values for interoperability with Wasm Component Model libraries.
- */
+/** Types, methods and values for interoperability with Wasm Component Model libraries. */
 package object wit {
 
   /** Denotes a method body as imported from Wasm Component. For use in facade types:
@@ -33,6 +32,5 @@ package object wit {
         "Scala.js binaries on the JVM. Make sure you are using the JVM " +
         "version of the libraries.")
   }
-
 
 }

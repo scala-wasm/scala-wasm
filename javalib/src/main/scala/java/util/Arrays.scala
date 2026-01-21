@@ -678,9 +678,8 @@ object Arrays {
      */
     val seen = new ArrayList[Array[AnyRef]]()
 
-    @inline def wasSeen(a: Array[AnyRef]): Boolean = {
+    @inline def wasSeen(a: Array[AnyRef]): Boolean =
       seen.contains(a)
-    }
 
     def rec(a: Array[AnyRef]): String = {
       var result = "["

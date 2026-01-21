@@ -86,11 +86,20 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
     Types.ClassType(ClassName("java.lang.String"), true) -> wit.StringType
   )
 
-  private lazy val ScalaJSWitUnsignedPackageModule = rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
-    private lazy val WitUnsigned_UByte = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
-    private lazy val WitUnsigned_UShort = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
-    private lazy val WitUnsigned_UInt = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
-    private lazy val WitUnsigned_ULong = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
+  private lazy val ScalaJSWitUnsignedPackageModule =
+    rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
+
+  private lazy val WitUnsigned_UByte =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
+
+  private lazy val WitUnsigned_UShort =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
+
+  private lazy val WitUnsigned_UInt =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
+
+  private lazy val WitUnsigned_ULong =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
 
   private lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
     WitUnsigned_UByte -> wit.U8Type,
@@ -99,13 +108,14 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
     WitUnsigned_ULong -> wit.U64Type
   )
 
-  private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef =
+  private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef = {
     primitiveRefMap.getOrElse(sym, {
       if (isWasmWitResourceType(sym))
         Types.WitResourceTypeRef(encodeClassName(sym))
       else
         Types.ClassRef(encodeClassName(sym))
     })
+  }
 
   private def makeArrayTypeRef(base: Symbol, depth: Int): Types.ArrayTypeRef =
     Types.ArrayTypeRef(makeNonArrayTypeRef(base), depth)

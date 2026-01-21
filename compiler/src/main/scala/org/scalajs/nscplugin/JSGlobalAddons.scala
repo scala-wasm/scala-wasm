@@ -124,12 +124,15 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
     case class TopLevelExportInfo(moduleID: String, jsName: String)(
         val pos: Position)
         extends ExportInfo
+
     case class WitExportInfo(moduleName: String, name: String,
         signature: WitFunctionType)(
-        val pos: Position) extends ExportInfo
+        val pos: Position)
+        extends ExportInfo
+
     case class WitFunctionType(
-      params: List[Type],
-      resultType: Type
+        params: List[Type],
+        resultType: Type
     )
 
     case class StaticExportInfo(jsName: String)(val pos: Position) extends ExportInfo

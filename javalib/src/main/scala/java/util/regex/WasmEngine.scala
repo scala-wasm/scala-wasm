@@ -375,6 +375,7 @@ private[regex] object WasmEngine extends Engine {
   }
 
   private object RepeatMatcher {
+
     /** Used for the value of `RepeatMatcher.max` signaling that there is no maximum. */
     final val MaxInfinity = -1
   }
@@ -448,9 +449,10 @@ private[regex] object WasmEngine extends Engine {
    */
   private final class MatchSequence(m1: Matcher, m2: Matcher) extends Matcher {
     def apply(x: MatchState, c: MatchContinuation): MatchResult = {
-      m1(x, { y =>
-        m2(y, c)
-      })
+      m1(x,
+          { y =>
+            m2(y, c)
+          })
     }
   }
 
@@ -531,8 +533,7 @@ private[regex] object WasmEngine extends Engine {
    *
    *  @see [[https://262.ecma-international.org/15.0/index.html#sec-compileassertion]]
    */
-  private final class PositiveLookAroundMatcher(m: Matcher)
-      extends Matcher {
+  private final class PositiveLookAroundMatcher(m: Matcher) extends Matcher {
 
     def apply(x: MatchState, c: MatchContinuation): MatchResult = {
       m(x, y => y) match {
@@ -548,8 +549,7 @@ private[regex] object WasmEngine extends Engine {
    *
    *  @see [[https://262.ecma-international.org/15.0/index.html#sec-compileassertion]]
    */
-  private final class NegativeLookAroundMatcher(m: Matcher)
-      extends Matcher {
+  private final class NegativeLookAroundMatcher(m: Matcher) extends Matcher {
 
     def apply(x: MatchState, c: MatchContinuation): MatchResult = {
       m(x, y => y) match {
@@ -582,10 +582,12 @@ private[regex] object WasmEngine extends Engine {
       import x._
 
       val startIndex = endIndex - literal.length()
-      if (startIndex >= 0 && input.startsWith(literal, startIndex) && isCodePointBoundary(input, startIndex))
+      if (startIndex >= 0 && input.startsWith(literal, startIndex) && isCodePointBoundary(
+              input, startIndex)) {
         c(MatchState(input, startIndex, captures))
-      else
+      } else {
         Failure
+      }
     }
   }
 
@@ -681,16 +683,18 @@ private[regex] object WasmEngine extends Engine {
    *
    *  @see [[https://262.ecma-international.org/15.0/index.html#sec-compileatom]]
    */
-  private final class CapturingGroupMatcher(number: Int, m: Matcher, forward: Boolean) extends Matcher {
+  private final class CapturingGroupMatcher(number: Int, m: Matcher, forward: Boolean)
+      extends Matcher {
     def apply(x: MatchState, c: MatchContinuation): MatchResult = {
-      m(x, { y =>
-        val xe = x.endIndex
-        val ye = y.endIndex
-        val cap =
-          if (forward) y.captures.set(number, xe, ye)
-          else y.captures.set(number, ye, xe)
-        c(MatchState(y.input, ye, cap))
-      })
+      m(x,
+          { y =>
+            val xe = x.endIndex
+            val ye = y.endIndex
+            val cap =
+              if (forward) y.captures.set(number, xe, ye)
+              else y.captures.set(number, ye, xe)
+            c(MatchState(y.input, ye, cap))
+          })
     }
   }
 
@@ -765,7 +769,7 @@ private[regex] object WasmEngine extends Engine {
     private def parseInsideParensAndClosingParen(): Matcher = {
       // scalastyle:off return
       val alternatives = new ArrayList[Matcher]() // completed alternatives
-      var sequence = new ArrayList[Matcher]()     // current sequence
+      var sequence = new ArrayList[Matcher]() // current sequence
 
       // Explicitly take the sequence, otherwise we capture a `var`
       def completeSequence(sequence: ArrayList[Matcher]): Matcher =
@@ -871,8 +875,10 @@ private[regex] object WasmEngine extends Engine {
 
               (c: @switch) match {
                 case 'b' | 'B' =>
-                  if (unicodeIgnoreCase)
-                    throw new AssertionError(s"PatternCompiler was not supposed to generate \\$c with the 'i' flag")
+                  if (unicodeIgnoreCase) {
+                    throw new AssertionError(
+                        s"PatternCompiler was not supposed to generate \\$c with the 'i' flag")
+                  }
                   new WordBoundaryAssertion(negated = c == 'B')
                 case 'p' | 'P' =>
                   makeCharacterSetMatcher(parseUnicodePropertyWithBraces(),

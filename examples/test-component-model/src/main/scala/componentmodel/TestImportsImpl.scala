@@ -40,7 +40,8 @@ object TestImportsImpl extends TestImports {
 
     assert('a' == roundtripChar('a'))
 
-    val basics1Input = (127.asInstanceOf[UByte], 127.toByte, 32767.asInstanceOf[UShort], 32767.toShort, 532423, 2147483647, 0.0f, 0.0, 'x')
+    val basics1Input = (127.asInstanceOf[UByte], 127.toByte, 32767.asInstanceOf[UShort],
+        32767.toShort, 532423, 2147483647, 0.0f, 0.0, 'x')
     val basics1Result = roundtripBasics1(basics1Input)
     assert(basics1Result._1 == 127)
     assert(basics1Result._2 == 127)
@@ -122,7 +123,7 @@ object TestImportsImpl extends TestImports {
       val successResult = toEither(tryCreateCounter(10))
       successResult match {
         case Right(counter) => assert(10 == counter.valueOf())
-        case Left(_) => throw new AssertionError("Expected Right but got Left")
+        case Left(_)        => throw new AssertionError("Expected Right but got Left")
       }
 
       val errorResult = toEither(tryCreateCounter(-5))

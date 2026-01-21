@@ -219,12 +219,22 @@ object Transformers {
   abstract class ClassTransformer extends Transformer {
     def transformClassDef(tree: ClassDef): ClassDef = {
       import tree._
-      ClassDef(name, originalName, kind, jsClassCaptures, superClass,
-          interfaces, transformTreeOpt(jsSuperClass), jsNativeLoadSpec,
-          fields.map(transformAnyFieldDef(_)),
-          methods.map(transformMethodDef), jsConstructor.map(transformJSConstructorDef),
-          jsMethodProps.map(transformJSMethodPropDef), jsNativeMembers, witNativeMembers,
-          topLevelExportDefs.map(transformTopLevelExportDef)
+      ClassDef(
+        name,
+        originalName,
+        kind,
+        jsClassCaptures,
+        superClass,
+        interfaces,
+        transformTreeOpt(jsSuperClass),
+        jsNativeLoadSpec,
+        fields.map(transformAnyFieldDef(_)),
+        methods.map(transformMethodDef),
+        jsConstructor.map(transformJSConstructorDef),
+        jsMethodProps.map(transformJSMethodPropDef),
+        jsNativeMembers,
+        witNativeMembers,
+        topLevelExportDefs.map(transformTopLevelExportDef)
       )(
           tree.optimizerHints)(tree.pos)
     }

@@ -18,6 +18,7 @@ import java.util.ScalaOps._
 import CaseFolding._
 
 private[regex] object CharacterSets {
+
   /** Mathematical set of `CharSetElement`s.
    *
    *  Since `UnicodeSets` is always false for us (it is the 'v' flag, which
@@ -40,7 +41,7 @@ private[regex] object CharacterSets {
       val p = Arrays.binarySearch(ranges, cp)
 
       (p >= 0) || // found in the array: exactly the start or end of a range; or
-      ((-p - 1) & 1) != 0 // the insertion point is odd (an end value): inside a range.
+        ((-p - 1) & 1) != 0 // the insertion point is odd (an end value): inside a range.
     }
 
     def union(that: CharSet): CharSet = {

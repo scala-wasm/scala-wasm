@@ -12,8 +12,10 @@ package object ip_name_lookup {
   type IpAddress = scala.scalajs.wasi.sockets.network.IpAddress
 
   // Resources
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/ip-name-lookup@0.2.0", "resolve-address-stream")
+  @scala.scalajs.wit.annotation.WitResourceImport(
+      "wasi:sockets/ip-name-lookup@0.2.0", "resolve-address-stream")
   trait ResolveAddressStream {
+
     /** Returns the next address from the resolver.
      *
      *  This function should be called multiple times. On each call, it will
@@ -29,7 +31,10 @@ package object ip_name_lookup {
      *  - `would-block`:                A result is not available yet. (EWOULDBLOCK, EAGAIN)
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("resolve-next-address")
-    def resolveNextAddress(): scala.scalajs.wit.Result[java.util.Optional[scala.scalajs.wasi.sockets.network.IpAddress], scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def resolveNextAddress(): scala.scalajs.wit.Result[
+        java.util.Optional[scala.scalajs.wasi.sockets.network.IpAddress],
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Create a `pollable` which will resolve once the stream is ready for I/O.
      *
      *  Note: this function is here for WASI Preview2 only.
@@ -37,11 +42,12 @@ package object ip_name_lookup {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object ResolveAddressStream {
-  }
+
+  object ResolveAddressStream {}
 
   // Functions
   /** Resolve an internet host name to a list of IP addresses.
@@ -66,6 +72,7 @@ package object ip_name_lookup {
    *  - <https://man.freebsd.org/cgi/man.cgi?query=getaddrinfo&sektion=3>
    */
   @scala.scalajs.wit.annotation.WitImport("wasi:sockets/ip-name-lookup@0.2.0", "resolve-addresses")
-  def resolveAddresses(network: Network, name: String): scala.scalajs.wit.Result[ResolveAddressStream, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+  def resolveAddresses(network: Network, name: String): scala.scalajs.wit.Result[
+      ResolveAddressStream, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
 
 }

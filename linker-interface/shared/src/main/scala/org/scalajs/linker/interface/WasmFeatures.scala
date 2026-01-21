@@ -3,12 +3,12 @@ package org.scalajs.linker.interface
 import Fingerprint.FingerprintBuilder
 
 final class WasmFeatures private (
-  _exceptionHandling: Boolean,
-  _targetPureWasm: Boolean,
-  _componentModel: Boolean,
-  _witDirectory: Option[String],
-  _witWorld: Option[String],
-  _autoIncludeWasiImports: Boolean
+    _exceptionHandling: Boolean,
+    _targetPureWasm: Boolean,
+    _componentModel: Boolean,
+    _witDirectory: Option[String],
+    _witWorld: Option[String],
+    _autoIncludeWasiImports: Boolean
 ) {
   import WasmFeatures._
 
@@ -92,12 +92,12 @@ final class WasmFeatures private (
       autoIncludeWasiImports: Boolean = this.autoIncludeWasiImports
   ): WasmFeatures = {
     new WasmFeatures(
-        _exceptionHandling = exceptionHandling,
-        _targetPureWasm = targetPureWasm,
-        _componentModel = componentModel,
-        _witDirectory = witDirectory,
-        _witWorld = witWorld,
-        _autoIncludeWasiImports = autoIncludeWasiImports
+      _exceptionHandling = exceptionHandling,
+      _targetPureWasm = targetPureWasm,
+      _componentModel = componentModel,
+      _witDirectory = witDirectory,
+      _witWorld = witWorld,
+      _autoIncludeWasiImports = autoIncludeWasiImports
     )
   }
 }
@@ -108,8 +108,7 @@ object WasmFeatures {
 
   val Defaults: WasmFeatures = new WasmFeatures()
 
-  private[interface] implicit object WasmFeaturesFingerprint
-      extends Fingerprint[WasmFeatures] {
+  private[interface] implicit object WasmFeaturesFingerprint extends Fingerprint[WasmFeatures] {
 
     override def fingerprint(wasmFeatures: WasmFeatures): String = {
       new FingerprintBuilder("WasmFeatures")

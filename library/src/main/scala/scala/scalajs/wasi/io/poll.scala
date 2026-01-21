@@ -3,16 +3,17 @@ package scala.scalajs.wasi.io
 package object poll {
 
   // Resources
-  /** `pollable` represents a single I/O event which may be ready, or not.
-   */
+  /** `pollable` represents a single I/O event which may be ready, or not. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/poll@0.2.0", "pollable")
   trait Pollable {
+
     /** Return the readiness of a pollable. This function never blocks.
      *
      *  Returns `true` when the pollable is ready, and `false` otherwise.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("ready")
     def ready(): Boolean = scala.scalajs.wit.native
+
     /** `block` returns immediately if the pollable is ready, and otherwise
      *  blocks until ready.
      *
@@ -21,11 +22,12 @@ package object poll {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("block")
     def block(): Unit = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object Pollable {
-  }
+
+  object Pollable {}
 
   // Functions
   /** Poll for completion on a set of pollables.

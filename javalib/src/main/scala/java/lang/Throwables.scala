@@ -81,8 +81,7 @@ class Throwable protected (s: String, private var e: Throwable,
 
         this.stackTrace = stackTrace.clone()
       }
-    } {
-    }
+    } {}
   }
 
   def printStackTrace(): Unit = printStackTrace(System.err)

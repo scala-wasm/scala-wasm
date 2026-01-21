@@ -24,9 +24,8 @@ final class Ok[A](val value: A) extends Result[A, Nothing] {
     }
   }
 
-  override def hashCode(): Int = {
+  override def hashCode(): Int =
     if (value == null) 0 else value.hashCode()
-  }
 
   override def toString(): String = "Ok(" + value + ")"
 }
@@ -45,9 +44,8 @@ final class Err[B](val value: B) extends Result[Nothing, B] {
     }
   }
 
-  override def hashCode(): Int = {
+  override def hashCode(): Int =
     if (value == null) 0 else value.hashCode()
-  }
 
   override def toString(): String = "Err(" + value + ")"
 }

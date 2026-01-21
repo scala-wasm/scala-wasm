@@ -36,11 +36,12 @@ object DerivedClasses {
   def deriveClasses(classes: List[LinkedClass], coreSpec: CoreSpec): List[LinkedClass] = {
     if (coreSpec.wasmFeatures.targetPureWasm) {
       classes.collect {
-        case clazz if clazz.className == BoxedCharacterClass ||
-            clazz.className == BoxedLongClass ||
-            clazz.className == BoxedIntegerClass ||
-            clazz.className == BoxedDoubleClass ||
-            clazz.className == BoxedBooleanClass =>
+        case clazz
+            if clazz.className == BoxedCharacterClass ||
+              clazz.className == BoxedLongClass ||
+              clazz.className == BoxedIntegerClass ||
+              clazz.className == BoxedDoubleClass ||
+              clazz.className == BoxedBooleanClass =>
           deriveBoxClass(clazz)
       }
     } else {

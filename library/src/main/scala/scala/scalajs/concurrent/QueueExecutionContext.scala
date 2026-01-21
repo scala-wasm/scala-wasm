@@ -31,13 +31,14 @@ object QueueExecutionContext {
   def single(): ExecutionContextExecutor =
     new SingleThreadedExecutionContext
 
-  def apply(): ExecutionContextExecutor =
+  def apply(): ExecutionContextExecutor = {
     linkTimeIf(LinkingInfo.targetPureWasm) {
       single()
     } {
       if (js.typeOf(js.Dynamic.global.Promise) == "undefined") timeouts()
       else promises()
     }
+  }
 
   private final class SingleThreadedExecutionContext extends ExecutionContextExecutor {
 

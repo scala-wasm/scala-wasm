@@ -55,9 +55,10 @@ final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
 
   private val linkTimeProperties = LinkTimeProperties.fromCoreSpec(config.coreSpec)
 
-  private val infoLoader: InfoLoader =
+  private val infoLoader: InfoLoader = {
     new InfoLoader(irLoader, checkIRFor, linkTimeProperties,
         config.coreSpec.wasmFeatures.targetPureWasm)
+  }
 
   def computeReachability(moduleInitializers: Seq[ModuleInitializer],
       symbolRequirements: SymbolRequirement, logger: Logger)(
@@ -707,9 +708,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     def jsNativeMembersUsed: scala.collection.Set[MethodName] = _jsNativeMembersUsed.keySet
 
     private[this] val _wasmwitNativeMembersUsed: mutable.Map[MethodName, Unit] =
-        emptyThreadSafeMap
+      emptyThreadSafeMap
+
     def wasmwitNativeMembersUsed: scala.collection.Set[MethodName] =
-        _wasmwitNativeMembersUsed.keySet
+      _wasmwitNativeMembersUsed.keySet
 
     val jsNativeLoadSpec: Option[JSNativeLoadSpec] = data.jsNativeLoadSpec
 
@@ -1354,7 +1356,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
             followReachabilityInfo(reachabilityInfo, this)
         }
       }
-   }
+    }
 
     private def referenceFieldClasses(fieldName: FieldName)(implicit from: From): Unit = {
       assert(isInstantiated)

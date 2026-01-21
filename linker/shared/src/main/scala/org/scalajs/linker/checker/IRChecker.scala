@@ -759,7 +759,7 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
       case JSTypeOfGlobalRef(_) =>
 
       case WitFunctionApply(receiver, _, _, args) =>
-        receiver.foreach { r => typecheckExpr(r, env) } // TODO: typecheck WasmWitResourceType
+        receiver.foreach(r => typecheckExpr(r, env)) // TODO: typecheck WasmWitResourceType
         for (arg <- args)
           typecheckExpr(arg, env)
 
@@ -886,10 +886,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
   private def typeRefToType(typeRef: TypeRef)(
       implicit ctx: ErrorContext): Type = {
     typeRef match {
-      case PrimRef(tpe)               => tpe
-      case ClassRef(className)        => classNameToType(className)
-      case arrayTypeRef: ArrayTypeRef => ArrayType(arrayTypeRef, nullable = true)
-      case typeRef: TransientTypeRef  => typeRef.tpe
+      case PrimRef(tpe)                  => tpe
+      case ClassRef(className)           => classNameToType(className)
+      case arrayTypeRef: ArrayTypeRef    => ArrayType(arrayTypeRef, nullable = true)
+      case typeRef: TransientTypeRef     => typeRef.tpe
       case WitResourceTypeRef(className) => WitResourceType(className)
     }
   }

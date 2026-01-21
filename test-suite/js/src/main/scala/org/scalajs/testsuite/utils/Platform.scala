@@ -93,7 +93,7 @@ object Platform {
   def hasCompliantModuleInit: Boolean = BuildInfo.compliantModuleInit
 
   def hasDirectBuffers: Boolean =
-    linkTimeIf(targetPureWasm) { false } { typedArrays }
+    linkTimeIf(targetPureWasm)(false)(typedArrays)
 
   def regexSupportsUnicodeCase: Boolean =
     assumedESVersion >= ESVersion.ES2015

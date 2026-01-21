@@ -60,18 +60,21 @@ object CoderResult {
   private val Malformed4 = new CoderResult(Malformed, 4)
 
   // This is a sparse array
-  private val uniqueMalformedJS =
+  private val uniqueMalformedJS = {
     linkTimeIf(!targetPureWasm) {
       js.Array[js.UndefOr[CoderResult]]()
     } {
       null
     }
-  private val uniqueMalformedWasm =
+  }
+
+  private val uniqueMalformedWasm = {
     linkTimeIf(targetPureWasm) {
       new java.util.HashMap[Int, CoderResult]()
     } {
       null
     }
+  }
 
   private val Unmappable1 = new CoderResult(Unmappable, 1)
   private val Unmappable2 = new CoderResult(Unmappable, 2)
@@ -79,18 +82,21 @@ object CoderResult {
   private val Unmappable4 = new CoderResult(Unmappable, 4)
 
   // This is a sparse array
-  private val uniqueUnmappableJS =
+  private val uniqueUnmappableJS = {
     linkTimeIf(!targetPureWasm) {
       js.Array[js.UndefOr[CoderResult]]()
     } {
       null
     }
-  private val uniqueUnmappableWasm =
+  }
+
+  private val uniqueUnmappableWasm = {
     linkTimeIf(targetPureWasm) {
       new java.util.HashMap[Int, CoderResult]()
     } {
       null
     }
+  }
 
   @inline def malformedForLength(length: Int): CoderResult = (length: @switch) match {
     case 1 => Malformed1

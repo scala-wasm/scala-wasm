@@ -121,24 +121,24 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
       val emitDebugInfo = !config.minify
 
       (if (config.sourceMap) {
-        val sourceMapWriter = new ByteArrayWriter
+         val sourceMapWriter = new ByteArrayWriter
 
-        val wasmFileURI = s"./$wasmFileName"
-        val sourceMapURI = s"./$sourceMapFileName"
+         val wasmFileURI = s"./$wasmFileName"
+         val sourceMapURI = s"./$sourceMapFileName"
 
-        val smWriter = new SourceMapWriter(sourceMapWriter, wasmFileURI,
-            config.relativizeSourceMapBase, fragmentIndex)
-        val binaryOutput = BinaryWriter.writeWithSourceMap(
-            wasmModule, emitDebugInfo, smWriter, sourceMapURI)
-        smWriter.complete()
+         val smWriter = new SourceMapWriter(sourceMapWriter, wasmFileURI,
+             config.relativizeSourceMapBase, fragmentIndex)
+         val binaryOutput = BinaryWriter.writeWithSourceMap(
+             wasmModule, emitDebugInfo, smWriter, sourceMapURI)
+         smWriter.complete()
 
-        outputImpl.writeFull(wasmFileName, binaryOutput).flatMap { _ =>
-          outputImpl.writeFull(sourceMapFileName, sourceMapWriter.toByteBuffer())
-        }
-      } else {
-        val binaryOutput = BinaryWriter.write(wasmModule, emitDebugInfo)
-        outputImpl.writeFull(wasmFileName, binaryOutput)
-      }).flatMap { _ =>
+         outputImpl.writeFull(wasmFileName, binaryOutput).flatMap { _ =>
+           outputImpl.writeFull(sourceMapFileName, sourceMapWriter.toByteBuffer())
+         }
+       } else {
+         val binaryOutput = BinaryWriter.write(wasmModule, emitDebugInfo)
+         outputImpl.writeFull(wasmFileName, binaryOutput)
+       }).flatMap { _ =>
         if (!coreSpec.wasmFeatures.componentModel) {
           Future.unit
         } else {

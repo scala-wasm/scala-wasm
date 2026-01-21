@@ -16,8 +16,8 @@ object TestsImpl extends Tests {
 
   override def roundtripPoint(a: Point): Point = a
 
-  override def roundtripBasics1(a: wit.Tuple9[UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char]):
-      wit.Tuple9[UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char] = a
+  override def roundtripBasics1(a: wit.Tuple9[UByte, Byte, UShort, Short, UInt, Int, Float, Double,
+          Char]): wit.Tuple9[UByte, Byte, UShort, Short, UInt, Int, Float, Double, Char] = a
 
   override def roundtripListU16(a: Array[UShort]): Array[UShort] = a
 
@@ -57,6 +57,7 @@ object TestsImpl extends Tests {
 
   override def roundtripTuple2(a: wit.Tuple2[Int, String]): wit.Tuple2[Int, String] = a
 
-  override def roundtripTuple3(a: wit.Tuple3[Int, String, Boolean]): wit.Tuple3[Int, String, Boolean] = a
+  override def roundtripTuple3(
+      a: wit.Tuple3[Int, String, Boolean]): wit.Tuple3[Int, String, Boolean] = a
 
 }

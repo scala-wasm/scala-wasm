@@ -20,6 +20,7 @@ import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
 
 private[backend] abstract class WasmComponentModelProcessor {
+
   /** Process a core wasm module into a component model binary in-place.
    *
    *  This method performs operations in sequence:

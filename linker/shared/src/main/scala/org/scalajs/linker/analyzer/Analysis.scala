@@ -191,8 +191,13 @@ object Analysis {
 
   final case class NotAModule(info: ClassInfo, from: From) extends Error
   final case class MissingMethod(info: MethodInfo, from: From) extends Error
-  final case class MissingJSNativeMember(info: ClassInfo, name: MethodName, from: From) extends Error
-  final case class MissingWasmWitNativeMember(info: ClassInfo, name: MethodName, from: From) extends Error
+
+  final case class MissingJSNativeMember(info: ClassInfo, name: MethodName, from: From)
+      extends Error
+
+  final case class MissingWasmWitNativeMember(info: ClassInfo, name: MethodName, from: From)
+      extends Error
+
   final case class ConflictingDefaultMethods(infos: List[MethodInfo], from: From) extends Error
 
   final case class InvalidTopLevelExportInScript(info: TopLevelExportInfo) extends Error {

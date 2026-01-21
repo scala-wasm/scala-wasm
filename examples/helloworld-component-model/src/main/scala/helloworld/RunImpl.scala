@@ -10,11 +10,10 @@ import helloworld.scala_wasm.helloworld.greeter.greet
 @WitImplementation
 object RunImpl extends Run {
 
-  override def run(): wit.Result[Unit,Unit] = {
+  override def run(): wit.Result[Unit, Unit] = {
     val greeting = greet("Scala")
     println(greeting)
     new wit.Ok(())
   }
 
 }
-

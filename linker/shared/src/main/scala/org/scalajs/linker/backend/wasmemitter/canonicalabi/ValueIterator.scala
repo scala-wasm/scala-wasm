@@ -20,13 +20,11 @@ object ValueIterators {
       this(fb, underlying, 0)
     }
 
-    def hasNext(): Boolean = {
+    def hasNext(): Boolean =
       i < underlying.length
-    }
 
-    def skip(t: watpe.Type): Unit = {
+    def skip(t: watpe.Type): Unit =
       i += 1
-    }
 
     def next(t: watpe.Type): Unit = {
       val (id, tpe) = underlying(i)

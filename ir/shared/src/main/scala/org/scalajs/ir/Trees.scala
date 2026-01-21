@@ -824,9 +824,10 @@ object Trees {
     val tpe = AnyType
   }
 
-  sealed case class WitFunctionApply(receiver: Option[Tree], className: ClassName, method: MethodIdent,
-      args: List[Tree])(   val tpe: Type)(implicit val pos: Position) extends Tree
-
+  sealed case class WitFunctionApply(receiver: Option[Tree], className: ClassName,
+      method: MethodIdent,
+      args: List[Tree])(val tpe: Type)(implicit val pos: Position)
+      extends Tree
 
   sealed case class JSMethodApply(receiver: Tree, method: Tree,
       args: List[TreeOrJSSpread])(implicit val pos: Position)
@@ -1513,7 +1514,7 @@ object Trees {
         jsNativeMembers: List[JSNativeMemberDef],
         witNativeMembers: List[WitNativeMemberDef],
         topLevelExportDefs: List[TopLevelExportDef]
-      )(
+    )(
         optimizerHints: OptimizerHints)(
         implicit pos: Position): ClassDef = {
       new ClassDef(name, originalName, kind, jsClassCaptures, superClass,
@@ -1600,8 +1601,8 @@ object Trees {
       implicit val pos: Position)
       extends MemberDef
 
-  sealed abstract class WitFunctionName {
-  }
+  sealed abstract class WitFunctionName {}
+
   object WitFunctionName {
     final case class Function(func: String) extends WitFunctionName
     final case class ResourceMethod(func: String, resource: String) extends WitFunctionName
@@ -1625,19 +1626,19 @@ object Trees {
         val StringLiteral(name) = propName: @unchecked // unchecked is needed for Scala 3.2+
         name
 
-      case TopLevelFieldExportDef(_, name, _) => name
+      case TopLevelFieldExportDef(_, name, _)   => name
       case WitExportDef(moduleName, name, _, _) => name match {
-        case WitFunctionName.Function(func) =>
-          s"$moduleName#$func"
-        case WitFunctionName.ResourceMethod(func, resource) =>
-          s"$moduleName#[method]$resource.$func"
-        case WitFunctionName.ResourceStaticMethod(func, resource) =>
-          s"$moduleName#[static]$resource.$func"
-        case WitFunctionName.ResourceConstructor(resource) =>
-          s"$moduleName#[constructor]$resource"
-        case WitFunctionName.ResourceDrop(resource) =>
-          s"$moduleName#[resource-drop]$resource"
-      }
+          case WitFunctionName.Function(func) =>
+            s"$moduleName#$func"
+          case WitFunctionName.ResourceMethod(func, resource) =>
+            s"$moduleName#[method]$resource.$func"
+          case WitFunctionName.ResourceStaticMethod(func, resource) =>
+            s"$moduleName#[static]$resource.$func"
+          case WitFunctionName.ResourceConstructor(resource) =>
+            s"$moduleName#[constructor]$resource"
+          case WitFunctionName.ResourceDrop(resource) =>
+            s"$moduleName#[resource-drop]$resource"
+        }
     }
 
     val isWitExport = this.isInstanceOf[WitExportDef]
@@ -1681,7 +1682,8 @@ object Trees {
   sealed case class WitExportDef(moduleName: String,
       name: WitFunctionName, methodDef: MethodDef,
       signature: WasmInterfaceTypes.FuncType)(
-      implicit val pos: Position) extends TopLevelExportDef {
+      implicit val pos: Position)
+      extends TopLevelExportDef {
     override def moduleID = DefaultModuleID
   }
 

@@ -41,7 +41,7 @@ object Types {
       case ClassType(_, nullable)      => nullable
       case ArrayType(_, nullable)      => nullable
       case ClosureType(_, _, nullable) => nullable
-      case WitResourceType(_)    => false
+      case WitResourceType(_)          => false
       case _                           => false
     }
 
@@ -282,8 +282,8 @@ object Types {
       case thiz: WitResourceTypeRef =>
         that match {
           case that: WitResourceTypeRef => thiz.className.compareTo(that.className)
-          case _: PrimRef | _: ClassRef       => 1
-          case _                              => -1
+          case _:PrimRef | _:ClassRef   => 1
+          case _                        => -1
         }
       case thiz: ArrayTypeRef =>
         that match {

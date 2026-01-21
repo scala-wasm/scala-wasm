@@ -21,14 +21,14 @@ import scala.scalajs.LinkingInfo
 import PatternCompiler.Support._
 
 final class Pattern private[regex] (
-  _pattern: String,
-  _flags: Int,
-  jsPattern: String,
-  jsFlags: String,
-  sticky: Boolean,
-  private[regex] val groupCount: Int,
-  groupNumberMap: Array[Int],
-  namedGroups: Engine.engine.Dictionary[Int]
+    _pattern: String,
+    _flags: Int,
+    jsPattern: String,
+    jsFlags: String,
+    sticky: Boolean,
+    private[regex] val groupCount: Int,
+    groupNumberMap: Array[Int],
+    namedGroups: Engine.engine.Dictionary[Int]
 ) extends Serializable {
 
   import Pattern._
@@ -138,7 +138,8 @@ final class Pattern private[regex] (
     })
   }
 
-  private[regex] def getIndices(lastMatch: engine.ExecResult, forMatches: Boolean): engine.IndicesArray = {
+  private[regex] def getIndices(lastMatch: engine.ExecResult,
+      forMatches: Boolean): engine.IndicesArray = {
     LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
       val indices = engine.getIndices(lastMatch)
       if (indices == null)
@@ -155,7 +156,8 @@ final class Pattern private[regex] (
           }
           val regexp = if (forMatches) jsRegExpForMatches else jsRegExpForFind
           engine.setLastIndex(regexp, engine.getIndex(lastMatch))
-          engine.setIndices(lastMatch, engine.getIndices(engine.exec(regexp, engine.getInput(lastMatch))))
+          engine.setIndices(
+              lastMatch, engine.getIndices(engine.exec(regexp, engine.getInput(lastMatch))))
         } else {
           val indices: JSEngine.IndicesArray =
             indicesBuilder(forMatches, engine.getInput(lastMatch), engine.getIndex(lastMatch))

@@ -7388,49 +7388,50 @@ private[optimizer] object OptimizerCore {
     )
 
     private val wasmJSStringIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
-        ClassName("java.lang.String") -> List(
-            m("codePointAt", List(I), I) -> StringCodePointAt,
-            m("substring", List(I), StringClassRef) -> StringSubstringStart,
-            m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
-        ),
-        // string.builtins.fromCodePoint
-        ClassName("java.lang.Character$") -> List(
-            m("toString", List(I), StringClassRef) -> CharacterCodePointToString
-        ),
+      ClassName("java.lang.String") -> List(
+        m("codePointAt", List(I), I) -> StringCodePointAt,
+        m("substring", List(I), StringClassRef) -> StringSubstringStart,
+        m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+      ),
+      // string.builtins.fromCodePoint
+      ClassName("java.lang.Character$") -> List(
+        m("toString", List(I), StringClassRef) -> CharacterCodePointToString
+      )
     )
 
     private val wasmIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
-        ClassName("java.lang.Integer$") -> List(
-            m("numberOfTrailingZeros", List(I), I) -> IntegerNTZ,
-            m("bitCount", List(I), I) -> IntegerBitCount,
-            m("rotateLeft", List(I, I), I) -> IntegerRotateLeft,
-            m("rotateRight", List(I, I), I) -> IntegerRotateRight
-        ),
-        ClassName("java.lang.Long$") -> List(
-            m("numberOfTrailingZeros", List(J), I) -> LongNTZ,
-            m("bitCount", List(J), I) -> LongBitCount,
-            m("rotateLeft", List(J, I), J) -> LongRotateLeft,
-            m("rotateRight", List(J, I), J) -> LongRotateRight
-        ),
-        ClassName("java.lang.Math$") -> List(
-            m("abs", List(F), F) -> MathAbsFloat,
-            m("abs", List(D), D) -> MathAbsDouble,
-            m("ceil", List(D), D) -> MathCeil,
-            m("floor", List(D), D) -> MathFloor,
-            m("rint", List(D), D) -> MathRint,
-            m("sqrt", List(D), D) -> MathSqrt,
-            m("min", List(F, F), F) -> MathMinFloat,
-            m("min", List(D, D), D) -> MathMinDouble,
-            m("max", List(F, F), F) -> MathMaxFloat,
-            m("max", List(D, D), D) -> MathMaxDouble
-        )
+      ClassName("java.lang.Integer$") -> List(
+        m("numberOfTrailingZeros", List(I), I) -> IntegerNTZ,
+        m("bitCount", List(I), I) -> IntegerBitCount,
+        m("rotateLeft", List(I, I), I) -> IntegerRotateLeft,
+        m("rotateRight", List(I, I), I) -> IntegerRotateRight
+      ),
+      ClassName("java.lang.Long$") -> List(
+        m("numberOfTrailingZeros", List(J), I) -> LongNTZ,
+        m("bitCount", List(J), I) -> LongBitCount,
+        m("rotateLeft", List(J, I), J) -> LongRotateLeft,
+        m("rotateRight", List(J, I), J) -> LongRotateRight
+      ),
+      ClassName("java.lang.Math$") -> List(
+        m("abs", List(F), F) -> MathAbsFloat,
+        m("abs", List(D), D) -> MathAbsDouble,
+        m("ceil", List(D), D) -> MathCeil,
+        m("floor", List(D), D) -> MathFloor,
+        m("rint", List(D), D) -> MathRint,
+        m("sqrt", List(D), D) -> MathSqrt,
+        m("min", List(F, F), F) -> MathMinFloat,
+        m("min", List(D, D), D) -> MathMinDouble,
+        m("max", List(F, F), F) -> MathMaxFloat,
+        m("max", List(D, D), D) -> MathMaxDouble
+      )
     )
     // scalafmt: {}
 
-    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean, targetPureWasm: Boolean): Intrinsics = {
+    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean,
+        targetPureWasm: Boolean): Intrinsics = {
       val allIntrinsics = if (isWasm) {
         commonIntrinsics ::: wasmIntrinsics :::
-            (if (targetPureWasm) Nil else wasmJSStringIntrinsics)
+        (if (targetPureWasm) Nil else wasmJSStringIntrinsics)
       } else {
         val baseIntrinsics = commonIntrinsics ::: baseJSIntrinsics
         if (esFeatures.allowBigIntsForLongs) baseIntrinsics

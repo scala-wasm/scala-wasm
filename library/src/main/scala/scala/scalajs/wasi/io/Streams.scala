@@ -7,24 +7,27 @@ package object streams {
 
   type Pollable = scala.scalajs.wasi.io.poll.Pollable
 
-  /** An error for input-stream and output-stream operations.
-   */
+  /** An error for input-stream and output-stream operations. */
   @scala.scalajs.wit.annotation.WitVariant
   sealed trait StreamError
+
   object StreamError {
     final class LastOperationFailed(val value: Error) extends StreamError {
       override def equals(other: Any): Boolean = other match {
         case that: LastOperationFailed => this.value == that.value
-        case _ => false
+        case _                         => false
       }
-      override def hashCode(): Int = {
+
+      override def hashCode(): Int =
         value.hashCode()
-      }
+
       override def toString(): String = "LastOperationFailed(" + value + ")"
     }
+
     object LastOperationFailed {
       def apply(value: Error): LastOperationFailed = new LastOperationFailed(value)
     }
+
     object Closed extends StreamError {
       override def toString(): String = "Closed"
     }
@@ -42,6 +45,7 @@ package object streams {
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "input-stream")
   trait InputStream {
+
     /** Perform a non-blocking read from the stream.
      *
      *  When the source of a `read` is binary data, the bytes from the source
@@ -70,24 +74,32 @@ package object streams {
      *  less than `len` in size while more bytes are available for reading.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("read")
-    def read(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+    def read(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+
     /** Read bytes from a stream, after blocking until at least one byte can
      *  be read. Except for blocking, behavior is identical to `read`.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-read")
-    def blockingRead(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+    def blockingRead(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+
     /** Skip bytes from a stream. Returns number of bytes skipped.
      *
      *  Behaves identical to `read`, except instead of returning a list
      *  of bytes, returns the number of bytes consumed from the stream.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("skip")
-    def skip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    def skip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+
     /** Skip bytes from a stream, after blocking until at least one byte
      *  can be skipped. Except for blocking behavior, identical to `skip`.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-skip")
-    def blockingSkip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    def blockingSkip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+
     /** Create a `pollable` which will resolve once either the specified stream
      *  has bytes available to read or the other end of the stream has been
      *  closed.
@@ -97,11 +109,12 @@ package object streams {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object InputStream {
-  }
+
+  object InputStream {}
 
   /** An output bytestream.
    *
@@ -114,6 +127,7 @@ package object streams {
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "output-stream")
   trait OutputStream {
+
     /** Check readiness for writing. This function never blocks.
      *
      *  Returns the number of bytes permitted for the next call to `write`,
@@ -125,7 +139,9 @@ package object streams {
      *  error.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("check-write")
-    def checkWrite(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    def checkWrite(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] =
+      scala.scalajs.wit.native
+
     /** Perform a write. This function never blocks.
      *
      *  When the destination of a `write` is binary data, the bytes from
@@ -141,7 +157,9 @@ package object streams {
      *  the last call to check-write provided a permit.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("write")
-    def write(contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    def write(contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit,
+        StreamError] = scala.scalajs.wit.native
+
     /** Perform a write of up to 4096 bytes, and then flush the stream. Block
      *  until all of these operations are complete, or an error occurs.
      *
@@ -168,7 +186,10 @@ package object streams {
      *  ```
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-write-and-flush")
-    def blockingWriteAndFlush(contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    def blockingWriteAndFlush(
+        contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit,
+        StreamError] = scala.scalajs.wit.native
+
     /** Request to flush buffered output. This function never blocks.
      *
      *  This tells the output-stream that the caller intends any buffered
@@ -182,11 +203,13 @@ package object streams {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("flush")
     def flush(): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+
     /** Request to flush buffered output, and block until flush completes
      *  and stream is ready for writing again.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-flush")
     def blockingFlush(): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+
     /** Create a `pollable` which will resolve once the output-stream
      *  is ready for more writing, or an error has occured. When this
      *  pollable is ready, `check-write` will return `ok(n)` with n>0, or an
@@ -200,6 +223,7 @@ package object streams {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     /** Write zeroes to a stream.
      *
      *  This should be used precisely like `write` with the exact same
@@ -208,7 +232,11 @@ package object streams {
      *  that should be written.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("write-zeroes")
-    def writeZeroes(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    def writeZeroes(
+        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = {
+      scala.scalajs.wit.native
+    }
+
     /** Perform a write of up to 4096 zeroes, and then flush the stream.
      *  Block until all of these operations are complete, or an error
      *  occurs.
@@ -235,7 +263,11 @@ package object streams {
      *  ```
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-write-zeroes-and-flush")
-    def blockingWriteZeroesAndFlush(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    def blockingWriteZeroesAndFlush(
+        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = {
+      scala.scalajs.wit.native
+    }
+
     /** Read from one stream and write to another.
      *
      *  The behavior of splice is equivelant to:
@@ -251,7 +283,9 @@ package object streams {
      *  than `len`.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("splice")
-    def splice(src: InputStream, len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    def splice(src: InputStream, len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+
     /** Read from one stream and write to another, with blocking.
      *
      *  This is similar to `splice`, except that it blocks until the
@@ -259,11 +293,14 @@ package object streams {
      *  is ready for reading, before performing the `splice`.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("blocking-splice")
-    def blockingSplice(src: InputStream, len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    def blockingSplice(src: InputStream,
+        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object OutputStream {
-  }
+
+  object OutputStream {}
 
 }

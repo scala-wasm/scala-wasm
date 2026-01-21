@@ -25,7 +25,14 @@ import Names._
 import OriginalName.NoOriginalName
 import Position._
 import Trees._
-import LinkTimeProperty.{ProductionMode, ESVersion, UseECMAScript2015Semantics, IsWebAssembly, LinkerVersion, TargetPureWasm}
+import LinkTimeProperty.{
+  ProductionMode,
+  ESVersion,
+  UseECMAScript2015Semantics,
+  IsWebAssembly,
+  LinkerVersion,
+  TargetPureWasm
+}
 import Types._
 import Tags._
 import Version.Unversioned
@@ -677,8 +684,9 @@ object Serializers {
       writeClassIdents(interfaces)
       writeOptTree(jsSuperClass)
       writeJSNativeLoadSpec(jsNativeLoadSpec)
-      writeMemberDefs(fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
-        ::: witNativeMembers)
+      writeMemberDefs(
+          fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
+          ::: witNativeMembers)
       writeTopLevelExportDefs(topLevelExportDefs)
       writeInt(OptimizerHints.toBits(optimizerHints))
     }
@@ -796,7 +804,7 @@ object Serializers {
           writeJSNativeLoadSpec(Some(jsNativeLoadSpec))
 
         case WitNativeMemberDef(flags, moduleName, name,
-            method, signature) =>
+                method, signature) =>
           writeByte(TagWitNativeMemberDef)
           writeInt(MemberFlags.toBits(flags))
           writeString(moduleName)
@@ -981,19 +989,19 @@ object Serializers {
     }
 
     def writeWITType(tpe: wit.WasmInterfaceType): Unit = tpe match {
-      case wit.BoolType => buffer.writeByte(TagWITBoolType)
-      case wit.U8Type => buffer.writeByte(TagWITU8Type)
-      case wit.U16Type => buffer.writeByte(TagWITU16Type)
-      case wit.U32Type => buffer.writeByte(TagWITU32Type)
-      case wit.U64Type => buffer.writeByte(TagWITU64Type)
-      case wit.S8Type => buffer.writeByte(TagWITS8Type)
-      case wit.S16Type => buffer.writeByte(TagWITS16Type)
-      case wit.S32Type => buffer.writeByte(TagWITS32Type)
-      case wit.S64Type => buffer.writeByte(TagWITS64Type)
-      case wit.F32Type => buffer.writeByte(TagWITF32Type)
-      case wit.F64Type => buffer.writeByte(TagWITF64Type)
-      case wit.CharType => buffer.writeByte(TagWITCharType)
-      case wit.StringType => buffer.writeByte(TagWITStringType)
+      case wit.BoolType                   => buffer.writeByte(TagWITBoolType)
+      case wit.U8Type                     => buffer.writeByte(TagWITU8Type)
+      case wit.U16Type                    => buffer.writeByte(TagWITU16Type)
+      case wit.U32Type                    => buffer.writeByte(TagWITU32Type)
+      case wit.U64Type                    => buffer.writeByte(TagWITU64Type)
+      case wit.S8Type                     => buffer.writeByte(TagWITS8Type)
+      case wit.S16Type                    => buffer.writeByte(TagWITS16Type)
+      case wit.S32Type                    => buffer.writeByte(TagWITS32Type)
+      case wit.S64Type                    => buffer.writeByte(TagWITS64Type)
+      case wit.F32Type                    => buffer.writeByte(TagWITF32Type)
+      case wit.F64Type                    => buffer.writeByte(TagWITF64Type)
+      case wit.CharType                   => buffer.writeByte(TagWITCharType)
+      case wit.StringType                 => buffer.writeByte(TagWITStringType)
       case wit.ListType(elemType, length) =>
         buffer.writeByte(TagWITListType)
         writeWITType(elemType)
@@ -1901,13 +1909,13 @@ object Serializers {
       for (_ <- 0 until readInt()) {
         implicit val pos = readPosition()
         readByte() match {
-          case TagFieldDef          => fieldsBuilder += readFieldDef()
-          case TagJSFieldDef        => fieldsBuilder += readJSFieldDef()
-          case TagMethodDef         => methodsBuilder += readMethodDef(cls, kind)
-          case TagJSConstructorDef  => jsConstructorBuilder += readJSConstructorDef(kind)
-          case TagJSMethodDef       => jsMethodPropsBuilder += readJSMethodDef()
-          case TagJSPropertyDef     => jsMethodPropsBuilder += readJSPropertyDef()
-          case TagJSNativeMemberDef => jsNativeMembersBuilder += readJSNativeMemberDef()
+          case TagFieldDef           => fieldsBuilder += readFieldDef()
+          case TagJSFieldDef         => fieldsBuilder += readJSFieldDef()
+          case TagMethodDef          => methodsBuilder += readMethodDef(cls, kind)
+          case TagJSConstructorDef   => jsConstructorBuilder += readJSConstructorDef(kind)
+          case TagJSMethodDef        => jsMethodPropsBuilder += readJSMethodDef()
+          case TagJSPropertyDef      => jsMethodPropsBuilder += readJSPropertyDef()
+          case TagJSNativeMemberDef  => jsNativeMembersBuilder += readJSNativeMemberDef()
           case TagWitNativeMemberDef => witNativeMembersBuilder += readWitNativeMemberDef()
         }
       }
@@ -2718,7 +2726,7 @@ object Serializers {
       val tag = readByte()
       assert(tag == TagWITFuncType)
       wit.FuncType(
-        List.fill(readInt()) { readWITType() },
+        List.fill(readInt())(readWITType()),
         if (readBoolean()) Some(readWITType()) else None
       )
     }
@@ -2726,33 +2734,33 @@ object Serializers {
     private def readWITType(): wit.ValType = {
       val tag = readByte()
       tag match {
-        case TagWITBoolType => wit.BoolType
-        case TagWITU8Type => wit.U8Type
-        case TagWITU16Type => wit.U16Type
-        case TagWITU32Type => wit.U32Type
-        case TagWITU64Type => wit.U64Type
-        case TagWITS8Type => wit.S8Type
-        case TagWITS16Type => wit.S16Type
-        case TagWITS32Type => wit.S32Type
-        case TagWITS64Type => wit.S64Type
-        case TagWITF32Type => wit.F32Type
-        case TagWITF64Type => wit.F64Type
-        case TagWITCharType => wit.CharType
+        case TagWITBoolType   => wit.BoolType
+        case TagWITU8Type     => wit.U8Type
+        case TagWITU16Type    => wit.U16Type
+        case TagWITU32Type    => wit.U32Type
+        case TagWITU64Type    => wit.U64Type
+        case TagWITS8Type     => wit.S8Type
+        case TagWITS16Type    => wit.S16Type
+        case TagWITS32Type    => wit.S32Type
+        case TagWITS64Type    => wit.S64Type
+        case TagWITF32Type    => wit.F32Type
+        case TagWITF64Type    => wit.F64Type
+        case TagWITCharType   => wit.CharType
         case TagWITStringType => wit.StringType
-        case TagWITListType =>
+        case TagWITListType   =>
           wit.ListType(
             readWITType(),
             if (readBoolean()) Some(readInt()) else None
           )
         case TagWITTupleType =>
           wit.TupleType(
-            List.fill(readInt()) { readWITType() }
+            List.fill(readInt())(readWITType())
           )
 
         case TagWITRecordType =>
           wit.RecordType(
             readClassName(),
-            List.fill(readInt()) { wit.FieldType(readFieldName(), readWITType()) }
+            List.fill(readInt())(wit.FieldType(readFieldName(), readWITType()))
           )
         case TagWITVariantType =>
           wit.VariantType(
@@ -2764,7 +2772,7 @@ object Serializers {
               wit.CaseType(className, tpe)
             }
           )
-        case TagWITEnumType => ???
+        case TagWITEnumType   => ???
         case TagWITOptionType =>
           wit.OptionType(readWITType())
         case TagWITResultType =>
@@ -2832,20 +2840,20 @@ object Serializers {
 
     def readTypeRef(): TypeRef = {
       readByte() match {
-        case TagVoidRef      => VoidRef
-        case TagBooleanRef   => BooleanRef
-        case TagCharRef      => CharRef
-        case TagByteRef      => ByteRef
-        case TagShortRef     => ShortRef
-        case TagIntRef       => IntRef
-        case TagLongRef      => LongRef
-        case TagFloatRef     => FloatRef
-        case TagDoubleRef    => DoubleRef
-        case TagNullRef                   => NullRef
-        case TagNothingRef                => NothingRef
-        case TagClassRef                  => ClassRef(readClassName())
-        case TagWitResourceTypeRef  => WitResourceTypeRef(readClassName())
-        case TagArrayTypeRef              => readArrayTypeRef()
+        case TagVoidRef            => VoidRef
+        case TagBooleanRef         => BooleanRef
+        case TagCharRef            => CharRef
+        case TagByteRef            => ByteRef
+        case TagShortRef           => ShortRef
+        case TagIntRef             => IntRef
+        case TagLongRef            => LongRef
+        case TagFloatRef           => FloatRef
+        case TagDoubleRef          => DoubleRef
+        case TagNullRef            => NullRef
+        case TagNothingRef         => NothingRef
+        case TagClassRef           => ClassRef(readClassName())
+        case TagWitResourceTypeRef => WitResourceTypeRef(readClassName())
+        case TagArrayTypeRef       => readArrayTypeRef()
       }
     }
 

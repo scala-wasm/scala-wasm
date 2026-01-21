@@ -402,6 +402,6 @@ private[lang] object StrictMathLog10 {
     ("-HUGE_VAL", "-0.0"), // Entry 360
     ("0x1.p0", "0x1.4p3"), // Entry 361
     ("0x1.p1", "0x1.9p6"), // Entry 362
-    ("0x1.80p1", "0x1.f40p9")  // Entry 363
+    ("0x1.80p1", "0x1.f40p9") // Entry 363
   )
 }

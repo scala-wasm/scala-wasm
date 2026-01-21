@@ -43,7 +43,7 @@ private[wasmemitter] final class DataStringPool extends StringPool {
 
       // Write the actual raw data and update the next index
       rawData ++= str.toCharArray.flatMap { char =>
-        Array((char & 0xFF).toByte, (char >> 8).toByte)
+        Array((char & 0xff).toByte, (char >> 8).toByte)
       }
       nextIndex += 1
 
@@ -75,7 +75,6 @@ private[wasmemitter] final class DataStringPool extends StringPool {
       I32Const(data.constantStringIndex)
     )
   }
-
 
   def genPool()(implicit ctx: WasmContext): List[(String, String)] = {
     poolWasGenerated = true

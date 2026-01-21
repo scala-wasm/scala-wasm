@@ -1,11 +1,6 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
-import org.scalajs.ir.{
-  Names,
-  OriginalName,
-  Trees => js,
-  WasmInterfaceTypes => wit,
-}
+import org.scalajs.ir.{Names, OriginalName, Trees => js, WasmInterfaceTypes => wit}
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Trees.WitFunctionName._
 
@@ -21,25 +16,26 @@ import org.scalajs.linker.backend.webassembly.{
   Instructions => wa,
   Modules => wamod,
   Identitities => wanme,
-  Types => watpe,
+  Types => watpe
 }
 import org.scalajs.linker.backend.webassembly.component.Flatten
 import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueIterator
 
-
 object InteropEmitter {
+
   /** https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md#import-and-export-definitions */
-  private def toWasmImportExportName(name: js.WitFunctionName): String =
+  private def toWasmImportExportName(name: js.WitFunctionName): String = {
     name match {
-      case Function(func) => func
-      case ResourceMethod(func, resource) => s"[method]$resource.$func"
+      case Function(func)                       => func
+      case ResourceMethod(func, resource)       => s"[method]$resource.$func"
       case ResourceStaticMethod(func, resource) => s"[static]$resource.$func"
-      case ResourceConstructor(resource) => s"[constructor]$resource"
-      case ResourceDrop(resource) => s"[resource-drop]$resource"
+      case ResourceConstructor(resource)        => s"[constructor]$resource"
+      case ResourceDrop(resource)               => s"[resource-drop]$resource"
     }
+  }
 
   def genComponentNativeInterop(clazz: LinkedClass, member: js.WitNativeMemberDef)(
-    implicit ctx: WasmContext
+      implicit ctx: WasmContext
   ): Unit = {
     val importFunctionID = genFunctionID.forComponentFunction(
         member.moduleName, member.name)
@@ -82,7 +78,7 @@ object InteropEmitter {
       ctx.moduleBuilder,
       functionID,
       OriginalName(s"${member.moduleName}#$importName-adapter"),
-      member.pos,
+      member.pos
     )
 
     val savedStackPointer = fb.addLocal("saved_sp", watpe.Int32)
@@ -99,8 +95,8 @@ object InteropEmitter {
       (localID, p)
     }
     val resultType = member.signature.resultType match {
-        case None => Nil
-        case Some(value) => List(value.toIRType())
+      case None        => Nil
+      case Some(value) => List(value.toIRType())
     }
     fb.setResultTypes(resultType.flatMap(transformResultType(_)))
 
@@ -152,7 +148,6 @@ object InteropEmitter {
     functionID
   }
 
-
   // Export
   def genWitExportDef(owningClass: Names.ClassName, exportDef: js.WitExportDef)(
       implicit ctx: WasmContext): Unit = {
@@ -168,7 +163,8 @@ object InteropEmitter {
     }
     val method = exportDef.methodDef
 
-    val methodFunctionID = genFunctionID.forMethod(method.flags.namespace, owningClass, method.name.name)
+    val methodFunctionID =
+      genFunctionID.forMethod(method.flags.namespace, owningClass, method.name.name)
 
     // gen export adapter func
     val exportFunctionID = genFunctionID.forExport(exportName)
@@ -178,7 +174,7 @@ object InteropEmitter {
         ctx.moduleBuilder,
         exportFunctionID,
         OriginalName(exportName),
-        pos,
+        pos
       )
       fb.setResultTypes(flatFuncType.funcType.results)
 
@@ -206,9 +202,9 @@ object InteropEmitter {
 
       flatFuncType.paramsOffset match {
         case Some(paramsOffset) => ??? // TODO read params from linear memory
-        case None =>
+        case None               =>
           val vi = flatFuncType.stackParams.map { t =>
-             (fb.addParam(NoOriginalName, t), t)
+            (fb.addParam(NoOriginalName, t), t)
           }
           val iterator = new ValueIterator(fb, vi)
           exportDef.signature.paramTypes.foreach { paramTy =>
@@ -252,7 +248,7 @@ object InteropEmitter {
         ctx.moduleBuilder,
         postReturnFunctionID,
         OriginalName(postReturnName),
-        pos,
+        pos
       )
 
       // > if a post-return is present, it has type (func (param flatten_functype({}, $ft, 'lift').results))
@@ -267,7 +263,6 @@ object InteropEmitter {
 
       fb += wa.GlobalGet(genGlobalID.savedStackPointer)
       fb += wa.GlobalSet(genGlobalID.stackPointer)
-
 
       fb.buildAndAddToModule()
       ctx.moduleBuilder.addExport(

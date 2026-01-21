@@ -79,10 +79,12 @@ object SpecialNames {
   val fmodfMethodName = MethodName("fmodf", List(FloatRef, FloatRef), FloatRef)
   val fmoddMethodName = MethodName("fmodd", List(DoubleRef, DoubleRef), DoubleRef)
 
-  val doubleToStringMethodName = MethodName("doubleToString", List(DoubleRef), ClassRef(BoxedStringClass))
+  val doubleToStringMethodName =
+    MethodName("doubleToString", List(DoubleRef), ClassRef(BoxedStringClass))
 
   /** A unique simple method name to map all method *signatures* into `MethodName`s. */
   val normalizedSimpleMethodName = SimpleMethodName("m")
 
-  val handleMessageMethodName = MethodName("handleMessage0", List(ClassRef(BoxedStringClass)), VoidRef)
+  val handleMessageMethodName =
+    MethodName("handleMessage0", List(ClassRef(BoxedStringClass)), VoidRef)
 }

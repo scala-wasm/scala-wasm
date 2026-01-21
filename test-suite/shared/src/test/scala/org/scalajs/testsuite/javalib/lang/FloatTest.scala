@@ -147,9 +147,9 @@ class FloatTest {
 
     // These are all floating point numbers where the mantissa is a power of 5,
     // and the exponent is in the range such that q = 10.
-    test("671088640000000000", JFloat.intBitsToFloat(0x5D1502F9))
-    test("1342177280000000000", JFloat.intBitsToFloat(0x5D9502F9))
-    test("2684354560000000000", JFloat.intBitsToFloat(0x5E1502F9))
+    test("671088640000000000", JFloat.intBitsToFloat(0x5d1502f9))
+    test("1342177280000000000", JFloat.intBitsToFloat(0x5d9502f9))
+    test("2684354560000000000", JFloat.intBitsToFloat(0x5e1502f9))
 
     // regressionTest
     test("4.722366482869645e+21", 4.7223665e+21f)
@@ -470,17 +470,18 @@ class FloatTest {
     test(1, "1.000000059604644775390625")
     test(1, "1.000000059604644775390624")
     test(1.0000001f, "1.000000059604644775390626")
-    test(1.0000001f, "1.00000005960464477539062500000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
+    test(1.0000001f,
+        "1.00000005960464477539062500000000000000000000000000000000000000000000000000000000000000000000000000000000000000001")
 
     // subnormal
-    test(1E-38f, "1E-38")
-    test(1E-39f, "1E-39")
-    test(1E-40f, "1E-40")
-    test(1E-43f, "1E-43")
-    test(1E-44f, "1E-44")
-    test(1.4E-45f, "1.4E-45") // smallest subnnormal
-    test(1.4E-45f, "2e-45")
-    test(3E-45f, "3e-45")
+    test(1e-38f, "1E-38")
+    test(1e-39f, "1E-39")
+    test(1e-40f, "1E-40")
+    test(1e-43f, "1E-43")
+    test(1e-44f, "1E-44")
+    test(1.4e-45f, "1.4E-45") // smallest subnnormal
+    test(1.4e-45f, "2e-45")
+    test(3e-45f, "3e-45")
   }
 
   @Test def parseFloatInvalidThrows(): Unit = {

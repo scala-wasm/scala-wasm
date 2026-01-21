@@ -33,7 +33,10 @@ package object tcp_create_socket {
    *  - <https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsasocketw>
    *  - <https://man.freebsd.org/cgi/man.cgi?query=socket&sektion=2>
    */
-  @scala.scalajs.wit.annotation.WitImport("wasi:sockets/tcp-create-socket@0.2.0", "create-tcp-socket")
-  def createTcpSocket(addressFamily: scala.scalajs.wasi.sockets.network.IpAddressFamily): scala.scalajs.wit.Result[TcpSocket, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+  @scala.scalajs.wit.annotation.WitImport(
+      "wasi:sockets/tcp-create-socket@0.2.0", "create-tcp-socket")
+  def createTcpSocket(
+      addressFamily: scala.scalajs.wasi.sockets.network.IpAddressFamily): scala.scalajs.wit.Result[
+      TcpSocket, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
 
 }

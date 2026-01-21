@@ -52,7 +52,9 @@ private[java] object RegExpImpl {
     def matches(r: Repr): Boolean = r != null
     def exists(r: Repr, index: Int): Boolean = undefOrIsDefined(r(index))
     def get(r: Repr, index: Int): String = undefOrForceGet(r(index))
-    def getOrElse(r: Repr, index: Int, default: String): String = undefOrGetOrElse(r(index))(() => default)
+
+    def getOrElse(r: Repr, index: Int, default: String): String =
+      undefOrGetOrElse(r(index))(() => default)
   }
 
   private object JavaRegExpImpl extends RegExpImpl {
@@ -64,6 +66,7 @@ private[java] object RegExpImpl {
     def matches(r: Repr): Boolean = r.matches()
     def exists(r: Repr, index: Int): Boolean = r.group(index) != null
     def get(r: Repr, index: Int): String = r.group(index)
+
     def getOrElse(r: Repr, index: Int, default: String): String = {
       val result = r.group(index)
       if (result != null) result else default

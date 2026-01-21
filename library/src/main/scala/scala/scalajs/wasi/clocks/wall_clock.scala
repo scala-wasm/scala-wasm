@@ -3,24 +3,28 @@ package scala.scalajs.wasi.clocks
 package object wall_clock {
 
   // Type definitions
-  /** A time and date in seconds plus nanoseconds.
-   */
+  /** A time and date in seconds plus nanoseconds. */
   @scala.scalajs.wit.annotation.WitRecord
-  final class Datetime(val seconds: scala.scalajs.wit.unsigned.ULong, val nanoseconds: scala.scalajs.wit.unsigned.UInt) {
+  final class Datetime(val seconds: scala.scalajs.wit.unsigned.ULong,
+      val nanoseconds: scala.scalajs.wit.unsigned.UInt) {
     override def equals(other: Any): Boolean = other match {
       case that: Datetime => this.seconds == that.seconds && this.nanoseconds == that.nanoseconds
-      case _ => false
+      case _              => false
     }
+
     override def hashCode(): Int = {
       var result = 1
       result = 31 * result + seconds.hashCode()
       result = 31 * result + nanoseconds.hashCode()
       result
     }
+
     override def toString(): String = "Datetime(" + seconds + ", " + nanoseconds + ")"
   }
+
   object Datetime {
-    def apply(seconds: scala.scalajs.wit.unsigned.ULong, nanoseconds: scala.scalajs.wit.unsigned.UInt): Datetime = new Datetime(seconds, nanoseconds)
+    def apply(seconds: scala.scalajs.wit.unsigned.ULong,
+        nanoseconds: scala.scalajs.wit.unsigned.UInt): Datetime = new Datetime(seconds, nanoseconds)
   }
 
   // Functions

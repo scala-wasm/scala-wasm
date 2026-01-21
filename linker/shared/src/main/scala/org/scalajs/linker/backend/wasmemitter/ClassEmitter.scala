@@ -221,11 +221,12 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val classInfo = ctx.getClassInfo(className)
 
     val nameStr = runtimeClassNameOf(className)
-    val nameValue =
-      if (targetPureWasm)
+    val nameValue = {
+      if (targetPureWasm) {
         ctx.stringPool.getConstantStringDataInstr(nameStr) :+
-            wa.RefNull(watpe.HeapType(genTypeID.wasmString))
-      else ctx.stringPool.getConstantStringDataInstr(nameStr)
+        wa.RefNull(watpe.HeapType(genTypeID.wasmString))
+      } else ctx.stringPool.getConstantStringDataInstr(nameStr)
+    }
 
     val kind = className match {
       case ObjectClass         => KindObject
@@ -316,15 +317,15 @@ class ClassEmitter(coreSpec: CoreSpec) {
     (
       // name
       nameValue :::
-      List(
-        // kind
-        wa.I32Const(kind),
-        // specialInstanceTypes
-        wa.I32Const(classInfo.specialInstanceTypes)
-      ) ::: (
-        // strictAncestors
-        strictAncestorsTypeData
-      ) :::
+        List(
+          // kind
+          wa.I32Const(kind),
+          // specialInstanceTypes
+          wa.I32Const(classInfo.specialInstanceTypes)
+        ) ::: (
+          // strictAncestors
+          strictAncestorsTypeData
+        ) :::
         List(
           // componentType - always `null` since this method is not used for array types
           wa.RefNull(watpe.HeapType(genTypeID.typeData)),
@@ -573,15 +574,16 @@ class ClassEmitter(coreSpec: CoreSpec) {
       val vtableGlobalID = genGlobalID.forArrayVTable(baseTypeRef)
 
       val nameStr = baseTypeRef match {
-        case baseTypeRef: PrimRef => "[" + baseTypeRef.charCode.toString()
-        case ClassRef(className)  => "[L" + runtimeClassNameOf(className) + ";"
+        case baseTypeRef: PrimRef          => "[" + baseTypeRef.charCode.toString()
+        case ClassRef(className)           => "[L" + runtimeClassNameOf(className) + ";"
         case WitResourceTypeRef(className) => "[W" + runtimeClassNameOf(className) + ";"
       }
-      val nameValue =
-        if (targetPureWasm)
+      val nameValue = {
+        if (targetPureWasm) {
           ctx.stringPool.getConstantStringDataInstr(nameStr) :+
-              wa.RefNull(watpe.HeapType(genTypeID.wasmString))
-        else ctx.stringPool.getConstantStringDataInstr(nameStr)
+          wa.RefNull(watpe.HeapType(genTypeID.wasmString))
+        } else ctx.stringPool.getConstantStringDataInstr(nameStr)
+      }
 
       val vtableInit: List[wa.Instr] = nameValue ::: List( // name
         wa.I32Const(KindArray), // kind = KindArray
@@ -967,7 +969,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
             fb += wa.Call(genFunctionID.throwModuleInitError)
 
             // the fake result is particularly awkward here
-            SWasmGen.genForwardThrowAlwaysAsReturn(fb, List(wa.Call(genFunctionID.newDefault(className))))
+            SWasmGen.genForwardThrowAlwaysAsReturn(
+                fb, List(wa.Call(genFunctionID.newDefault(className))))
           }
         }
 
@@ -1625,13 +1628,14 @@ class ClassEmitter(coreSpec: CoreSpec) {
       isMutable = false
     )
 
-    val idHashCodeField =
+    val idHashCodeField = {
       watpe.StructField(
         genFieldID.objStruct.idHashCode,
         OriginalName(genFieldID.objStruct.idHashCode.toString()),
         watpe.Int32,
         isMutable = true
       )
+    }
 
     val handleField = watpe.StructField(
       genFieldID.handle,
@@ -1670,13 +1674,14 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val itableSlots = ClassEmitter.genItableSlots(objectClassInfo, Nil)
 
     val vtableSlots = objectClassInfo.tableEntries.map { methodName =>
-      val functionID =
+      val functionID = {
         if (methodName == MethodName("hashCode", Nil, IntRef))
           genFunctionID.forTableEntry(className, methodName)
         else if (methodName == MethodName("equals", List(ObjectRef), BooleanRef))
           genFunctionID.forTableEntry(className, methodName)
         else
           objectClassInfo.resolvedMethodInfos(methodName).tableEntryID
+      }
       ctx.refFuncWithDeclaration(functionID)
     }
 
@@ -1686,9 +1691,10 @@ class ClassEmitter(coreSpec: CoreSpec) {
     )
 
     val nameStr = "resource<" + runtimeClassNameOf(className) + ">"
-    val nameValue =
+    val nameValue = {
       ctx.stringPool.getConstantStringDataInstr(nameStr) :+
-          wa.RefNull(watpe.HeapType(genTypeID.wasmString))
+      wa.RefNull(watpe.HeapType(genTypeID.wasmString))
+    }
 
     val vtableInit: List[wa.Instr] = nameValue ::: List(
       wa.I32Const(KindClass),
@@ -1826,8 +1832,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
   private def makeDebugName(namespace: UTF8String, typeRef: NonArrayTypeRef): OriginalName = {
     val encoded = typeRef match {
-      case typeRef: PrimRef    => UTF8String(typeRef.charCode.toString())
-      case ClassRef(className) => className.encoded
+      case typeRef: PrimRef              => UTF8String(typeRef.charCode.toString())
+      case ClassRef(className)           => className.encoded
       case WitResourceTypeRef(className) => UTF8String("W") ++ className.encoded
     }
     OriginalName(namespace ++ encoded)
@@ -1948,12 +1954,14 @@ object ClassEmitter {
    *  Resources use handle-based equality, so hashCode returns the handle value.
    *  This ensures that resources with the same handle have the same hashCode.
    */
-  private def genResourceHashCode(className: ClassName)(implicit ctx: WasmContext): wanme.FunctionID = {
+  private def genResourceHashCode(className: ClassName)(
+      implicit ctx: WasmContext): wanme.FunctionID = {
     implicit val noPos: Position = Position.NoPosition
     val methodName = MethodName("hashCode", Nil, IntRef)
     val functionID = genFunctionID.forTableEntry(className, methodName)
 
-    val fb = new FunctionBuilder(ctx.moduleBuilder, functionID, OriginalName(functionID.toString()), noPos)
+    val fb =
+      new FunctionBuilder(ctx.moduleBuilder, functionID, OriginalName(functionID.toString()), noPos)
     val thisParam = fb.addParam("this", watpe.RefType.any)
     fb.setResultType(watpe.Int32)
     fb.setFunctionType(ctx.tableFunctionType(methodName))
@@ -1977,7 +1985,8 @@ object ClassEmitter {
     val methodName = MethodName("equals", List(ObjectRef), BooleanRef)
     val functionID = genFunctionID.forTableEntry(className, methodName)
 
-    val fb = new FunctionBuilder(ctx.moduleBuilder, functionID, OriginalName(functionID.toString()), noPos)
+    val fb =
+      new FunctionBuilder(ctx.moduleBuilder, functionID, OriginalName(functionID.toString()), noPos)
     val thisParam = fb.addParam("this", watpe.RefType.any)
     val thatParam = fb.addParam("that", watpe.RefType.any)
     fb.setResultType(watpe.Int32)
@@ -1985,7 +1994,8 @@ object ClassEmitter {
 
     val resourceStructTypeID = genTypeID.forResourceClass(className)
     val thisResourceLocal = fb.addLocal("thisResource", watpe.RefType(resourceStructTypeID))
-    val thatResourceLocal = fb.addLocal("thatResource", watpe.RefType.nullable(watpe.HeapType(resourceStructTypeID)))
+    val thatResourceLocal =
+      fb.addLocal("thatResource", watpe.RefType.nullable(watpe.HeapType(resourceStructTypeID)))
 
     fb += wa.LocalGet(thisParam)
     fb += wa.RefCast(watpe.RefType(resourceStructTypeID))

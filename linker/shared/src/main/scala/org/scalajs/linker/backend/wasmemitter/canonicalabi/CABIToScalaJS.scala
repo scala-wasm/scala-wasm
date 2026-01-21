@@ -26,9 +26,10 @@ import ValueIterators._
 import org.scalajs.linker.backend.wasmemitter.VarGen.genTypeID.ObjectStruct
 
 object CABIToScalaJS {
+
   /** Load data from linear memory.
-    * This generator expects an offset to be on the stack before loading.
-    */
+   *  This generator expects an offset to be on the stack before loading.
+   */
   def genLoadMemory(fb: FunctionBuilder, tpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
     tpe match {
       case pt: wit.PrimValType =>
@@ -42,9 +43,10 @@ object CABIToScalaJS {
           case wit.U16Type  => fb += wa.I32Load16U()
           case wit.U32Type  => fb += wa.I32Load()
           case wit.U64Type  => fb += wa.I64Load()
-          case wit.F32Type => fb += wa.F32Load()
-          case wit.F64Type => fb += wa.F64Load()
+          case wit.F32Type  => fb += wa.F32Load()
+          case wit.F64Type  => fb += wa.F64Load()
           case wit.CharType => fb += wa.I32Load()
+
           case wit.StringType =>
             val base = fb.addLocal(NoOriginalName, watpe.Int32)
             val stringOffset = fb.addLocal(NoOriginalName, watpe.Int32)
@@ -91,6 +93,7 @@ object CABIToScalaJS {
               fb += wa.LocalGet(listOffset)
               fb += wa.GlobalSet(genGlobalID.savedStackPointer)
             }
+
           case Some(value) => ???
         }
 
@@ -136,7 +139,7 @@ object CABIToScalaJS {
             genLoadMemory(fb, f)
             f.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
-              case _ =>
+              case _                  =>
             }
             genMovePtr(fb, ptr, wit.elemSize(f))
           }
@@ -148,7 +151,7 @@ object CABIToScalaJS {
         val handleLocal = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.I32Load()
         fb += wa.LocalSet(handleLocal)
-        fb += wa.GlobalGet(genGlobalID.forVTable(className))  // vtable
+        fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable
         fb += wa.I32Const(0) // idHashCode
         fb += wa.LocalGet(handleLocal) // handle
         fb += wa.StructNew(resourceStructID)
@@ -178,7 +181,7 @@ object CABIToScalaJS {
             genLoadMemory(fb, t)
             t.toIRType match {
               case t: PrimTypeWithRef => genBox(fb, t)
-              case _ =>
+              case _                  =>
             }
           }
         } {
@@ -198,7 +201,8 @@ object CABIToScalaJS {
     }
   }
 
-  def genLoadStack(fb: FunctionBuilder, tpe: wit.ValType, vi: ValueIterator)(implicit ctx: WasmContext): Unit = {
+  def genLoadStack(fb: FunctionBuilder, tpe: wit.ValType, vi: ValueIterator)(
+      implicit ctx: WasmContext): Unit = {
     tpe match {
       // Scala.js has a same representation
       case wit.BoolType | wit.S8Type | wit.S16Type | wit.S32Type |
@@ -229,7 +233,7 @@ object CABIToScalaJS {
         }
 
       case wit.ResourceType(className) =>
-        fb += wa.GlobalGet(genGlobalID.forVTable(className))  // vtable
+        fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable
         fb += wa.I32Const(0) // idHashCode
         vi.next(watpe.Int32) // handle
         fb += wa.StructNew(genTypeID.forResourceClass(className))
@@ -243,7 +247,7 @@ object CABIToScalaJS {
             genLoadStack(fb, f, vi)
             f.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
-              case _ =>
+              case _                  =>
             }
           }
         }
@@ -267,6 +271,7 @@ object CABIToScalaJS {
               fb += wa.LocalGet(offset)
               fb += wa.GlobalSet(genGlobalID.savedStackPointer)
             }
+
           case Some(value) => ???
         }
 
@@ -305,7 +310,7 @@ object CABIToScalaJS {
             genLoadStack(fb, t, vi)
             t.toIRType match {
               case t: PrimTypeWithRef => genBox(fb, t)
-              case _ =>
+              case _                  =>
             }
           }
         } {
@@ -313,7 +318,6 @@ object CABIToScalaJS {
             fb += wa.RefNull(watpe.HeapType.Any)
           }
         }
-
 
       case wit.ResultType(ok, err) =>
         val cases = List(
@@ -332,8 +336,8 @@ object CABIToScalaJS {
   }
 
   private def genLoadVariableLengthList(
-    fb: FunctionBuilder,
-    listType: wit.ListType
+      fb: FunctionBuilder,
+      listType: wit.ListType
   )(implicit ctx: WasmContext): Unit = {
     val wit.ListType(elemType, maybeLength) = listType
     assert(maybeLength.isEmpty)
@@ -394,9 +398,9 @@ object CABIToScalaJS {
   }
 
   private def genLoadVariantMemory(
-    fb: FunctionBuilder,
-    cases: List[wit.CaseType],
-    boxValue: Boolean
+      fb: FunctionBuilder,
+      cases: List[wit.CaseType],
+      boxValue: Boolean
   )(implicit ctx: WasmContext): Unit = {
     val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
     fb += wa.LocalSet(ptr)
@@ -404,12 +408,12 @@ object CABIToScalaJS {
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-    )( () => {
+    ) { () =>
       fb += wa.LocalGet(ptr)
       genLoadMemory(fb, wit.discriminantType(cases)) // load i32 (case index) from memory
       genMovePtr(fb, ptr, wit.elemSize(wit.discriminantType(cases)))
       genAlignTo(fb, wit.maxCaseAlignment(cases), ptr)
-    })(
+    }(
       cases.zipWithIndex.map { case (c, i) =>
         (List(i), () => {
           val isModule = ctx.getClassInfo(c.className).kind == ClassKind.ModuleClass
@@ -429,7 +433,7 @@ object CABIToScalaJS {
                   if (boxValue) {
                     tpe.toIRType match {
                       case t: PrimTypeWithRef => genBox(fb, t)
-                      case _ =>
+                      case _                  =>
                     }
                   }
               }
@@ -444,18 +448,17 @@ object CABIToScalaJS {
   }
 
   private def genLoadVariantStack(
-    fb: FunctionBuilder,
-    cases: List[wit.CaseType],
-    vi: ValueIterator,
-    boxValue: Boolean,
+      fb: FunctionBuilder,
+      cases: List[wit.CaseType],
+      vi: ValueIterator,
+      boxValue: Boolean
   )(implicit ctx: WasmContext): Unit = {
     // val idx = fb.addLocal(NoOriginalName, watpe.Int32)
     val flattened = Flatten.flattenVariants(cases.flatMap(_.tpe))
     fb.switch(
       Sig(Nil, Nil),
       Sig(Nil, List(watpe.RefType(false, genTypeID.ObjectStruct)))
-    ) { () => vi.next(watpe.Int32)
-    } (
+    )(() => vi.next(watpe.Int32))(
       cases.zipWithIndex.map { case (c, i) =>
         // While the variant uses `case object`` when the value type is Unit,
         // the Result/Option type still uses `case class Ok(())`` even when the value type is Unit.
@@ -478,7 +481,7 @@ object CABIToScalaJS {
                   if (boxValue) {
                     tpe.toIRType match {
                       case t: PrimTypeWithRef => genBox(fb, t)
-                      case _ =>
+                      case _                  =>
                     }
                   }
               }
@@ -492,15 +495,12 @@ object CABIToScalaJS {
     for (t <- flattened) { vi.skip(t) }
   }
 
-  /**
-    *
-    * @see [[https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#flat-lowering]]
-    */
+  /** @see [[https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#flat-lowering]] */
   private def genCoerceValues(
-    fb: FunctionBuilder,
-    vi: ValueIterator,
-    types: List[watpe.Type],
-    expect: List[watpe.Type]
+      fb: FunctionBuilder,
+      vi: ValueIterator,
+      types: List[watpe.Type],
+      expect: List[watpe.Type]
   ): Unit = {
     types.zip(expect).map { case (have, want) =>
       vi.next(have)
@@ -542,7 +542,7 @@ object CABIToScalaJS {
       case ByteType | ShortType =>
         fb += wa.RefI31
       case VoidType =>
-      case p =>
+      case p        =>
         fb += wa.Call(genFunctionID.box(p.primRef))
     }
   }

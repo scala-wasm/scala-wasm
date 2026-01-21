@@ -25,7 +25,7 @@ object Server extends IncomingHandler {
 
       val in = mutable.ArrayBuffer.empty[Byte]
       while (!eof) {
-        toEither(inputStream.blockingRead(1024l)) match {
+        toEither(inputStream.blockingRead(1024L)) match {
           case Right(bytes) =>
             if (bytes.length == 0)
               eof = true
@@ -38,10 +38,10 @@ object Server extends IncomingHandler {
       in.toArray
     }).getOrElse(throw new Error("failed to obtain request body"))
 
-
     val headers: Headers = Fields()
     val resp = OutgoingResponse(headers)
-    val body: OutgoingBody = toEither(resp.body()).getOrElse(throw new Error("failed to obtain outgoing response"))
+    val body: OutgoingBody =
+      toEither(resp.body()).getOrElse(throw new Error("failed to obtain outgoing response"))
 
     ResponseOutparam.set(outParam, new wit.Ok(resp))
 

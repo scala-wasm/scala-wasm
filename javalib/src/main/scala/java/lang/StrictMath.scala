@@ -111,8 +111,8 @@ object StrictMath {
         }
       } else {
         /* R = f*f*(0.5-0.33333333333333333*f);
-	     * if(k==0) return f-R; else {dk=(double)k;
-	     *   return dk*ln2_hi-((R-dk*ln2_lo)-f);}
+         * if(k==0) return f-R; else {dk=(double)k;
+         *   return dk*ln2_hi-((R-dk*ln2_lo)-f);}
          *
          * Third-order Maclaurin expansion of ln(1+f).
          * Since |f| < 2^(-20), the fourth term f^4/4 is approximately 2^(-82),
@@ -353,7 +353,8 @@ object StrictMath {
           // Set exponent to 0, so normalized value is in [1.0, sqrt(2)).
           (corr, exponent0, makeDouble(highMantissa | 0x3ff00000, u) - 1.0, highMantissa)
         } else { // mantissa >= √2
-          (corr, exponent0 + 1, makeDouble(highMantissa | 0x3fe00000, u) - 1.0, (0x100000 - highMantissa) >> 2)
+          (corr, exponent0 + 1, makeDouble(highMantissa | 0x3fe00000, u) - 1.0,
+              (0x100000 - highMantissa) >> 2)
         }
       } else {
         (0.0, 0, x, 1)
@@ -777,9 +778,9 @@ object StrictMath {
          * x near 2.0: Set x = x/2, add 1 to the exponent, and use breakpoint = 1.0.
          */
         val intervalIndex = {
-          if (f <= 0x3988E) {
+          if (f <= 0x3988e) {
             0 // x < sqrt(3/2) =~ 1.225 (near 1.0)
-          } else if (f < 0xBB67A) {
+          } else if (f < 0xbb67a) {
             1 // x < sqrt(3) ≈ 1.732 (near 1.5)
           } else { // x near 2.0
             n += 1
@@ -847,7 +848,7 @@ object StrictMath {
         val pLow = v - (pHigh - u)
         val zHigh = CpHigh * pHigh
         val zLow = CpLow * pHigh + pLow * Cp +
-            (if (intervalIndex == 0) DpL0 else DpL1)
+          (if (intervalIndex == 0) DpL0 else DpL1)
 
         /* Final log2(x) computation. Remember x = 2^n * xScaled
          * log2(x) = n + log2(xScaled)
@@ -913,7 +914,8 @@ object StrictMath {
     }
 
     // Compute 2^fractionalPart = e^(fractionalPart * ln(2))
-    val fractionalPart = makeDouble((JDouble.doubleToRawLongBits(prdLow + prdHighAdjusted) >>> 32).toInt, 0L)
+    val fractionalPart =
+      makeDouble((JDouble.doubleToRawLongBits(prdLow + prdHighAdjusted) >>> 32).toInt, 0L)
     val uExp2 = fractionalPart * Ln2High
     val vExp2 = (prdLow - (fractionalPart - prdHighAdjusted)) * Ln2 + fractionalPart * Ln2Low
     val exp2 = uExp2 + vExp2 // fractionalPart * ln(2)
@@ -925,7 +927,7 @@ object StrictMath {
      */
     val exp2ApproxSq = exp2 * exp2
     val exp2Poly = exp2 - exp2ApproxSq * (Exp2P1 + exp2ApproxSq * (Exp2P2 + exp2ApproxSq *
-        (Exp2P3 + exp2ApproxSq * (Exp2P4 + exp2ApproxSq * Exp2P5))))
+      (Exp2P3 + exp2ApproxSq * (Exp2P4 + exp2ApproxSq * Exp2P5))))
     val exp2Correction = (exp2 * exp2Poly) / (exp2Poly - 2.0) - (wExp2 + exp2 * wExp2)
     val exp2Approx = 1.0 - (exp2Correction - exp2)
 

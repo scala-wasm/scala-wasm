@@ -205,6 +205,6 @@ private[lang] object StrictMathSqrt {
     ("0x1.40p2", "0x1.9p4"), // Entry 171
     ("0x1.p-1", "0x1.0p-2"), // Entry 172
     ("0x1.c0p2", "0x1.880p5"), // Entry 173
-    ("0x1.40p3", "0x1.9p6")  // Entry 174
+    ("0x1.40p3", "0x1.9p6") // Entry 174
   )
 }

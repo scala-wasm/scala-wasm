@@ -22,7 +22,7 @@ import org.scalajs.ir.{
   Types => jstpe,
   WasmInterfaceTypes => wit,
   ClassKind,
-  Position,
+  Position
 }
 
 trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
@@ -35,15 +35,17 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
 
   // - annotated with @WitResourceMethod
   // - owner is a companion object of @WitResourceImport annotated trait
-  def isWasmWitResourceStaticMethod(sym: Symbol): Boolean =
+  def isWasmWitResourceStaticMethod(sym: Symbol): Boolean = {
     sym.hasAnnotation(WitResourceStaticMethodAnnotation) &&
-        sym.owner.isModuleClass &&
-        sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
+    sym.owner.isModuleClass &&
+    sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
+  }
 
-  def isWasmWitResourceConstructor(sym: Symbol): Boolean =
+  def isWasmWitResourceConstructor(sym: Symbol): Boolean = {
     sym.hasAnnotation(WitResourceConstructorAnnotation) &&
-        sym.owner.isModuleClass &&
-        sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
+    sym.owner.isModuleClass &&
+    sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
+  }
 
   def isWasmWitRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(WitRecordAnnotation) && sym.isFinal
@@ -120,7 +122,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
           case _ =>
         }
       }
-      js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass= None,
+      js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass = None,
           interfaces = Nil, None, None,
           Nil, Nil, None, Nil, Nil, witNativeMembersBuilder.result(), Nil)(
           js.OptimizerHints.empty)
@@ -136,10 +138,10 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val baseParams = funcType.params.map(toWIT(_))
       val params = name match {
         case _:js.WitFunctionName.Function |
-             _:js.WitFunctionName.ResourceConstructor |
-             _:js.WitFunctionName.ResourceStaticMethod => baseParams
+            _:js.WitFunctionName.ResourceConstructor |
+            _:js.WitFunctionName.ResourceStaticMethod => baseParams
         case _:js.WitFunctionName.ResourceMethod |
-             _:js.WitFunctionName.ResourceDrop =>
+            _:js.WitFunctionName.ResourceDrop =>
           wit.ResourceType(encodeClassName(sym.owner)) +: baseParams
       }
       val witFuncType = wit.FuncType(
@@ -168,7 +170,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val name = js.WitFunctionName.ResourceStaticMethod(
           func = methodName, resource = resourceName)
       withNewLocalNameScope {
-        val params = funcType.params.map { p => toWIT(p) }
+        val params = funcType.params.map(p => toWIT(p))
         val ft = wit.FuncType(params, toResultWIT(funcType.resultType))
         js.WitNativeMemberDef(flags, moduleName, name, encodeMethodSym(sym), ft)
       }
@@ -190,13 +192,12 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     } yield {
       val name = js.WitFunctionName.ResourceConstructor(resourceName)
       withNewLocalNameScope {
-        val params = funcType.params.map { p => toWIT(p) }
+        val params = funcType.params.map(p => toWIT(p))
         val ft = wit.FuncType(params, toResultWIT(funcType.resultType))
         js.WitNativeMemberDef(flags, moduleName, name, encodeMethodSym(sym), ft)
       }
     }
   }
-
 
   def genWitExportDef(info: jsInterop.WitExportInfo,
       methodDef: js.MethodDef): js.WitExportDef = {
@@ -298,17 +299,26 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  private lazy val ScalaJSWitUnsignedPackageModule = rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
-    private lazy val WitUnsigned_UByte = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
-    private lazy val WitUnsigned_UShort = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
-    private lazy val WitUnsigned_UInt = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
-    private lazy val WitUnsigned_ULong = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
+  private lazy val ScalaJSWitUnsignedPackageModule =
+    rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
+
+  private lazy val WitUnsigned_UByte =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
+
+  private lazy val WitUnsigned_UShort =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
+
+  private lazy val WitUnsigned_UInt =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
+
+  private lazy val WitUnsigned_ULong =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
 
   private lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
-    WitUnsigned_UByte  -> wit.U8Type,
+    WitUnsigned_UByte -> wit.U8Type,
     WitUnsigned_UShort -> wit.U16Type,
-    WitUnsigned_UInt   -> wit.U32Type,
-    WitUnsigned_ULong  -> wit.U64Type
+    WitUnsigned_UInt -> wit.U32Type,
+    WitUnsigned_ULong -> wit.U64Type
   )
 
   private lazy val primitiveIRWIT: Map[jstpe.Type, wit.ValType] = Map(
@@ -322,7 +332,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     jstpe.CharType -> wit.CharType,
     jstpe.StringType -> wit.StringType,
     jstpe.ClassType(Names.ClassName("java.lang.String"), true) ->
-        wit.StringType
+    wit.StringType
   )
 
 }

@@ -413,13 +413,14 @@ object Assert {
 
     LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
       throw new AssertionError(
-          buildPrefix +
-          "expecte " + formatClass(expectedThrowable) + " to be thrown, but nothing was thrown"
+        buildPrefix +
+        "expecte " + formatClass(expectedThrowable) + " to be thrown, but nothing was thrown"
       )
     } {
-    throw new AssertionError(
-        buildPrefix +
-        String.format("expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable)))
+      throw new AssertionError(
+          buildPrefix +
+          String.format(
+              "expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable)))
     }
 
     // scalastyle:on return

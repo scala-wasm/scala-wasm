@@ -796,15 +796,15 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           val isDrop = annot.symbol == WitResourceDropAnnotation
 
           if ((isResourceMethod || isDrop) && (
-              !sym.owner.isTraitOrInterface ||
-              !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
+                !sym.owner.isTraitOrInterface ||
+                  !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
             reporter.error(pos,
                 s"$annot is allowed in trait annotated with @WitResourceImport")
           } else if ((isStaticMethod || isConstructor) && (
-              !sym.owner.isModuleClass ||
-              sym.owner.companionClass == NoSymbol ||
-              !sym.owner.companionClass.isTraitOrInterface ||
-              !sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation))) {
+                !sym.owner.isModuleClass ||
+                  sym.owner.companionClass == NoSymbol ||
+                  !sym.owner.companionClass.isTraitOrInterface ||
+                  !sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation))) {
             reporter.error(pos,
                 s"$annot is allowed in companion object of trait annotated with @WitResourceImport")
           }
@@ -812,7 +812,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       }
     }
 
-    private def checkWasmComponentFunction(pos: Position, sym: Symbol): Unit =
+    private def checkWasmComponentFunction(pos: Position, sym: Symbol): Unit = {
       checkAndGetWasmComponentFunctionAnnotOf(pos, sym).foreach { annot =>
         if (sym.isLocalToBlock) {
           reporter.error(pos,
@@ -869,6 +869,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           )
           jsInterop.storeWitFunctionType(sym, funcType)
         }
+      }
     }
 
     private def checkWasmWitResourceImport(pos: Position, sym: Symbol): Unit = {
@@ -928,7 +929,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
           if (hasResourceMethodAnnotation) {
             val methodType = member.tpe
-            val paramTypes = if (methodType.paramss.isEmpty) Nil else methodType.paramss.head.map(_.tpe)
+            val paramTypes =
+              if (methodType.paramss.isEmpty) Nil else methodType.paramss.head.map(_.tpe)
             val returnType = methodType.resultType
 
             paramTypes.foreach { paramType =>
@@ -1004,14 +1006,14 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
     private def checkWitVariantTrait(pos: Position, sym: Symbol): Unit = {
       if (!sym.isSealed) {
         reporter.error(pos,
-          "@WitVariant can only be used on sealed traits or sealed abstract classes")
+            "@WitVariant can only be used on sealed traits or sealed abstract classes")
         return
       }
 
       val cases = sym.sealedChildren.toList
       if (cases.isEmpty) {
         reporter.error(pos,
-          s"Component variant '${sym.name}' must have at least one case")
+            s"Component variant '${sym.name}' must have at least one case")
       } else {
         cases.foreach { caseSym =>
           validateWitVariantCase(caseSym)
@@ -1028,7 +1030,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         val primaryCtor = caseSym.primaryConstructor
         if (primaryCtor == NoSymbol) {
           reporter.error(caseSym.pos,
-            s"Component variant case '${caseSym.name}' has no primary constructor")
+              s"Component variant case '${caseSym.name}' has no primary constructor")
           return
         }
 
@@ -1036,7 +1038,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
         if (params.length > 1) {
           reporter.error(caseSym.pos,
-            s"Component variant case '${caseSym.name}' must have exactly one field, found ${params.length}.")
+              s"Component variant case '${caseSym.name}' must have exactly one field, found ${params.length}.")
         } else if (params.length == 1) {
           val param = params.head
           val fieldName = param.name.decoded
@@ -1045,10 +1047,10 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           // Validate field name must be "value"
           if (fieldName != "value") {
             reporter.error(param.pos,
-              s"Component variant case '${caseSym.name}' field must be named 'value', found '${fieldName}'.")
+                s"Component variant case '${caseSym.name}' field must be named 'value', found '${fieldName}'.")
           } else if (!isComponentModelCompatible(fieldType)) {
             reporter.error(param.pos,
-              s"Field '${param.name}' has type '${fieldType}' which is not compatible with Component Model. ")
+                s"Field '${param.name}' has type '${fieldType}' which is not compatible with Component Model. ")
           } else {
             jsInterop.storeWitVariantValueType(caseSym, fieldType)
           }
@@ -1058,7 +1060,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         }
       } else {
         reporter.error(caseSym.pos,
-          s"Component variant case '${caseSym.name}' must be a final class or object")
+            s"Component variant case '${caseSym.name}' must be a final class or object")
       }
     }
 
@@ -1091,8 +1093,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         dealiased.typeArgs.forall(isComponentModelCompatible)
       } else if (sym.fullName.startsWith("scala.scalajs.wit.Result")) {
         dealiased.typeArgs.forall(isComponentModelCompatible)
-      } else if (
-          sym.hasAnnotation(WitRecordAnnotation) ||
+      } else if (sym.hasAnnotation(WitRecordAnnotation) ||
           sym.hasAnnotation(WitVariantAnnotation) ||
           sym.hasAnnotation(WitFlagsAnnotation) ||
           sym.hasAnnotation(WitResourceImportAnnotation)) {
@@ -1161,7 +1162,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
         sym.getAnnotation(WitFlagsAnnotation).flatMap(_.intArg(0)) match {
           case Some(numFlags) if numFlags > 0 =>
-          case Some(numFlags) =>
+          case Some(numFlags)                 =>
             reporter.error(sym.pos,
                 s"@WitFlags numFlags parameter must be positive, found $numFlags")
           case None =>
@@ -2095,7 +2096,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
     }
 
     annots match {
-      case Nil => None
+      case Nil         => None
       case head :: Nil =>
         Some(head)
       case head :: tail =>
@@ -2111,13 +2112,14 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
   private lazy val WasmComponentFunctionAnnots: Set[Symbol] =
     Set(WitImportAnnotation)
 
-  private lazy val WasmComponentResourceAnnots: Set[Symbol] =
+  private lazy val WasmComponentResourceAnnots: Set[Symbol] = {
     Set(
       WitResourceMethodAnnotation,
       WitResourceStaticMethodAnnotation,
       WitResourceConstructorAnnotation,
       WitResourceDropAnnotation
     )
+  }
 }
 
 object PrepJSInterop {

@@ -13,51 +13,66 @@ package object udp {
 
   type IpAddressFamily = scala.scalajs.wasi.sockets.network.IpAddressFamily
 
-  /** A received datagram.
-   */
+  /** A received datagram. */
   @scala.scalajs.wit.annotation.WitRecord
-  final class IncomingDatagram(val data: Array[scala.scalajs.wit.unsigned.UByte], val remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress) {
+  final class IncomingDatagram(val data: Array[scala.scalajs.wit.unsigned.UByte],
+      val remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress) {
     override def equals(other: Any): Boolean = other match {
-      case that: IncomingDatagram => this.data == that.data && this.remoteAddress == that.remoteAddress
+      case that: IncomingDatagram =>
+        this.data == that.data && this.remoteAddress == that.remoteAddress
       case _ => false
     }
+
     override def hashCode(): Int = {
       var result = 1
       result = 31 * result + data.hashCode()
       result = 31 * result + remoteAddress.hashCode()
       result
     }
+
     override def toString(): String = "IncomingDatagram(" + data + ", " + remoteAddress + ")"
   }
+
   object IncomingDatagram {
-    def apply(data: Array[scala.scalajs.wit.unsigned.UByte], remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): IncomingDatagram = new IncomingDatagram(data, remoteAddress)
+    def apply(data: Array[scala.scalajs.wit.unsigned.UByte],
+        remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): IncomingDatagram = {
+      new IncomingDatagram(data, remoteAddress)
+    }
   }
 
-  /** A datagram to be sent out.
-   */
+  /** A datagram to be sent out. */
   @scala.scalajs.wit.annotation.WitRecord
-  final class OutgoingDatagram(val data: Array[scala.scalajs.wit.unsigned.UByte], val remoteAddress: java.util.Optional[scala.scalajs.wasi.sockets.network.IpSocketAddress]) {
+  final class OutgoingDatagram(val data: Array[scala.scalajs.wit.unsigned.UByte],
+      val remoteAddress: java.util.Optional[scala.scalajs.wasi.sockets.network.IpSocketAddress]) {
     override def equals(other: Any): Boolean = other match {
-      case that: OutgoingDatagram => this.data == that.data && this.remoteAddress == that.remoteAddress
+      case that: OutgoingDatagram =>
+        this.data == that.data && this.remoteAddress == that.remoteAddress
       case _ => false
     }
+
     override def hashCode(): Int = {
       var result = 1
       result = 31 * result + data.hashCode()
       result = 31 * result + remoteAddress.hashCode()
       result
     }
+
     override def toString(): String = "OutgoingDatagram(" + data + ", " + remoteAddress + ")"
   }
+
   object OutgoingDatagram {
-    def apply(data: Array[scala.scalajs.wit.unsigned.UByte], remoteAddress: java.util.Optional[scala.scalajs.wasi.sockets.network.IpSocketAddress]): OutgoingDatagram = new OutgoingDatagram(data, remoteAddress)
+    def apply(data: Array[scala.scalajs.wit.unsigned.UByte],
+        remoteAddress: java.util.Optional[
+            scala.scalajs.wasi.sockets.network.IpSocketAddress]): OutgoingDatagram = {
+      new OutgoingDatagram(data, remoteAddress)
+    }
   }
 
   // Resources
-  /** A UDP socket handle.
-   */
+  /** A UDP socket handle. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/udp@0.2.0", "udp-socket")
   trait UdpSocket {
+
     /** Bind the socket to a specific network on the provided IP address and port.
      *
      *  If the IP address is zero (`0.0.0.0` in IPv4, `::` in IPv6), it is left to the implementation to decide which
@@ -86,9 +101,14 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=bind&sektion=2&format=html>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("start-bind")
-    def startBind(network: Network, localAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def startBind(network: Network,
+        localAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[
+        Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("finish-bind")
-    def finishBind(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def finishBind(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] =
+      scala.scalajs.wit.native
+
     /** Set up inbound & outbound communication channels, optionally to a specific peer.
      *
      *  This function only changes the local socket configuration and does not generate any network traffic.
@@ -131,7 +151,11 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?connect>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("stream")
-    def stream(remoteAddress: java.util.Optional[scala.scalajs.wasi.sockets.network.IpSocketAddress]): scala.scalajs.wit.Result[scala.scalajs.wit.Tuple2[IncomingDatagramStream, OutgoingDatagramStream], scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def stream(remoteAddress: java.util.Optional[
+            scala.scalajs.wasi.sockets.network.IpSocketAddress]): scala.scalajs.wit.Result[
+        scala.scalajs.wit.Tuple2[IncomingDatagramStream, OutgoingDatagramStream],
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Get the current bound address.
      *
      *  POSIX mentions:
@@ -150,7 +174,9 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?getsockname>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("local-address")
-    def localAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def localAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Get the address the socket is currently streaming to.
      *
      *  # Typical errors
@@ -163,13 +189,17 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=getpeername&sektion=2&n=1>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("remote-address")
-    def remoteAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def remoteAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Whether this is a IPv4 or IPv6 socket.
      *
      *  Equivalent to the SO_DOMAIN socket option.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("address-family")
-    def addressFamily(): scala.scalajs.wasi.sockets.network.IpAddressFamily = scala.scalajs.wit.native
+    def addressFamily(): scala.scalajs.wasi.sockets.network.IpAddressFamily =
+      scala.scalajs.wit.native
+
     /** Equivalent to the IP_TTL & IPV6_UNICAST_HOPS socket options.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -178,9 +208,13 @@ package object udp {
      *  - `invalid-argument`:     (set) The TTL value must be 1 or higher.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("unicast-hop-limit")
-    def unicastHopLimit(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UByte, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def unicastHopLimit(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UByte,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-unicast-hop-limit")
-    def setUnicastHopLimit(value: scala.scalajs.wit.unsigned.UByte): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setUnicastHopLimit(value: scala.scalajs.wit.unsigned.UByte): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** The kernel buffer space reserved for sends/receives on this socket.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -193,13 +227,21 @@ package object udp {
      *  - `invalid-argument`:     (set) The provided value was 0.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("receive-buffer-size")
-    def receiveBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def receiveBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-receive-buffer-size")
-    def setReceiveBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setReceiveBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("send-buffer-size")
-    def sendBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def sendBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-send-buffer-size")
-    def setSendBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setSendBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Create a `pollable` which will resolve once the socket is ready for I/O.
      *
      *  Note: this function is here for WASI Preview2 only.
@@ -207,14 +249,17 @@ package object udp {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object UdpSocket {
-  }
 
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/udp@0.2.0", "incoming-datagram-stream")
+  object UdpSocket {}
+
+  @scala.scalajs.wit.annotation.WitResourceImport(
+      "wasi:sockets/udp@0.2.0", "incoming-datagram-stream")
   trait IncomingDatagramStream {
+
     /** Receive messages on the socket.
      *
      *  This function attempts to receive up to `max-results` datagrams on the socket without blocking.
@@ -240,7 +285,11 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=recv&sektion=2>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("receive")
-    def receive(maxResults: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Array[IncomingDatagram], scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def receive(maxResults: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
+        Array[IncomingDatagram], scala.scalajs.wasi.sockets.network.ErrorCode] = {
+      scala.scalajs.wit.native
+    }
+
     /** Create a `pollable` which will resolve once the stream is ready to receive again.
      *
      *  Note: this function is here for WASI Preview2 only.
@@ -248,14 +297,17 @@ package object udp {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object IncomingDatagramStream {
-  }
 
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/udp@0.2.0", "outgoing-datagram-stream")
+  object IncomingDatagramStream {}
+
+  @scala.scalajs.wit.annotation.WitResourceImport(
+      "wasi:sockets/udp@0.2.0", "outgoing-datagram-stream")
   trait OutgoingDatagramStream {
+
     /** Check readiness for sending. This function never blocks.
      *
      *  Returns the number of datagrams permitted for the next call to `send`,
@@ -269,7 +321,9 @@ package object udp {
      *  Never returns `would-block`.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("check-send")
-    def checkSend(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def checkSend(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Send messages on the socket.
      *
      *  This function attempts to send all provided `datagrams` on the socket without blocking and
@@ -306,7 +360,11 @@ package object udp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=send&sektion=2>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("send")
-    def send(datagrams: Array[OutgoingDatagram]): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def send(datagrams: Array[OutgoingDatagram]): scala.scalajs.wit.Result[
+        scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = {
+      scala.scalajs.wit.native
+    }
+
     /** Create a `pollable` which will resolve once the stream is ready to send again.
      *
      *  Note: this function is here for WASI Preview2 only.
@@ -314,10 +372,11 @@ package object udp {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object OutgoingDatagramStream {
-  }
+
+  object OutgoingDatagramStream {}
 
 }

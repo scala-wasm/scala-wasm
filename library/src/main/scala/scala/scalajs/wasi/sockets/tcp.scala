@@ -21,13 +21,16 @@ package object tcp {
 
   @scala.scalajs.wit.annotation.WitVariant
   sealed trait ShutdownType
+
   object ShutdownType {
     object Receive extends ShutdownType {
       override def toString(): String = "Receive"
     }
+
     object Send extends ShutdownType {
       override def toString(): String = "Send"
     }
+
     object Both extends ShutdownType {
       override def toString(): String = "Both"
     }
@@ -58,6 +61,7 @@ package object tcp {
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/tcp@0.2.0", "tcp-socket")
   trait TcpSocket {
+
     /** Bind the socket to a specific network on the provided IP address and port.
      *
      *  If the IP address is zero (`0.0.0.0` in IPv4, `::` in IPv6), it is left to the implementation to decide which
@@ -98,9 +102,14 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=bind&sektion=2&format=html>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("start-bind")
-    def startBind(network: Network, localAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def startBind(network: Network,
+        localAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[
+        Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("finish-bind")
-    def finishBind(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def finishBind(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] =
+      scala.scalajs.wit.native
+
     /** Connect to a remote endpoint.
      *
      *  On success:
@@ -145,9 +154,14 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?connect>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("start-connect")
-    def startConnect(network: Network, remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def startConnect(network: Network,
+        remoteAddress: scala.scalajs.wasi.sockets.network.IpSocketAddress): scala.scalajs.wit.Result[
+        Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("finish-connect")
-    def finishConnect(): scala.scalajs.wit.Result[scala.scalajs.wit.Tuple2[InputStream, OutputStream], scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def finishConnect(): scala.scalajs.wit.Result[scala.scalajs.wit.Tuple2[InputStream, OutputStream],
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Start listening for new connections.
      *
      *  Transitions the socket into the `listening` state.
@@ -175,9 +189,13 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=listen&sektion=2>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("start-listen")
-    def startListen(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def startListen(): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("finish-listen")
-    def finishListen(): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def finishListen(): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Accept a new client socket.
      *
      *  The returned socket is bound and in the `connected` state. The following properties are inherited from the listener socket:
@@ -206,7 +224,10 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=accept&sektion=2>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("accept")
-    def accept(): scala.scalajs.wit.Result[scala.scalajs.wit.Tuple3[TcpSocket, InputStream, OutputStream], scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def accept(): scala.scalajs.wit.Result[
+        scala.scalajs.wit.Tuple3[TcpSocket, InputStream, OutputStream],
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Get the bound local address.
      *
      *  POSIX mentions:
@@ -225,7 +246,9 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?getsockname>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("local-address")
-    def localAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def localAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Get the remote address.
      *
      *  # Typical errors
@@ -238,19 +261,24 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=getpeername&sektion=2&n=1>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("remote-address")
-    def remoteAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def remoteAddress(): scala.scalajs.wit.Result[scala.scalajs.wasi.sockets.network.IpSocketAddress,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Whether the socket is in the `listening` state.
      *
      *  Equivalent to the SO_ACCEPTCONN socket option.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("is-listening")
     def isListening(): Boolean = scala.scalajs.wit.native
+
     /** Whether this is a IPv4 or IPv6 socket.
      *
      *  Equivalent to the SO_DOMAIN socket option.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("address-family")
-    def addressFamily(): scala.scalajs.wasi.sockets.network.IpAddressFamily = scala.scalajs.wit.native
+    def addressFamily(): scala.scalajs.wasi.sockets.network.IpAddressFamily =
+      scala.scalajs.wit.native
+
     /** Hints the desired listen queue size. Implementations are free to ignore this.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -262,7 +290,9 @@ package object tcp {
      *  - `invalid-state`:        (set) The socket is in the `connect-in-progress` or `connected` state.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("set-listen-backlog-size")
-    def setListenBacklogSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setListenBacklogSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Enables or disables keepalive.
      *
      *  The keepalive behavior can be adjusted using:
@@ -274,9 +304,13 @@ package object tcp {
      *  Equivalent to the SO_KEEPALIVE socket option.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("keep-alive-enabled")
-    def keepAliveEnabled(): scala.scalajs.wit.Result[Boolean, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def keepAliveEnabled(): scala.scalajs.wit.Result[Boolean,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-keep-alive-enabled")
-    def setKeepAliveEnabled(value: Boolean): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setKeepAliveEnabled(value: Boolean): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Amount of time the connection has to be idle before TCP starts sending keepalive packets.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -289,9 +323,13 @@ package object tcp {
      *  - `invalid-argument`:     (set) The provided value was 0.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("keep-alive-idle-time")
-    def keepAliveIdleTime(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def keepAliveIdleTime(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-keep-alive-idle-time")
-    def setKeepAliveIdleTime(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setKeepAliveIdleTime(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** The time between keepalive packets.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -304,9 +342,13 @@ package object tcp {
      *  - `invalid-argument`:     (set) The provided value was 0.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("keep-alive-interval")
-    def keepAliveInterval(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def keepAliveInterval(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-keep-alive-interval")
-    def setKeepAliveInterval(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setKeepAliveInterval(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** The maximum amount of keepalive packets TCP should send before aborting the connection.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -319,9 +361,13 @@ package object tcp {
      *  - `invalid-argument`:     (set) The provided value was 0.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("keep-alive-count")
-    def keepAliveCount(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UInt, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def keepAliveCount(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UInt,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-keep-alive-count")
-    def setKeepAliveCount(value: scala.scalajs.wit.unsigned.UInt): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setKeepAliveCount(value: scala.scalajs.wit.unsigned.UInt): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Equivalent to the IP_TTL & IPV6_UNICAST_HOPS socket options.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -330,9 +376,13 @@ package object tcp {
      *  - `invalid-argument`:     (set) The TTL value must be 1 or higher.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("hop-limit")
-    def hopLimit(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UByte, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def hopLimit(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.UByte,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-hop-limit")
-    def setHopLimit(value: scala.scalajs.wit.unsigned.UByte): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setHopLimit(value: scala.scalajs.wit.unsigned.UByte): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** The kernel buffer space reserved for sends/receives on this socket.
      *
      *  If the provided value is 0, an `invalid-argument` error is returned.
@@ -345,13 +395,21 @@ package object tcp {
      *  - `invalid-argument`:     (set) The provided value was 0.
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("receive-buffer-size")
-    def receiveBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def receiveBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-receive-buffer-size")
-    def setReceiveBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setReceiveBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("send-buffer-size")
-    def sendBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def sendBufferSize(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceMethod("set-send-buffer-size")
-    def setSendBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def setSendBufferSize(value: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     /** Create a `pollable` which can be used to poll for, or block on,
      *  completion of any of the asynchronous operations of this socket.
      *
@@ -372,6 +430,7 @@ package object tcp {
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
     def subscribe(): Pollable = scala.scalajs.wit.native
+
     /** Initiate a graceful shutdown.
      *
      *  - `receive`: The socket is not expecting to receive any data from
@@ -397,11 +456,13 @@ package object tcp {
      *  - <https://man.freebsd.org/cgi/man.cgi?query=shutdown&sektion=2>
      */
     @scala.scalajs.wit.annotation.WitResourceMethod("shutdown")
-    def shutdown(shutdownType: ShutdownType): scala.scalajs.wit.Result[Unit, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+    def shutdown(shutdownType: ShutdownType): scala.scalajs.wit.Result[Unit,
+        scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
-  object TcpSocket {
-  }
+
+  object TcpSocket {}
 
 }

@@ -56,15 +56,18 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           // Step 1: wasm-tools component embed (in-place)
           val baseEmbedCmd = Seq(
-            "wasm-tools", "component", "embed",
+            "wasm-tools",
+            "component",
+            "embed",
             witDirectory.toString,
             wasmFilePath,
-            "-o", wasmFilePath
+            "-o",
+            wasmFilePath
           )
           // Add world name if specified, otherwise wasm-tools will auto-detect
           val embedCmd1 = worldName match {
             case Some(world) => baseEmbedCmd ++ Seq("-w", world, "--encoding", "utf16")
-            case None => baseEmbedCmd ++ Seq("--encoding", "utf16")
+            case None        => baseEmbedCmd ++ Seq("--encoding", "utf16")
           }
 
           logger.info(s"Embedding user WIT for $wasmFileName")
@@ -74,12 +77,17 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
           // Step 2: wasm-tools component embed (WASI WIT) - if enabled
           wasiWitDir.foreach { wasiDir =>
             val embedCmd2 = Seq(
-              "wasm-tools", "component", "embed",
+              "wasm-tools",
+              "component",
+              "embed",
               wasiDir.toString,
               wasmFilePath,
-              "-o", wasmFilePath,
-              "-w", "wasi-bindings",
-              "--encoding", "utf16"
+              "-o",
+              wasmFilePath,
+              "-w",
+              "wasi-bindings",
+              "--encoding",
+              "utf16"
             )
 
             logger.info(s"Embedding WASI WIT for $wasmFileName")
@@ -92,9 +100,12 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
            *  filter by core module requirements (unused WASI imports would be dropped), and merges them.
            */
           val newCmd = Seq(
-            "wasm-tools", "component", "new",
+            "wasm-tools",
+            "component",
+            "new",
             wasmFilePath,
-            "-o", wasmFilePath
+            "-o",
+            wasmFilePath
           )
 
           logger.info(s"Running wasm-tools component new for $wasmFileName")

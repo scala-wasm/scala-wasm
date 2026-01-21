@@ -45,12 +45,13 @@ private[bridge] final object JSRPC extends RPCCore {
   def handleMessage0(msg: String): Unit =
     handleMessage(msg)
 
-  override protected def send(msg: String): Unit =
+  override protected def send(msg: String): Unit = {
     linkTimeIf(LinkingInfo.targetPureWasm) {
       ScalajsCom.send(msg)
     } {
       Com.send(msg)
     }
+  }
 
   @js.native
   @JSGlobal("scalajsCom")

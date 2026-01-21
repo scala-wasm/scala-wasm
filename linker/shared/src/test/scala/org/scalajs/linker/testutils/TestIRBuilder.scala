@@ -48,21 +48,21 @@ object TestIRBuilder {
     MethodName(name, paramTypeRefs, resultTypeRef)
 
   def classDef(
-    className: ClassName,
-    kind: ClassKind = ClassKind.Class,
-    jsClassCaptures: Option[List[ParamDef]] = None,
-    superClass: Option[ClassName] = None,
-    interfaces: List[ClassName] = Nil,
-    jsSuperClass: Option[Tree] = None,
-    jsNativeLoadSpec: Option[JSNativeLoadSpec] = None,
-    fields: List[AnyFieldDef] = Nil,
-    methods: List[MethodDef] = Nil,
-    jsConstructor: Option[JSConstructorDef] = None,
-    jsMethodProps: List[JSMethodPropDef] = Nil,
-    jsNativeMembers: List[JSNativeMemberDef] = Nil,
-    witNativeMembers: List[WitNativeMemberDef] = Nil,
-    topLevelExportDefs: List[TopLevelExportDef] = Nil,
-    optimizerHints: OptimizerHints = EOH
+      className: ClassName,
+      kind: ClassKind = ClassKind.Class,
+      jsClassCaptures: Option[List[ParamDef]] = None,
+      superClass: Option[ClassName] = None,
+      interfaces: List[ClassName] = Nil,
+      jsSuperClass: Option[Tree] = None,
+      jsNativeLoadSpec: Option[JSNativeLoadSpec] = None,
+      fields: List[AnyFieldDef] = Nil,
+      methods: List[MethodDef] = Nil,
+      jsConstructor: Option[JSConstructorDef] = None,
+      jsMethodProps: List[JSMethodPropDef] = Nil,
+      jsNativeMembers: List[JSNativeMemberDef] = Nil,
+      witNativeMembers: List[WitNativeMemberDef] = Nil,
+      topLevelExportDefs: List[TopLevelExportDef] = Nil,
+      optimizerHints: OptimizerHints = EOH
   ): ClassDef = {
     val notHashed = ClassDef(ClassIdent(className), NON, kind, jsClassCaptures,
         superClass.map(ClassIdent(_)), interfaces.map(ClassIdent(_)),

@@ -238,19 +238,21 @@ export async function load(wasmFileURL, exportSetters, privateJSFieldGetters,
 
     import VarGen.genTypeID.i16Array
 
-    lazy val arrayModuleBuilder: ModuleBuilder = new ModuleBuilder(new ModuleBuilder.FunctionTypeProvider {
-      private val functionTypes = mutable.LinkedHashMap.empty[FunctionType, TypeID]
+    lazy val arrayModuleBuilder: ModuleBuilder = {
+      new ModuleBuilder(new ModuleBuilder.FunctionTypeProvider {
+        private val functionTypes = mutable.LinkedHashMap.empty[FunctionType, TypeID]
 
-      def functionTypeToTypeID(sig: FunctionType): TypeID = {
-        functionTypes.getOrElseUpdate(
-          sig, {
-            val typeID = VarGen.genTypeID.forFunction(functionTypes.size)
-            arrayModuleBuilder.addRecType(typeID, NoOriginalName, sig)
-            typeID
-          }
-        )
-      }
-    })
+        def functionTypeToTypeID(sig: FunctionType): TypeID = {
+          functionTypes.getOrElseUpdate(
+            sig, {
+              val typeID = VarGen.genTypeID.forFunction(functionTypes.size)
+              arrayModuleBuilder.addRecType(typeID, NoOriginalName, sig)
+              typeID
+            }
+          )
+        }
+      })
+    }
 
     arrayModuleBuilder.addRecType(i16Array,
         OriginalName(i16Array.toString()), ArrayType(FieldType(Int16, true)))

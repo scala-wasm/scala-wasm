@@ -440,6 +440,6 @@ private[lang] object StrictMathLog {
     ("-0x1.73df9b3adb334e7c8499b1e01446adfap9", "0x1.0p-1073"), // Entry 405
     ("-0x1.74385446d71c36395a7ea3b9e048a775p9", "0x1.0p-1074"), // Entry 406
     ("-HUGE_VAL", "0.0"), // Entry 407
-    ("-HUGE_VAL", "-0.0")  // Entry 408
+    ("-HUGE_VAL", "-0.0") // Entry 408
   )
 }

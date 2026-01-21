@@ -31,12 +31,12 @@ private[webassembly] object WasiWitExtractor {
 
       // List of WASI packages to extract
       val wasiPackages = Seq(
-        "wasi-cli-0.2.0",
-        "wasi-clocks-0.2.0",
-        "wasi-filesystem-0.2.0",
-        "wasi-io-0.2.0",
-        "wasi-random-0.2.0",
-        "wasi-sockets-0.2.0"
+          "wasi-cli-0.2.0",
+          "wasi-clocks-0.2.0",
+          "wasi-filesystem-0.2.0",
+          "wasi-io-0.2.0",
+          "wasi-random-0.2.0",
+          "wasi-sockets-0.2.0"
       )
 
       for (pkg <- wasiPackages) {

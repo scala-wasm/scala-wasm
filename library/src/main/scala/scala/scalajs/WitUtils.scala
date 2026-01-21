@@ -17,7 +17,7 @@ import scala.scalajs.{wit => wm}
 object WitUtils {
   def toEither[A, B](res: wm.Result[A, B]): Either[B, A] = res match {
     case err: wm.Err[B] => Left(err.value)
-    case ok: wm.Ok[A] => Right(ok.value)
+    case ok: wm.Ok[A]   => Right(ok.value)
   }
 
   def toOption[A, B](opt: java.util.Optional[A]): Option[A] = {

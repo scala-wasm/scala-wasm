@@ -1248,7 +1248,8 @@ class PrintersTest {
             None,
             Some(JSNativeLoadSpec.ImportWithGlobalFallback(
                 JSNativeLoadSpec.Import("foo", List("Bar")),
-                JSNativeLoadSpec.Global("Baz", List("Foobar")))), Nil, Nil, None,
+                JSNativeLoadSpec.Global("Baz", List("Foobar")))),
+            Nil, Nil, None,
             Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
@@ -1275,7 +1276,7 @@ class PrintersTest {
               ParamDef("x", NON, IntType, mutable = false),
               ParamDef("y", TestON, StringType, mutable = false)
             )),
-            Some(ObjectClass), Nil, None, None, Nil, Nil,  None, Nil, Nil, Nil, Nil)(
+            Some(ObjectClass), Nil, None, None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
 

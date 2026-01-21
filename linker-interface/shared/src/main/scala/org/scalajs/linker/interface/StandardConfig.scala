@@ -92,24 +92,24 @@ final class StandardConfig private (
 ) {
   private def this() = {
     this(
-        semantics = Semantics.Defaults,
-        moduleKind = ModuleKind.NoModule,
-        moduleSplitStyle = ModuleSplitStyle.FewestModules,
-        esFeatures = ESFeatures.Defaults,
-        wasmFeatures = WasmFeatures.Defaults,
-        checkIR = false,
-        optimizer = true,
-        jsHeader = "",
-        parallel = true,
-        sourceMap = true,
-        relativizeSourceMapBase = None,
-        outputPatterns = OutputPatterns.Defaults,
-        minify = false,
-        closureCompilerIfAvailable = false,
-        prettyPrint = false,
-        batchMode = false,
-        maxConcurrentWrites = 50,
-        experimentalUseWebAssembly = false
+      semantics = Semantics.Defaults,
+      moduleKind = ModuleKind.NoModule,
+      moduleSplitStyle = ModuleSplitStyle.FewestModules,
+      esFeatures = ESFeatures.Defaults,
+      wasmFeatures = WasmFeatures.Defaults,
+      checkIR = false,
+      optimizer = true,
+      jsHeader = "",
+      parallel = true,
+      sourceMap = true,
+      relativizeSourceMapBase = None,
+      outputPatterns = OutputPatterns.Defaults,
+      minify = false,
+      closureCompilerIfAvailable = false,
+      prettyPrint = false,
+      batchMode = false,
+      maxConcurrentWrites = 50,
+      experimentalUseWebAssembly = false
     )
   }
 
@@ -274,24 +274,24 @@ final class StandardConfig private (
       experimentalUseWebAssembly: Boolean = experimentalUseWebAssembly
   ): StandardConfig = {
     new StandardConfig(
-        semantics,
-        moduleKind,
-        moduleSplitStyle,
-        esFeatures,
-        wasmFeatures,
-        checkIR,
-        optimizer,
-        jsHeader,
-        parallel,
-        sourceMap,
-        relativizeSourceMapBase,
-        outputPatterns,
-        minify,
-        closureCompilerIfAvailable,
-        prettyPrint,
-        batchMode,
-        maxConcurrentWrites,
-        experimentalUseWebAssembly
+      semantics,
+      moduleKind,
+      moduleSplitStyle,
+      esFeatures,
+      wasmFeatures,
+      checkIR,
+      optimizer,
+      jsHeader,
+      parallel,
+      sourceMap,
+      relativizeSourceMapBase,
+      outputPatterns,
+      minify,
+      closureCompilerIfAvailable,
+      prettyPrint,
+      batchMode,
+      maxConcurrentWrites,
+      experimentalUseWebAssembly
     )
   }
 }

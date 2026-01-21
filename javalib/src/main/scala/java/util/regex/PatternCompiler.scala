@@ -317,13 +317,13 @@ private[regex] object PatternCompiler {
     // General categories
 
     val generalCategories = Array(
-      "Lu", "Ll", "Lt", "LC", "Lm", "Lo", "L",
-      "Mn", "Mc", "Me", "M",
-      "Nd", "Nl", "No", "N",
-      "Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po", "P",
-      "Sm", "Sc", "Sk", "So", "S",
-      "Zs", "Zl", "Zp", "Z",
-      "Cc", "Cf", "Cs", "Co", "Cn", "C"
+        "Lu", "Ll", "Lt", "LC", "Lm", "Lo", "L",
+        "Mn", "Mc", "Me", "M",
+        "Nd", "Nl", "No", "N",
+        "Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po", "P",
+        "Sm", "Sc", "Sk", "So", "S",
+        "Zs", "Zl", "Zp", "Z",
+        "Cc", "Cf", "Cs", "Co", "Cn", "C"
     )
 
     for (i <- 0 until generalCategories.length) {
@@ -1232,18 +1232,19 @@ private final class PatternCompiler(private val pattern: String, private var fla
 
       // Renumber all backreferences contained in the compiled token
       import js.JSStringOps._
-      val amendedToken = compiledToken.jsReplace(renumberingRegExp, {
-        (str, backslashes, groupString) =>
-          if (backslashes.length() % 2 == 0) { // poor man's negative look-behind
-            str
-          } else {
-            val groupNumber = parseInt(groupString, 10)
-            if (groupNumber > compiledGroupCountBeforeThisToken)
-              backslashes + (groupNumber + 1)
-            else
-              str
-          }
-      }: js.Function3[String, String, String, String])
+      val amendedToken = compiledToken.jsReplace(renumberingRegExp,
+          {
+            (str, backslashes, groupString) =>
+              if (backslashes.length() % 2 == 0) { // poor man's negative look-behind
+                str
+              } else {
+                val groupNumber = parseInt(groupString, 10)
+                if (groupNumber > compiledGroupCountBeforeThisToken)
+                  backslashes + (groupNumber + 1)
+                else
+                  str
+              }
+          }: js.Function3[String, String, String, String])
 
       // Plan the future remapping
       compiledGroupCount += 1
@@ -1677,30 +1678,33 @@ private final class PatternCompiler(private val pattern: String, private var fla
       ucSubstring(pattern, start, start + 1)
     }
 
-    val result = if (!unicodeCharacterClass && engine.dictContains(asciiPOSIXCharacterClasses, property)) {
-      val property2 =
-        if (asciiCaseInsensitive && (property == "Lower" || property == "Upper")) "Alpha"
-        else property
-      engine.dictRawApply(asciiPOSIXCharacterClasses, property2)
-    } else {
-      // For anything else, we need built-in support for \p
-      requireES2018Features("Unicode character family")
+    val result = {
+      if (!unicodeCharacterClass && engine.dictContains(asciiPOSIXCharacterClasses, property)) {
+        val property2 =
+          if (asciiCaseInsensitive && (property == "Lower" || property == "Upper")) "Alpha"
+          else property
+        engine.dictRawApply(asciiPOSIXCharacterClasses, property2)
+      } else {
+        // For anything else, we need built-in support for \p
+        requireES2018Features("Unicode character family")
 
-      engine.dictGetOrElse(predefinedPCharacterClasses, property) { () =>
-        val scriptPrefixLen = if (property.startsWith("Is")) {
-          2
-        } else if (property.startsWith("sc=")) {
-          3
-        } else if (property.startsWith("script=")) {
-          7
-        } else if (property.startsWith("In") || property.startsWith("blk=") || property.startsWith(
-                "block=")) {
-          parseError("Blocks are not supported in \\p Unicode character families")
-        } else {
-          // Error
-          parseError(s"Unknown Unicode character class '$property'")
+        engine.dictGetOrElse(predefinedPCharacterClasses, property) { () =>
+          val scriptPrefixLen = if (property.startsWith("Is")) {
+            2
+          } else if (property.startsWith("sc=")) {
+            3
+          } else if (property.startsWith("script=")) {
+            7
+          } else if (property.startsWith("In") || property.startsWith("blk=") || property.startsWith(
+                  "block=")) {
+            parseError("Blocks are not supported in \\p Unicode character families")
+          } else {
+            // Error
+            parseError(s"Unknown Unicode character class '$property'")
+          }
+          CompiledCharClass.posP(
+              "sc=" + canonicalizeScriptName(ucSubstring(property, scriptPrefixLen)))
         }
-        CompiledCharClass.posP("sc=" + canonicalizeScriptName(ucSubstring(property, scriptPrefixLen)))
       }
     }
 
@@ -1728,7 +1732,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
       builder += {
         if (c >= 'a' && c <= 'z') {
           (if (nextIsUppercase) (c - 'a' + 'A').toChar else c)
-        } else if (c >= 'A' && c <= 'Z')  {
+        } else if (c >= 'A' && c <= 'Z') {
           (if (nextIsUppercase) c else (c - 'A' + 'a').toChar)
         } else {
           c

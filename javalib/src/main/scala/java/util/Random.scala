@@ -47,12 +47,13 @@ class Random(seed_in: Long) extends AnyRef with RandomGenerator with java.io.Ser
   }
 
   @noinline
-  protected def next(bits: Int): Int =
+  protected def next(bits: Int): Int = {
     linkTimeIf(LinkingInfo.isWebAssembly) {
       nextWasm(bits)
     } {
       nextJS(bits)
     }
+  }
 
   @inline
   private def nextWasm(bits: Int): Int = {

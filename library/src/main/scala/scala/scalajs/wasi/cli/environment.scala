@@ -15,8 +15,7 @@ package object environment {
   @scala.scalajs.wit.annotation.WitImport("wasi:cli/environment@0.2.0", "get-environment")
   def getEnvironment(): Array[scala.scalajs.wit.Tuple2[String, String]] = scala.scalajs.wit.native
 
-  /** Get the POSIX-style arguments to the program.
-   */
+  /** Get the POSIX-style arguments to the program. */
   @scala.scalajs.wit.annotation.WitImport("wasi:cli/environment@0.2.0", "get-arguments")
   def getArguments(): Array[String] = scala.scalajs.wit.native
 

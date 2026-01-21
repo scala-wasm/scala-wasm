@@ -120,6 +120,7 @@ object Modules {
   }
 
   final case class Memory(id: MemoryID, originalName: OriginalName, limits: Memory.Limits)
+
   object Memory {
     final case class Limits(min: Int, max: Option[Int])
   }

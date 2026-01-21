@@ -33,7 +33,10 @@ package object udp_create_socket {
    *  - <https://learn.microsoft.com/en-us/windows/win32/api/winsock2/nf-winsock2-wsasocketw>
    *  - <https://man.freebsd.org/cgi/man.cgi?query=socket&sektion=2>
    */
-  @scala.scalajs.wit.annotation.WitImport("wasi:sockets/udp-create-socket@0.2.0", "create-udp-socket")
-  def createUdpSocket(addressFamily: scala.scalajs.wasi.sockets.network.IpAddressFamily): scala.scalajs.wit.Result[UdpSocket, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
+  @scala.scalajs.wit.annotation.WitImport(
+      "wasi:sockets/udp-create-socket@0.2.0", "create-udp-socket")
+  def createUdpSocket(
+      addressFamily: scala.scalajs.wasi.sockets.network.IpAddressFamily): scala.scalajs.wit.Result[
+      UdpSocket, scala.scalajs.wasi.sockets.network.ErrorCode] = scala.scalajs.wit.native
 
 }

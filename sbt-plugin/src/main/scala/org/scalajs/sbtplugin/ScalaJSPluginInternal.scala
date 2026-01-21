@@ -134,7 +134,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
       val scalaExitCode = Process(checkScalaCmd).!(ProcessLogger(_ => (), _ => ()))
       if (scalaExitCode != 0) {
         throw new MessageOnlyException(
-          """wit-bindgen is installed but the 'scala' subcommand is not available.
+            """wit-bindgen is installed but the 'scala' subcommand is not available.
             |
             |Please install the Scala-enabled version of wit-bindgen:
             |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
@@ -146,7 +146,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
         throw e
       case _: java.io.IOException =>
         throw new MessageOnlyException(
-          """wit-bindgen is not installed or not in PATH.
+            """wit-bindgen is not installed or not in PATH.
             |
             |Please install the Scala-enabled version of wit-bindgen:
             |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
@@ -700,24 +700,27 @@ private[sbtplugin] object ScalaJSPluginInternal {
             checkWitBindgenAvailable(log)
 
             val cacheDir = s.cacheDirectory / "wit-bindgen"
-            val generatedFiles = FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
-              log.info(s"Generating Scala bindings from WIT files in $witDir")
+            val generatedFiles = {
+              FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
+                log.info(s"Generating Scala bindings from WIT files in $witDir")
 
-              IO.createDirectory(targetDir)
+                IO.createDirectory(targetDir)
 
-              val baseCmd = Seq("wit-bindgen", "scala", witDir.absolutePath, "--out-dir", targetDir.absolutePath)
-              val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
-              val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
-              val fullCmd = baseCmd ++ worldArgs ++ packageArgs
+                val baseCmd = Seq("wit-bindgen", "scala", witDir.absolutePath, "--out-dir",
+                    targetDir.absolutePath)
+                val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
+                val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
+                val fullCmd = baseCmd ++ worldArgs ++ packageArgs
 
-              log.info(s"Running: ${fullCmd.mkString(" ")}")
+                log.info(s"Running: ${fullCmd.mkString(" ")}")
 
-              val exitCode = Process(fullCmd).!(log)
-              if (exitCode != 0) {
-                throw new MessageOnlyException(s"wit-bindgen failed with exit code $exitCode")
-              }
-              (targetDir ** "*.scala").get.toSet
-            }(witFiles)
+                val exitCode = Process(fullCmd).!(log)
+                if (exitCode != 0) {
+                  throw new MessageOnlyException(s"wit-bindgen failed with exit code $exitCode")
+                }
+                (targetDir ** "*.scala").get.toSet
+              }(witFiles)
+            }
 
             generatedFiles.toSeq
           }

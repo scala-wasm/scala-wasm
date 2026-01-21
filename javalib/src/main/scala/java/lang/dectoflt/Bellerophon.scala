@@ -137,7 +137,7 @@ private[lang] object Bellerophon {
 
   private def multiplyAndTest(f: BigInteger, e: Int, slop: Int,
       fmt: FloatingPointFormat): fmt.Repr = {
-    if (e < -LargeTableRange*TableSize || e > LargeTableRange*TableSize) {
+    if (e < -LargeTableRange * TableSize || e > LargeTableRange * TableSize) {
       // Can't calculate the approximaton of 10^e from pre-computed power of tens, fallback to slow path
       algorithmM(f, e, fmt)
     } else {
@@ -284,9 +284,9 @@ private[lang] object Bellerophon {
          * there are two closest approximation.
          */
         if ((m == (1 << (fmt.SigBits - 1))) &&
-            d2.shiftLeft(1).compareTo(y) > 0 && d.signum() < 0)
+            d2.shiftLeft(1).compareTo(y) > 0 && d.signum() < 0) {
           loop(fmt.nextDown(z))
-        else z
+        } else z
       } else if (cmp == 0) { // on boundary (x equals y), round to even
         if ((m & 1) == 0) {
           if (m == (1 << (fmt.SigBits - 1)) && d.signum() < 0)

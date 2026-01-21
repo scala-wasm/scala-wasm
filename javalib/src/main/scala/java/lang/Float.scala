@@ -88,27 +88,27 @@ object Float {
 
   private[this] lazy val parseFloatRegExp = RegExpImpl.impl.compile(
       "^" +
-      "[\\x00-\\x20]*" +                 // optional whitespace
-      "([+-]?)" +                        // 1: optional sign
+      "[\\x00-\\x20]*" + // optional whitespace
+      "([+-]?)" + // 1: optional sign
       "(?:" +
-        "(NaN)|" +                       // 2: NaN
-        "(Infinity)|" +                  // 3: Infinity
-        "(?:" +
-          "(" +                          // 4: decimal notation
-            "(?:(\\d+)(?:\\.(\\d*))?|" + // 5-6: w/ digit before .
-              "\\.(\\d+))" +             // 7: w/o digit before .
-            "(?:[eE]([+-]?\\d+))?" +     // 8: optional exponent
-          ")|" +
-          "(" +                          // 9: hexadecimal notation
-            "0[xX]" +                    // hex marker
-            "(?:([0-9A-Fa-f]+)(?:\\.([0-9A-Fa-f]*))?|" + // 10-11: w/ digit before .
-              "\\.([0-9A-Fa-f]+))" +                     // 12: w/o digit before .
-            "[pP]([+-]?\\d+)" +          // 13: binary exponent
-          ")" +
-        ")" +
-        "[fFdD]?" +                      // optional float / double specifier (ignored)
+      "(NaN)|" + // 2: NaN
+      "(Infinity)|" + // 3: Infinity
+      "(?:" +
+      "(" + // 4: decimal notation
+      "(?:(\\d+)(?:\\.(\\d*))?|" + // 5-6: w/ digit before .
+      "\\.(\\d+))" + // 7: w/o digit before .
+      "(?:[eE]([+-]?\\d+))?" + // 8: optional exponent
+      ")|" +
+      "(" + // 9: hexadecimal notation
+      "0[xX]" + // hex marker
+      "(?:([0-9A-Fa-f]+)(?:\\.([0-9A-Fa-f]*))?|" + // 10-11: w/ digit before .
+      "\\.([0-9A-Fa-f]+))" + // 12: w/o digit before .
+      "[pP]([+-]?\\d+)" + // 13: binary exponent
       ")" +
-      "[\\x00-\\x20]*" +                 // optional whitespace
+      ")" +
+      "[fFdD]?" + // optional float / double specifier (ignored)
+      ")" +
+      "[\\x00-\\x20]*" + // optional whitespace
       "$")
 
   def parseFloat(s: String): scala.Float = {

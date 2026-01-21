@@ -20,22 +20,24 @@ import org.scalajs.linker.backend.wasmemitter.TypeTransformer.transformSingleTyp
 import org.scalajs.ir.WasmInterfaceTypes.U8Type
 
 object ScalaJSToCABI {
+
   /** Accessing the private[this] field of `java.util.Optional`.
-    * Ideally, the field should be accessed through the getter function: `java.util.Optional#get`.
-    * However, to enable vtable dispatch for this method,
-    * `Preprocessor#AbstractMethodCallCollector` must collect calls to the `get` function,
-    * in addition to the Analyzer.
-    *
-    * We could mark these getters as called in `AbstractMethodCallCollector`,
-    * but that approach might be somewhat complicated.
-    * As an alternative, we access the private field for now.
-    */
-  private val juOptionalClass_value = FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value"))
+   *  Ideally, the field should be accessed through the getter function: `java.util.Optional#get`.
+   *  However, to enable vtable dispatch for this method,
+   *  `Preprocessor#AbstractMethodCallCollector` must collect calls to the `get` function,
+   *  in addition to the Analyzer.
+   *
+   *  We could mark these getters as called in `AbstractMethodCallCollector`,
+   *  but that approach might be somewhat complicated.
+   *  As an alternative, we access the private field for now.
+   */
+  private val juOptionalClass_value =
+    FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value"))
 
   // assume that there're ptr and value of `tpe` are on the stack.
   def genStoreMemory(
       fb: FunctionBuilder,
-      tpe: wit.ValType,
+      tpe: wit.ValType
   )(implicit ctx: WasmContext): Unit = {
     tpe match {
       case wit.BoolType | wit.S8Type | wit.U8Type =>
@@ -110,7 +112,7 @@ object ScalaJSToCABI {
           )
           f.toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
-            case _ =>
+            case _                  =>
           }
           genStoreMemory(fb, f)
           genMovePtr(fb, ptr, wit.elemSize(f))
@@ -211,10 +213,9 @@ object ScalaJSToCABI {
     }
   }
 
-
   def genStoreStack(
       fb: FunctionBuilder,
-      tpe: wit.ValType,
+      tpe: wit.ValType
   )(implicit ctx: WasmContext): Unit = {
     tpe match {
       // Scala.js has a same representation
@@ -264,7 +265,7 @@ object ScalaJSToCABI {
           )
           f.toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
-            case _ =>
+            case _                  =>
           }
           genStoreStack(fb, f)
         }
@@ -331,11 +332,11 @@ object ScalaJSToCABI {
   }
 
   /** Given an `Array` instance provided on the stack,
-    *  place it into linear memory for CABI, and return its base address and length.
-    */
+   *  place it into linear memory for CABI, and return its base address and length.
+   */
   private def genStoreList(
-    fb: FunctionBuilder,
-    listType: wit.ListType
+      fb: FunctionBuilder,
+      listType: wit.ListType
   )(implicit ctx: WasmContext): Unit = {
     val wit.ListType(elemType, maybeLength) = listType
     maybeLength match {
@@ -404,9 +405,9 @@ object ScalaJSToCABI {
   }
 
   private def genStoreVariantMemory(
-    fb: FunctionBuilder,
-    cases: List[wit.CaseType],
-    genUnbox: (wit.ValType) => Unit,
+      fb: FunctionBuilder,
+      cases: List[wit.CaseType],
+      genUnbox: (wit.ValType) => Unit
   )(implicit ctx: WasmContext): Unit = {
     val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
     val variant = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
@@ -430,10 +431,10 @@ object ScalaJSToCABI {
           fb += wa.LocalGet(ptr)
           fb += wa.I32Const(idx)
           wit.discriminantType(cases) match {
-            case wit.U8Type => fb += wa.I32Store8()
+            case wit.U8Type  => fb += wa.I32Store8()
             case wit.U16Type => fb += wa.I32Store16()
             case wit.U32Type => fb += wa.I32Store()
-            case t => throw new AssertionError(s"Invalid discriminant type $t")
+            case t           => throw new AssertionError(s"Invalid discriminant type $t")
           }
 
           c.tpe.foreach { tpe =>
@@ -443,7 +444,8 @@ object ScalaJSToCABI {
             fb += wa.LocalGet(l)
 
             // Read the field (case class parameter becomes a field with the same name)
-            val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
+            val value =
+              genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
             fb += wa.StructGet(classID, value)
             genUnbox(tpe)
             genStoreMemory(fb, tpe)
@@ -462,7 +464,7 @@ object ScalaJSToCABI {
   private def genStoreVariantStack(
       fb: FunctionBuilder,
       cases: List[wit.CaseType],
-      genUnbox: (wit.ValType) => Unit,
+      genUnbox: (wit.ValType) => Unit
   )(implicit ctx: WasmContext): Unit = {
     val tmp = fb.addLocal(NoOriginalName, watpe.RefType.anyref)
     val flattened = Flatten.flattenVariants(cases.flatMap(t => t.tpe))
@@ -486,11 +488,13 @@ object ScalaJSToCABI {
               fb += wa.LocalGet(l)
 
               // Read the field (case class parameter becomes a field with the same name)
-              val value = genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
+              val value =
+                genFieldID.forClassInstanceField(FieldName(c.className, SimpleFieldName("value")))
               fb += wa.StructGet(classID, value)
               genUnbox(tpe)
               genStoreStack(fb, tpe)
               genCoerceValues(fb, Flatten.flattenType(tpe), flattened)
+
             case None =>
               genCoerceValues(fb, Nil, flattened)
           }
@@ -502,13 +506,13 @@ object ScalaJSToCABI {
   }
 
   /** Generates a sequence of instructions that anticipate
-    * having `types` of values on the stack and
-    * ensures that the stack will contain the `expected` types of values.
-    */
+   *  having `types` of values on the stack and
+   *  ensures that the stack will contain the `expected` types of values.
+   */
   private def genCoerceValues(
-    fb: FunctionBuilder,
-    types: List[watpe.Type],
-    expect: List[watpe.Type]
+      fb: FunctionBuilder,
+      types: List[watpe.Type],
+      expect: List[watpe.Type]
   ): Unit = {
     val locals = types.map(t => fb.addLocal(NoOriginalName, t))
     locals.reverse.foreach { l =>
@@ -546,12 +550,12 @@ object ScalaJSToCABI {
   }
 
   /** Used for calling the getter functions for _1 and _2 if tuples are specialized,
-    * since the _1 field won't be updated in specialized classes.
-    * We need to retrieve the value via the getter.
-    * We might need to update Preprocessor#AbstractMethodCallCollector
-    * to explicitly collect these getters so they appear in the vtable.
-    * These getters usually exist in standard libraries and are already collected, though.
-    **/
+   *  since the _1 field won't be updated in specialized classes.
+   *  We need to retrieve the value via the getter.
+   *  We might need to update Preprocessor#AbstractMethodCallCollector
+   *  to explicitly collect these getters so they appear in the vtable.
+   *  These getters usually exist in standard libraries and are already collected, though.
+   */
   private def genVTableDispatch(fb: FunctionBuilder,
       receiverClassName: ClassName, methodName: MethodName,
       receiverLocal: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
@@ -598,7 +602,8 @@ object ScalaJSToCABI {
     fb += wa.LocalSet(ptr)
   }
 
-  private def genUnbox(fb: FunctionBuilder, targetTpe: wit.ValType)(implicit ctx: WasmContext): Unit = {
+  private def genUnbox(fb: FunctionBuilder, targetTpe: wit.ValType)(
+      implicit ctx: WasmContext): Unit = {
     targetTpe match {
       case wit.ResourceType(className) =>
         // Cast from anyref (from Result/Option value field) to resource struct type
@@ -607,7 +612,7 @@ object ScalaJSToCABI {
       case _ =>
         targetTpe.toIRType() match {
           case t: PrimTypeWithRef => genUnbox(fb, t)
-          case _ =>
+          case _                  =>
         }
     }
   }
@@ -616,7 +621,7 @@ object ScalaJSToCABI {
     targetTpe match {
       case NothingType | NullType =>
         throw new AssertionError(s"Unexpected unboxing to $targetTpe")
-      case VoidType =>
+      case VoidType           =>
       case p: PrimTypeWithRef =>
         fb += wa.Call(genFunctionID.unbox(p.primRef))
     }

@@ -101,6 +101,7 @@ final class WasmContext(
   val stringPool: StringPool =
     if (coreSpec.wasmFeatures.targetPureWasm) new DataStringPool
     else new JSStringPool
+
   val constantArrayPool: ConstantArrayPool = new ConstantArrayPool
 
   /** The main `rectype` containing the object model types. */

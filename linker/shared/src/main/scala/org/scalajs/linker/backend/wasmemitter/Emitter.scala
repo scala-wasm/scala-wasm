@@ -183,9 +183,10 @@ final class Emitter(config: Emitter.Config) {
         case _: WitExportDef =>
       }
 
-      if (!tle.tree.isWitExport)
+      if (!tle.tree.isWitExport) {
         // Call the export setter
         fb += wa.Call(genFunctionID.forTopLevelExportSetter(tle.exportName))
+      }
     }
 
     // Emit the module initializers
@@ -200,7 +201,8 @@ final class Emitter(config: Emitter.Config) {
       ModuleInitializerImpl.fromInitializer(init) match {
         case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
           val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
-          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size, coreSpec.wasmFeatures.targetPureWasm) {
+          SWasmGen.genArrayValue(
+              fb, stringArrayTypeRef, args.size, coreSpec.wasmFeatures.targetPureWasm) {
             for (arg <- args) {
               fb ++= ctx.stringPool.getConstantStringInstr(arg)
               if (!coreSpec.wasmFeatures.targetPureWasm)

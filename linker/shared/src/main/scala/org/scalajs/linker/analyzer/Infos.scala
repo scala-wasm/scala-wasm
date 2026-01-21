@@ -190,7 +190,7 @@ object Infos {
   ) extends MemberReachabilityInfo
 
   final case class WasmWitNativeMemberReachable private[Infos] (
-    val methodName: MethodName
+      val methodName: MethodName
   ) extends MemberReachabilityInfo
 
   final class ReachabilityInfoBuilder(version: Version) {
@@ -579,30 +579,34 @@ object Infos {
     /** Generates the [[MethodInfo]] of a
      *  [[org.scalajs.ir.Trees.MethodDef Trees.MethodDef]].
      */
-    def generateMethodInfo(methodDef: MethodDef): MethodInfo =
+    def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
       new GenInfoTraverser(methodDef.version, linkTimeProperties, targetPureWasm)
-          .generateMethodInfo(methodDef)
+        .generateMethodInfo(methodDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSConstructorDef Trees.JSConstructorDef]].
      */
-    def generateJSConstructorInfo(ctorDef: JSConstructorDef): ReachabilityInfo =
+    def generateJSConstructorInfo(ctorDef: JSConstructorDef): ReachabilityInfo = {
       new GenInfoTraverser(ctorDef.version, linkTimeProperties, targetPureWasm)
-          .generateJSConstructorInfo(ctorDef)
+        .generateJSConstructorInfo(ctorDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSMethodDef Trees.JSMethodDef]].
      */
-    def generateJSMethodInfo(methodDef: JSMethodDef): ReachabilityInfo =
+    def generateJSMethodInfo(methodDef: JSMethodDef): ReachabilityInfo = {
       new GenInfoTraverser(methodDef.version, linkTimeProperties, targetPureWasm)
-          .generateJSMethodInfo(methodDef)
+        .generateJSMethodInfo(methodDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSPropertyDef Trees.JSPropertyDef]].
      */
-    def generateJSPropertyInfo(propertyDef: JSPropertyDef): ReachabilityInfo =
+    def generateJSPropertyInfo(propertyDef: JSPropertyDef): ReachabilityInfo = {
       new GenInfoTraverser(propertyDef.version, linkTimeProperties, targetPureWasm)
-          .generateJSPropertyInfo(propertyDef)
+        .generateJSPropertyInfo(propertyDef)
+    }
 
     def generateJSMethodPropDefInfo(member: JSMethodPropDef): ReachabilityInfo = member match {
       case methodDef: JSMethodDef     => generateJSMethodInfo(methodDef)
@@ -613,19 +617,21 @@ object Infos {
     def generateTopLevelExportInfo(enclosingClass: ClassName,
         topLevelExportDef: TopLevelExportDef): TopLevelExportInfo = {
       val info = new GenInfoTraverser(Version.Unversioned, linkTimeProperties, targetPureWasm)
-          .generateTopLevelExportInfo(enclosingClass, topLevelExportDef)
+        .generateTopLevelExportInfo(enclosingClass, topLevelExportDef)
       new TopLevelExportInfo(info,
           ModuleID(topLevelExportDef.moduleID),
           topLevelExportDef.topLevelExportName)
     }
 
-    def generateWitNativeMember(member: WitNativeMemberDef): MethodInfo =
+    def generateWitNativeMember(member: WitNativeMemberDef): MethodInfo = {
       new GenInfoTraverser(Version.Unversioned, linkTimeProperties, targetPureWasm)
-          .generateWitNativeMember(member)
+        .generateWitNativeMember(member)
+    }
   }
 
   private final class GenInfoTraverser(version: Version,
-      linkTimeProperties: LinkTimeProperties, targetPureWasm: Boolean) extends Traverser {
+      linkTimeProperties: LinkTimeProperties, targetPureWasm: Boolean)
+      extends Traverser {
 
     private val builder = new ReachabilityInfoBuilder(version)
 
@@ -740,7 +746,7 @@ object Infos {
       tpe match {
         case wit.FuncType(paramTypes, resultType) =>
           for (t <- paramTypes) generateForWIT(t)
-          resultType.foreach { t => generateForWIT(t) }
+          resultType.foreach(t => generateForWIT(t))
 
         case wit.TupleType(fields) =>
           val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
@@ -767,19 +773,22 @@ object Infos {
           builder.addInstantiatedClass(className, ctor)
 
         case wit.OptionType(t) =>
-          builder.addInstantiatedClass(juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
-          builder.addFieldRead(FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+          builder.addInstantiatedClass(
+              juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          builder.addFieldRead(
+              FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
           generateForWIT(t)
 
         case wit.ResultType(ok, err) =>
           val cases = List(
             wit.CaseType(ComponentResultOkClass, ok),
-            wit.CaseType(ComponentResultErrClass, err),
+            wit.CaseType(ComponentResultErrClass, err)
           )
           builder.maybeAddAccessedClassData(ClassRef(ComponentResultClass))
           for (c <- cases) {
             // ResultType uses generic Ok/Err classes, so after type erasure they take Object
-            builder.addInstantiatedClass(c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
+            builder.addInstantiatedClass(
+                c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
             c.tpe.foreach { tpe =>
               builder.addFieldRead(FieldName(c.className, WitVariantValueFieldName))
               generateForWIT(tpe)
@@ -1032,7 +1041,7 @@ object Infos {
             _:JSImportCall | _:JSImportMeta | _:LoadJSConstructor |
             _:LoadJSModule | _:SelectJSNativeMember | _:JSDelete |
             _:JSUnaryOp | _:JSBinaryOp | _:JSArrayConstr | _:JSObjectConstr |
-            _:JSGlobalRef | _: JSTypeOfGlobalRef | _:CreateJSClass |
+            _:JSGlobalRef | _:JSTypeOfGlobalRef | _:CreateJSClass |
             _:JSPrivateSelect | _:JSSuperSelect | _:JSSuperMethodCall |
             _:JSNewTarget | _:JSSuperConstructorCall =>
           builder.markUsedJSInPureWasm()

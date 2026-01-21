@@ -66,7 +66,7 @@ private[dectoflt] class FloatingPoint private (val f: Long, val e: Int) {
     val encodedExp: Int = exponent + ((1 << (fmt.ExpBits - 1)) - 1) + fmt.ExplicitSigBits
 
     encodedExp <= 0 || encodedExp >= ((1 << fmt.ExpBits) - 1) ||
-        encodedSig <= 0 || encodedSig >= (1 << fmt.ExplicitSigBits)
+      encodedSig <= 0 || encodedSig >= (1 << fmt.ExplicitSigBits)
   }
 
   /** Round the 64-bit significand to target#SigBits bits with half-to-even. */
@@ -108,9 +108,8 @@ object FloatingPoint {
   }
 
   /** Create a FloatingPoint from normalized f and e. */
-  def normalized(f: Long, e: Int): FloatingPoint = {
+  def normalized(f: Long, e: Int): FloatingPoint =
     new FloatingPoint(f, e)
-  }
 
   /** Normalize the given floating point number z = f * 2^e
    *

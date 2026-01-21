@@ -29,10 +29,10 @@ object SWasmGen {
     tpe match {
       case WitResourceType(className) =>
         List(
-          GlobalGet(genGlobalID.forVTable(className)), // vtable
-          I32Const(0), // idHashCode (unused, needed for subtyping)
-          I32Const(0), // handle (zero value)
-          StructNew(genTypeID.forResourceClass(className)))
+            GlobalGet(genGlobalID.forVTable(className)), // vtable
+            I32Const(0), // idHashCode (unused, needed for subtyping)
+            I32Const(0), // handle (zero value)
+            StructNew(genTypeID.forResourceClass(className)))
       case _ =>
         List(genZeroOf0(tpe))
     }
@@ -51,7 +51,7 @@ object SWasmGen {
           GlobalGet(genGlobalID.emptyStringArray)
         else
           ctx.stringPool.getEmptyStringInstr()
-      case UndefType  => GlobalGet(genGlobalID.undef)
+      case UndefType => GlobalGet(genGlobalID.undef)
 
       case ClassType(BoxedStringClass, true) =>
         if (ctx.coreSpec.wasmFeatures.targetPureWasm)
@@ -118,7 +118,8 @@ object SWasmGen {
     }
   }
 
-  def genArrayValueFromUnderlying(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef, targetPureWasm: Boolean)(
+  def genArrayValueFromUnderlying(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef,
+      targetPureWasm: Boolean)(
       genUnderlying: => Unit): Unit = {
     genLoadArrayTypeData(fb, arrayTypeRef) // vtable
     if (targetPureWasm) fb += I32Const(0)

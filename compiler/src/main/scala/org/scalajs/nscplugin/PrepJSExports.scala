@@ -156,8 +156,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
         // Validate that trait methods are in @WitExportInterface traits
         if (!ownerSym.hasAnnotation(WitExportInterfaceAnnotation)) {
           reporter.error(sym.pos,
-            s"Trait ${ownerSym.name} contains @WitExport methods but is not annotated with @WitExportInterface. " +
-            s"Add @WitExportInterface to the trait definition.")
+              s"Trait ${ownerSym.name} contains @WitExport methods but is not annotated with @WitExportInterface. " +
+              s"Add @WitExportInterface to the trait definition.")
         }
       }
     }
@@ -365,15 +365,16 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           }
 
           // @WitExport can ONLY be used in @WitExportInterface traits
-          val isInExportInterface = symOwner.isTrait && symOwner.hasAnnotation(WitExportInterfaceAnnotation)
+          val isInExportInterface =
+            symOwner.isTrait && symOwner.hasAnnotation(WitExportInterfaceAnnotation)
           if (!isInExportInterface) {
             if (symOwner.isTrait) {
               reporter.error(annot.pos,
-                s"@WitExport can only be used in traits annotated with @WitExportInterface. " +
-                s"Trait ${symOwner.name} is missing the annotation.")
+                  s"@WitExport can only be used in traits annotated with @WitExportInterface. " +
+                  s"Trait ${symOwner.name} is missing the annotation.")
             } else {
               reporter.error(annot.pos,
-                s"@WitExport can only be used in @WitExportInterface traits.")
+                  s"@WitExport can only be used in @WitExportInterface traits.")
             }
           }
 
@@ -446,7 +447,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
                 "Fields (val or var) cannot be exported as static more " +
                 "than once")
 
-          case _: ExportDestination.TopLevel | _: ExportDestination.WasmComponent =>
+          case _:ExportDestination.TopLevel | _:ExportDestination.WasmComponent =>
             reporter.error(duplicate.pos,
                 "Fields (val or var) cannot be exported both as static " +
                 "and at the top-level")
@@ -472,19 +473,20 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     exportTrait match {
       case None =>
         reporter.error(pos,
-          s"@WitImplementation object ${implOwner.name} must extend a trait " +
-          s"annotated with @WitExportInterface")
+            s"@WitImplementation object ${implOwner.name} must extend a trait " +
+            s"annotated with @WitExportInterface")
         Nil
 
       case Some(traitSym) =>
         // Find the corresponding trait method
-        val traitMethod = traitSym.info.member(implMethod.name).suchThat(m =>
-          m.isMethod && m.isDeferred
+        val traitMethod = traitSym.info.member(implMethod.name).suchThat(
+            m =>
+              m.isMethod && m.isDeferred
         )
 
         if (traitMethod == NoSymbol) {
           reporter.error(pos,
-            s"Method ${implMethod.name} does not override any method in trait ${traitSym.name}")
+              s"Method ${implMethod.name} does not override any method in trait ${traitSym.name}")
           Nil
         } else {
           // Get exports from the trait method
@@ -494,7 +496,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           // Filter to only WasmComponent exports
           traitExports.filter {
             case ExportInfo(_, _: ExportDestination.WasmComponent) => true
-            case _ => false
+            case _                                                 => false
           }
         }
     }
@@ -684,10 +686,10 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
 
   /** Whether a symbol is an annotation that goes directly on a member */
   private lazy val isDirectMemberAnnot = Set[Symbol](
-      JSExportAnnotation,
-      JSExportTopLevelAnnotation,
-      JSExportStaticAnnotation,
-      WitExportAnnotation
+    JSExportAnnotation,
+    JSExportTopLevelAnnotation,
+    JSExportStaticAnnotation,
+    WitExportAnnotation
   )
 
   /** Validates that a @WitExportInterface trait follows the rules.
@@ -700,23 +702,24 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     implicit val pos = traitSym.pos
 
     // Check all members of the trait
-    val methods = traitSym.info.decls.filter(m =>
-      m.isMethod && !m.isConstructor && !m.isSynthetic
+    val methods = traitSym.info.decls.filter(
+        m =>
+          m.isMethod && !m.isConstructor && !m.isSynthetic
     )
 
     for (method <- methods) {
       // All methods must be abstract
       if (!method.isDeferred) {
         reporter.error(method.pos,
-          s"@WitExportInterface trait cannot contain concrete method implementations. " +
-          s"Method '${method.name}' must be abstract.")
+            s"@WitExportInterface trait cannot contain concrete method implementations. " +
+            s"Method '${method.name}' must be abstract.")
       }
 
       // All methods must have @WitExport
       if (!method.hasAnnotation(WitExportAnnotation)) {
         reporter.error(method.pos,
-          s"All methods in @WitExportInterface trait must be annotated with @WitExport. " +
-          s"Method '${method.name}' is missing the annotation.")
+            s"All methods in @WitExportInterface trait must be annotated with @WitExport. " +
+            s"Method '${method.name}' is missing the annotation.")
       }
     }
 
@@ -726,8 +729,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     }
     for (member <- nonMethodMembers) {
       reporter.error(member.pos,
-        s"@WitExportInterface trait cannot contain non-method members. " +
-        s"Member '${member.name}' is not allowed.")
+          s"@WitExportInterface trait cannot contain non-method members. " +
+          s"Member '${member.name}' is not allowed.")
     }
   }
 
@@ -754,21 +757,21 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       // Case 1: Regular class (not module class) extending WitExportInterface
       if (sym.isClass && !sym.isTrait && !sym.isModuleClass) {
         reporter.error(sym.pos,
-          s"@WitExportInterface trait ${exportTrait.name} cannot be extended by a class. " +
-          s"Use an object annotated with @WitImplementation instead.")
+            s"@WitExportInterface trait ${exportTrait.name} cannot be extended by a class. " +
+            s"Use an object annotated with @WitImplementation instead.")
       }
       // Case 2: Trait extending WitExportInterface
       else if (sym.isTrait && !sym.hasAnnotation(WitExportInterfaceAnnotation)) {
         reporter.error(sym.pos,
-          s"@WitExportInterface trait ${exportTrait.name} cannot be extended by another trait. " +
-          s"Use an object annotated with @WitImplementation instead.")
+            s"@WitExportInterface trait ${exportTrait.name} cannot be extended by another trait. " +
+            s"Use an object annotated with @WitImplementation instead.")
       }
       // Case 3: Object (module class) without @WitImplementation
       else if (sym.isModuleClass && !sym.hasAnnotation(WitImplementationAnnotation)) {
         reporter.error(sym.pos,
-          s"Object ${sym.name} extends @WitExportInterface trait ${exportTrait.name} " +
-          s"but is not annotated with @WitImplementation. " +
-          s"Add @WitImplementation annotation to the object.")
+            s"Object ${sym.name} extends @WitExportInterface trait ${exportTrait.name} " +
+            s"but is not annotated with @WitImplementation. " +
+            s"Add @WitImplementation annotation to the object.")
       }
     }
   }
@@ -778,7 +781,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     implicit val pos = implSym.pos
 
     if (!implSym.isStatic || !implSym.isModuleClass) {
-      reporter.error(pos, "Only static objects may be annotated with @WitImplementation. Use object instead.")
+      reporter.error(
+          pos, "Only static objects may be annotated with @WitImplementation. Use object instead.")
       return
     }
 
@@ -788,7 +792,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     }
     if (exportTrait.isEmpty) {
       reporter.error(pos,
-        s"@WitImplementation object must extend a trait annotated with @WitExportInterface")
+          s"@WitImplementation object must extend a trait annotated with @WitExportInterface")
       return
     }
     for (traitSym <- exportTrait) {
@@ -799,15 +803,15 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
         val implMethod = implSym.info.member(abstractMethod.name)
         if (implMethod == NoSymbol || implMethod.isDeferred) {
           reporter.error(pos,
-            s"Must implement method ${abstractMethod.name} from trait ${traitSym.name}")
+              s"Must implement method ${abstractMethod.name} from trait ${traitSym.name}")
         } else {
           // Check signature compatibility
           val implType = implMethod.tpe.asSeenFrom(implSym.tpe, implMethod.owner)
           val abstractType = abstractMethod.tpe.asSeenFrom(traitSym.tpe, abstractMethod.owner)
           if (!implType.matches(abstractType)) {
             reporter.error(pos,
-              s"Method ${implMethod.name} has incompatible signature. " +
-              s"Expected: ${abstractType}, Found: ${implType}")
+                s"Method ${implMethod.name} has incompatible signature. " +
+                s"Expected: ${abstractType}, Found: ${implType}")
           }
         }
       }

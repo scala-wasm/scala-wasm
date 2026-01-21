@@ -306,7 +306,7 @@ final class _String private () // scalastyle:ignore
   }
 
   @inline
-  def lastIndexOf(str: String, fromIndex: Int): Int =
+  def lastIndexOf(str: String, fromIndex: Int): Int = {
     if (fromIndex < 0) -1
     else {
       LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
@@ -335,7 +335,7 @@ final class _String private () // scalastyle:ignore
 
             if (matches) {
               found = i
-              i = -1  // exit the loop
+              i = -1 // exit the loop
             } else {
               i -= 1
             }
@@ -347,6 +347,7 @@ final class _String private () // scalastyle:ignore
         thisString.jsLastIndexOf(str, fromIndex)
       }
     }
+  }
 
   @inline
   def matches(regex: String): scala.Boolean =
@@ -381,7 +382,8 @@ final class _String private () // scalastyle:ignore
     if (count < 0) {
       throw new IllegalArgumentException
     } else {
-      LinkingInfo.linkTimeIf(LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
+      LinkingInfo.linkTimeIf(
+          LinkingInfo.esVersion >= ESVersion.ES2015 && !LinkingInfo.targetPureWasm) {
         /* This will throw a `js.RangeError` if `count` is too large, instead of
          * an `OutOfMemoryError`. That's fine because the behavior of `repeat` is
          * not specified for `count` too large.
@@ -416,12 +418,13 @@ final class _String private () // scalastyle:ignore
     replace(oldChar.toString, newChar.toString)
 
   @inline
-  def replace(target: CharSequence, replacement: CharSequence): String =
+  def replace(target: CharSequence, replacement: CharSequence): String = {
     LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
       thisString.jsSplit(target.toString).join(replacement.toString)
     } {
       replaceInternal(target, replacement)
     }
+  }
 
   private def replaceInternal(target: CharSequence, replacement: CharSequence): String = {
     val index = indexOf(target.toString, 0)
@@ -486,10 +489,10 @@ final class _String private () // scalastyle:ignore
       if (LinkingInfo.esVersion >= ESVersion.ES2015) {
         prefix.getClass() // null check
         (toffset <= length() && toffset >= 0 &&
-            thisString.asInstanceOf[js.Dynamic].startsWith(prefix, toffset).asInstanceOf[scala.Boolean])
+          thisString.asInstanceOf[js.Dynamic].startsWith(prefix, toffset).asInstanceOf[scala.Boolean])
       } else {
         (toffset <= length() && toffset >= 0 &&
-            thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix)
+        thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix)
       }
     }
   }
@@ -714,12 +717,13 @@ final class _String private () // scalastyle:ignore
   }
 
   @inline
-  def toLowerCase(): String =
+  def toLowerCase(): String = {
     LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
       this.asInstanceOf[_String].toLowerCaseImpl()
     } {
       this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
     }
+  }
 
   private def toLowerCaseImpl(): String = {
     replaceCharsAtIndex { i =>
@@ -727,7 +731,7 @@ final class _String private () // scalastyle:ignore
         // TODO: final sigma
         case '\u03A3' => "\u03C2"
         case '\u0130' => "\u0069\u0307"
-        case _                           => null
+        case _        => null
       }
     }.asInstanceOf[_String]
       .toCase(false)
@@ -813,7 +817,7 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
   }
 
   @inline
-  def toUpperCase(): String =
+  def toUpperCase(): String = {
     LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
       replaceCharsAtIndex { i =>
         val c = this.charAt(i)
@@ -823,6 +827,7 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
     } {
       this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
     }
+  }
 
   private def toCase(toUpper: scala.Boolean): String = {
     def convert(ch: scala.Char): scala.Char =
@@ -859,7 +864,6 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
     }
     buf.toString
   }
-
 
   /** Replaces special characters in this string (possibly in special contexts)
    *  by dedicated strings.

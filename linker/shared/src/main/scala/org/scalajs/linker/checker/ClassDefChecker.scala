@@ -1030,7 +1030,7 @@ private final class ClassDefChecker(classDef: ClassDef,
       case JSTypeOfGlobalRef(_) =>
 
       case WitFunctionApply(receiver, _, _, args) =>
-        receiver.foreach { r => checkTree(r, env) }
+        receiver.foreach(r => checkTree(r, env))
         checkTrees(args, env)
 
       // Literals

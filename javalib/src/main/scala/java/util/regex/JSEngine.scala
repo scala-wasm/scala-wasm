@@ -121,8 +121,10 @@ private[regex] object JSEngine extends Engine {
     result.input
 
   @inline
-  def getIndices(result: ExecResult): IndicesArray =
-    Utils.undefOrGetOrNull(result.asInstanceOf[js.Dynamic].indices.asInstanceOf[js.UndefOr[IndicesArray]])
+  def getIndices(result: ExecResult): IndicesArray = {
+    Utils.undefOrGetOrNull(
+        result.asInstanceOf[js.Dynamic].indices.asInstanceOf[js.UndefOr[IndicesArray]])
+  }
 
   @inline
   def setIndices(result: ExecResult, indices: IndicesArray): Unit =

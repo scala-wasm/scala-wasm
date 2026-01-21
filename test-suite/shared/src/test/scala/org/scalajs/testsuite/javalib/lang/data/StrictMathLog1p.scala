@@ -398,6 +398,6 @@ private[lang] object StrictMathLog1p {
     ("0.0", "0x1.0p-1074"), // Entry 363
     ("-0x1.p-1074", "-0x1.0p-1074"), // Entry 364
     ("0.0", "0.0"), // Entry 365
-    ("-0.0", "-0.0")  // Entry 366
+    ("-0.0", "-0.0") // Entry 366
   )
 }

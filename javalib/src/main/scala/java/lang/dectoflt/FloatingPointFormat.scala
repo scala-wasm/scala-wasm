@@ -32,6 +32,7 @@ sealed trait FloatingPointFormat {
   def nextUp(v: Repr): Repr
   def mul(a: Repr, b: Repr): Repr
   def div(a: Repr, b: Repr): Repr
+
   /** Decompose the given floating-point value into a normalized mantissa and a power of 2. */
   def frexp(v: Repr): (Long, Int)
   def fromLong(v: Long): Repr
@@ -48,18 +49,19 @@ object Binary32 extends FloatingPointFormat {
   final val MaxSig = (1L << SigBits) - 1
   final val CeilLog5OfMaxSig = 11
   final val PositiveInfinity = Float.PositiveInfinity
+
   private final val PowerOfTens = Array(
-    1.0f,
-    10.0f,
-    100.0f,
-    1000.0f,
-    10000.0f,
-    100000.0f,
-    1000000.0f,
-    10000000.0f,
-    100000000.0f,
-    1000000000.0f,
-    10000000000.0f,
+      1.0f,
+      10.0f,
+      100.0f,
+      1000.0f,
+      10000.0f,
+      100000.0f,
+      1000000.0f,
+      10000000.0f,
+      100000000.0f,
+      1000000000.0f,
+      10000000000.0f
   )
 
   def powerOfTen(i: Int): Repr = PowerOfTens(i)
@@ -67,6 +69,7 @@ object Binary32 extends FloatingPointFormat {
   def nextUp(v: Repr): Repr = Math.nextUp(v)
   def mul(a: Repr, b: Repr): Repr = a * b
   def div(a: Repr, b: Repr): Repr = a / b
+
   def frexp(v: Repr): (Long, Int) = {
     val bits = java.lang.Float.floatToRawIntBits(v)
     val m = (bits & 0x7fffff + (1 << ExplicitSigBits)).toLong
@@ -100,30 +103,31 @@ object Binary64 extends FloatingPointFormat {
   final val SigBits = 53
   final val MaxSig: Long = (1L << SigBits) - 1;
   final val CeilLog5OfMaxSig = 23
+
   private final val PowerOfTens = Array(
-    1.0,
-    10.0,
-    100.0,
-    1000.0,
-    10000.0,
-    100000.0,
-    1000000.0,
-    10000000.0,
-    100000000.0,
-    1000000000.0,
-    10000000000.0,
-    100000000000.0,
-    1000000000000.0,
-    10000000000000.0,
-    100000000000000.0,
-    1000000000000000.0,
-    10000000000000000.0,
-    100000000000000000.0,
-    1000000000000000000.0,
-    10000000000000000000.0,
-    100000000000000000000.0,
-    1000000000000000000000.0,
-    10000000000000000000000.0,
+      1.0,
+      10.0,
+      100.0,
+      1000.0,
+      10000.0,
+      100000.0,
+      1000000.0,
+      10000000.0,
+      100000000.0,
+      1000000000.0,
+      10000000000.0,
+      100000000000.0,
+      1000000000000.0,
+      10000000000000.0,
+      100000000000000.0,
+      1000000000000000.0,
+      10000000000000000.0,
+      100000000000000000.0,
+      1000000000000000000.0,
+      10000000000000000000.0,
+      100000000000000000000.0,
+      1000000000000000000000.0,
+      10000000000000000000000.0
   )
 
   final val PositiveInfinity = Double.PositiveInfinity
@@ -133,10 +137,12 @@ object Binary64 extends FloatingPointFormat {
   def nextUp(v: Repr): Repr = Math.nextUp(v)
   def mul(a: Repr, b: Repr): Repr = a * b
   def div(a: Repr, b: Repr): Repr = a / b
+
   def frexp(v: Repr): (Long, Int) = {
     val bits = java.lang.Double.doubleToLongBits(v)
     val m = bits & 0xfffffffffffffL + (1 << ExplicitSigBits)
-    val exp = ((bits >>> ExplicitSigBits) & 0x7ff).toInt - ((1 << (ExpBits - 1)) - 1) - ExplicitSigBits
+    val exp =
+      ((bits >>> ExplicitSigBits) & 0x7ff).toInt - ((1 << (ExpBits - 1)) - 1) - ExplicitSigBits
     (m, exp)
   }
 

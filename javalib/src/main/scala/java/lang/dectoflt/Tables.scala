@@ -142,7 +142,7 @@ private[dectoflt] object Tables {
     FP.normalized(-1669528073709551616L, -24), // 12
     FP.normalized(-7960984073709551616L, -20), // 13
     FP.normalized(-5339544073709551616L, -17), // 14
-    FP.normalized(-2062744073709551616L, -14), // 15
+    FP.normalized(-2062744073709551616L, -14) // 15
   )
 
   val largePowerOfTens = Array[FP](
@@ -186,7 +186,8 @@ private[dectoflt] object Tables {
     FP.normalized(-4807081008671376254L, 840), // 272 (17*16)
     FP.normalized(-3303676090774835316L, 893), // 288 (18*16)
     FP.normalized(-1634561335591402499L, 946), // 304 (19*16)
-    FP.normalized(-9114107888677362826L, 1000), // 320 (20*16)
+    FP.normalized(-9114107888677362826L, 1000) // 320 (20*16)
   )
+
   final val LargeTableRange = 20
 }

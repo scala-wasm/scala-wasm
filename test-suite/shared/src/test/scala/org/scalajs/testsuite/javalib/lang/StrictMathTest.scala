@@ -48,6 +48,7 @@ import java.lang.{Math, StrictMath}
 
 import org.scalajs.testsuite.utils.AssertExtensions.assertExactEquals
 import org.scalajs.testsuite.javalib.lang.data._
+
 class StrictMathTest {
 
   private def parseDouble(str: String): Double = {
@@ -82,11 +83,12 @@ class StrictMathTest {
      *   }
      * ```
      */
-    assertExactEquals("log(0x1p-120 + 0x1p-140)", -83.17766071351957, StrictMath.log(7.523171019910777E-37))
-    assertExactEquals("log(1.0 - 0x1p-20)", -9.5367477115389E-7, StrictMath.log(0.9999990463256836))
-    assertExactEquals("log(1.0 + 0x1p-20)", 9.536738616591883E-7, StrictMath.log(1.0000009536743164))
+    assertExactEquals(
+        "log(0x1p-120 + 0x1p-140)", -83.17766071351957, StrictMath.log(7.523171019910777e-37))
+    assertExactEquals("log(1.0 - 0x1p-20)", -9.5367477115389e-7, StrictMath.log(0.9999990463256836))
+    assertExactEquals("log(1.0 + 0x1p-20)", 9.536738616591883e-7, StrictMath.log(1.0000009536743164))
     assertExactEquals("log(19.75)", 2.9831534913471307, StrictMath.log(19.75))
-    assertExactEquals("log(19.75 * 0x1p100)", 72.29787154734166, StrictMath.log(2.503609935450753E31))
+    assertExactEquals("log(19.75 * 0x1p100)", 72.29787154734166, StrictMath.log(2.503609935450753e31))
 
     StrictMathLog.data.foreach { case (expectedHex, inputHex) =>
       val expected = parseDouble(expectedHex)
@@ -108,11 +110,15 @@ class StrictMathTest {
     assertExactEquals(0.0, StrictMath.log10(1.0))
     assertTrue(StrictMath.log10(-1.0).isNaN)
 
-    assertExactEquals("log10(0x1p-120 + 0x1p-140)", -36.12359906550245, StrictMath.log10(7.523171019910777E-37))
-    assertExactEquals("log10(1.0 - 0x1p-20)", -4.1417569064248085E-7, StrictMath.log10(0.9999990463256836))
-    assertExactEquals("log10(1.0 + 0x1p-20)", 4.141752956539506E-7, StrictMath.log10(1.0000009536743164))
+    assertExactEquals(
+        "log10(0x1p-120 + 0x1p-140)", -36.12359906550245, StrictMath.log10(7.523171019910777e-37))
+    assertExactEquals(
+        "log10(1.0 - 0x1p-20)", -4.1417569064248085e-7, StrictMath.log10(0.9999990463256836))
+    assertExactEquals(
+        "log10(1.0 + 0x1p-20)", 4.141752956539506e-7, StrictMath.log10(1.0000009536743164))
     assertExactEquals("log10(19.75)", 1.295567099962479, StrictMath.log10(19.75))
-    assertExactEquals("log10(19.75 * 0x1p100)", 31.398566666360598, StrictMath.log10(2.503609935450753E31))
+    assertExactEquals(
+        "log10(19.75 * 0x1p100)", 31.398566666360598, StrictMath.log10(2.503609935450753e31))
 
     StrictMathLog10.data.foreach { case (expectedHex, inputHex) =>
       val expected = parseDouble(expectedHex)
@@ -134,10 +140,11 @@ class StrictMathTest {
     assertExactEquals(Double.NegativeInfinity, StrictMath.log1p(-1.0))
     assertTrue(StrictMath.log1p(-1.5).isNaN)
 
-    assertExactEquals("log1p(-0x1p-20)", -9.5367477115389E-7, StrictMath.log1p(-9.5367431640625E-7))
-    assertExactEquals("log1p(0x1p-20)", 9.536738616591883E-7, StrictMath.log1p(9.5367431640625E-7))
+    assertExactEquals("log1p(-0x1p-20)", -9.5367477115389e-7, StrictMath.log1p(-9.5367431640625e-7))
+    assertExactEquals("log1p(0x1p-20)", 9.536738616591883e-7, StrictMath.log1p(9.5367431640625e-7))
     assertExactEquals("log1p(18.75)", 2.9831534913471307, StrictMath.log1p(18.75))
-    assertExactEquals("log1p(18.75 * 0x1p100)", 72.29787154734166, StrictMath.log1p(2.503609935450753E31))
+    assertExactEquals(
+        "log1p(18.75 * 0x1p100)", 72.29787154734166, StrictMath.log1p(2.503609935450753e31))
 
     assertExactEquals(0.1823215567939546, StrictMath.log1p(0.19999999999999996)) // 0x0.3333333333333p0
     assertExactEquals(-0.2231435513142097, StrictMath.log1p(-0.19999999999999996)) // -0x0.3333333333333p0

@@ -72,28 +72,28 @@ object ClassKind {
   case object NativeWasmComponentResourceClass extends ClassKind
 
   private[ir] def toByte(kind: ClassKind): Byte = kind match {
-    case ClassKind.Class               => 1
-    case ClassKind.ModuleClass         => 2
-    case ClassKind.Interface           => 3
-    case ClassKind.AbstractJSType      => 4
-    case ClassKind.HijackedClass       => 5
-    case ClassKind.JSClass             => 6
-    case ClassKind.JSModuleClass       => 7
-    case ClassKind.NativeJSClass       => 8
-    case ClassKind.NativeJSModuleClass => 9
+    case ClassKind.Class                            => 1
+    case ClassKind.ModuleClass                      => 2
+    case ClassKind.Interface                        => 3
+    case ClassKind.AbstractJSType                   => 4
+    case ClassKind.HijackedClass                    => 5
+    case ClassKind.JSClass                          => 6
+    case ClassKind.JSModuleClass                    => 7
+    case ClassKind.NativeJSClass                    => 8
+    case ClassKind.NativeJSModuleClass              => 9
     case ClassKind.NativeWasmComponentResourceClass => 10
   }
 
   private[ir] def fromByte(b: Byte): ClassKind = (b: @switch) match {
-    case 1 => ClassKind.Class
-    case 2 => ClassKind.ModuleClass
-    case 3 => ClassKind.Interface
-    case 4 => ClassKind.AbstractJSType
-    case 5 => ClassKind.HijackedClass
-    case 6 => ClassKind.JSClass
-    case 7 => ClassKind.JSModuleClass
-    case 8 => ClassKind.NativeJSClass
-    case 9 => ClassKind.NativeJSModuleClass
+    case 1  => ClassKind.Class
+    case 2  => ClassKind.ModuleClass
+    case 3  => ClassKind.Interface
+    case 4  => ClassKind.AbstractJSType
+    case 5  => ClassKind.HijackedClass
+    case 6  => ClassKind.JSClass
+    case 7  => ClassKind.JSModuleClass
+    case 8  => ClassKind.NativeJSClass
+    case 9  => ClassKind.NativeJSModuleClass
     case 10 => ClassKind.NativeWasmComponentResourceClass
   }
 }
