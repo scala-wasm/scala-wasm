@@ -2,9 +2,9 @@ name: OS-sensitive CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, scala-wasm ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, scala-wasm ]
 
 env:
   SBT_OPTS: '-Xmx6g -Xms1g -Xss4m'
