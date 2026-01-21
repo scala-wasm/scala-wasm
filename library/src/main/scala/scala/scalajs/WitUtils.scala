@@ -21,7 +21,7 @@ object WitUtils {
   }
 
   def toOption[A, B](opt: java.util.Optional[A]): Option[A] = {
-    if (opt.isEmpty()) None
-    else Some(opt.get())
+    if (opt.isPresent()) Some(opt.get())
+    else None
   }
 }
