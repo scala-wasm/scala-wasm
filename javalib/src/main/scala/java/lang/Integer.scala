@@ -312,87 +312,25 @@ object Integer {
     32 - numberOfLeadingZeros(~i & (i - 1))
   }
 
-  def toBinaryString(i: scala.Int): String = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
-      var count =
-        if (i == 0) 1
-        else 32 - numberOfLeadingZeros(i)
-      val buffer = new Array[Char](count)
-      var k = i
-      while ({
-        count -= 1
-        buffer(count) = ((k & 1) + '0').toChar
-        k >>>= 1
-        count > 0
-      }) ()
-      new String(buffer)
-    } {
-      toStringBase(i, 2)
-    }
-  }
-
-  def toHexString(i: scala.Int): String = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
-      var count =
-        if (i == 0) 1
-        else ((32 - numberOfLeadingZeros(i)) + 3) / 4
-      val buffer = new Array[Char](count)
-      var k = i
-      while ({
-        var t = k & 15
-        if (t > 9) {
-          t = t - 10 + 'a'
-        } else {
-          t += '0'
-        }
-        count -= 1
-        buffer(count) = t.toChar
-        k >>>= 4
-        count > 0
-      }) ()
-      new String(buffer)
-    } {
-      toStringBase(i, 16)
-    }
-  }
-
-  def toOctalString(i: scala.Int): String = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
-      var count =
-        if (i == 0) 1
-        else ((32 - numberOfLeadingZeros(i)) + 2) / 3
-      val buffer = new Array[Char](count)
-      var k = i
-      while ({
-        count -= 1
-        buffer(count) = ((k & 7) + '0').toChar
-        k >>>= 3
-        count > 0
-      }) ()
-      new String(buffer)
-    } {
-      toStringBase(i, 8)
-    }
-  }
+  def toBinaryString(i: scala.Int): String = toStringBase(i, 2)
+  def toHexString(i: scala.Int): String = toStringBase(i, 16)
+  def toOctalString(i: scala.Int): String = toStringBase(i, 8)
 
   @inline // because radix is almost certainly constant at call site
   def toString(i: Int, radix: Int): String = {
     if (radix == 10 || Character.isRadixInvalid(radix)) {
       Integer.toString(i)
     } else {
-      import js.JSNumberOps.enableJSNumberOps
-      i.toString(radix)
+      LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+        toStringImplWasm(i, radix)
+      } {
+        import js.JSNumberOps.enableJSNumberOps
+        i.toString(radix)
+      }
     }
   }
 
-  @inline def toUnsignedString(i: scala.Int): String = {
-    // TODO: pure wasm toUnsignedString(i, radix)
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
-      java.lang.Long.toString(Integer.toUnsignedLong(i))
-    } {
-      toUnsignedString(i, 10)
-    }
-  }
+  @inline def toUnsignedString(i: scala.Int): String = toUnsignedString(i, 10)
 
   @inline def hashCode(value: Int): Int = value.hashCode
 
@@ -401,7 +339,48 @@ object Integer {
   @inline def min(a: Int, b: Int): Int = Math.min(a, b)
 
   @inline private[this] def toStringBase(i: scala.Int, base: scala.Int): String = {
-    import js.JSNumberOps.enableJSNumberOps
-    toUnsignedDouble(i).toString(base)
+    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+      toStringWasmGenericImpl(i, base, false)
+    } {
+      import js.JSNumberOps.enableJSNumberOps
+      toUnsignedDouble(i).toString(base)
+    }
   }
+
+  // Must be called only with valid radix
+  @noinline
+  private def toStringImplWasm(i: scala.Int, radix: Int): String = {
+    val negative = i < 0
+    val abs = Math.abs(i)
+    toStringWasmGenericImpl(abs, radix, negative)
+  }
+
+  @inline
+  private def toStringWasmGenericImpl(value0: scala.Int, radix: scala.Int,
+      negative: scala.Boolean): String = {
+    if (value0 == 0) {
+      "0"
+    } else {
+      val maxChars = 33 // worst case: sign + 32 base-2 digits
+      val buffer = new Array[Char](maxChars)
+      var pos = maxChars - 1
+      var value = value0
+
+      while (value != 0) {
+        val nextValue = Integer.divideUnsigned(value, radix)
+        val digit = value - radix * nextValue
+        buffer(pos) = ((if (digit < 10) '0'.toInt else 'a'.toInt - 10) + digit).toChar
+        pos -= 1
+        value = nextValue
+      }
+
+      if (negative) {
+        buffer(pos) = '-'
+        pos -= 1
+      }
+
+      new String(buffer, pos + 1, maxChars - pos - 1)
+    }
+  }
+
 }

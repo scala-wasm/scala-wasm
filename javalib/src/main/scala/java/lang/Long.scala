@@ -144,7 +144,26 @@ object Long {
     toUnsignedStringImpl(i, 10)
 
   // Must be called only with valid radix
-  private def toStringImpl(i: scala.Long, radix: Int): String = {
+  @inline
+  private def toStringPlatform(i: scala.Long, radix: Int): String = {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+      toStringImplWasm(i, radix)
+    } {
+      toStringImplJS(i, radix)
+    }
+  }
+
+  // Must be called only with valid radix
+  @noinline
+  private def toStringImplWasm(i: scala.Long, radix: Int): String = {
+    val negative = i < 0L
+    val abs = Math.abs(i)
+    toStringWasmGenericImpl(abs, radix, negative)
+  }
+
+  // Must be called only with valid radix
+  @noinline
+  private def toStringImplJS(i: scala.Long, radix: Int): String = {
     import js.JSNumberOps.enableJSNumberOps
 
     val lo = i.toInt
@@ -164,7 +183,23 @@ object Long {
   }
 
   // Must be called only with valid radix
-  private def toUnsignedStringImpl(i: scala.Long, radix: Int): String = {
+  @inline
+  private def toUnsignedStringPlatform(i: scala.Long, radix: Int): String = {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+      toUnsignedStringImplWasm(i, radix)
+    } {
+      toUnsignedStringImplJS(i, radix)
+    }
+  }
+
+  // Must be called only with valid radix
+  @noinline
+  private def toUnsignedStringImplWasm(i: scala.Long, radix: Int): String =
+    toStringWasmGenericImpl(i, radix, false)
+
+  // Must be called only with valid radix
+  @noinline
+  private def toUnsignedStringImplJS(i: scala.Long, radix: Int): String = {
     import js.JSNumberOps.enableJSNumberOps
 
     val lo = i.toInt
