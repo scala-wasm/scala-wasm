@@ -26,11 +26,15 @@ private[java] sealed abstract class RegExpImpl {
   type Repr
 
   def compile(patternStr: String): PatRepr
+  def compile(patternStr: String, global: Boolean): PatRepr
   def exec(pattern: PatRepr, string: String): Repr
   def matches(r: Repr): Boolean
   def exists(r: Repr, index: Int): Boolean
   def get(r: Repr, index: Int): String
   def getOrElse(r: Repr, index: Int, default: String): String
+  def execFrom(pattern: PatRepr, string: String, startPos: Int): Repr
+  def matchStart(r: Repr): Int
+  def matchEnd(pattern: PatRepr, r: Repr): Int
 }
 
 private[java] object RegExpImpl {
@@ -48,6 +52,12 @@ private[java] object RegExpImpl {
     type Repr = js.RegExp.ExecResult
 
     def compile(patternStr: String): PatRepr = new js.RegExp(patternStr)
+
+    def compile(patternStr: String, global: Boolean): PatRepr = {
+      if (global) new js.RegExp(patternStr, "g")
+      else new js.RegExp(patternStr)
+    }
+
     def exec(pattern: PatRepr, string: String): Repr = pattern.exec(string)
     def matches(r: Repr): Boolean = r != null
     def exists(r: Repr, index: Int): Boolean = undefOrIsDefined(r(index))
@@ -55,6 +65,21 @@ private[java] object RegExpImpl {
 
     def getOrElse(r: Repr, index: Int, default: String): String =
       undefOrGetOrElse(r(index))(() => default)
+
+    def execFrom(pattern: PatRepr, string: String, startPos: Int): Repr = {
+      pattern.lastIndex = startPos
+      pattern.exec(string)
+    }
+
+    def matchStart(r: Repr): Int = {
+      if (r == null) -1
+      else r.index
+    }
+
+    def matchEnd(pattern: PatRepr, r: Repr): Int = {
+      if (r == null) -1
+      else pattern.lastIndex
+    }
   }
 
   private object JavaRegExpImpl extends RegExpImpl {
@@ -62,6 +87,7 @@ private[java] object RegExpImpl {
     type Repr = Matcher
 
     def compile(patternStr: String): PatRepr = Pattern.compile(patternStr)
+    def compile(patternStr: String, global: Boolean): PatRepr = Pattern.compile(patternStr)
     def exec(pattern: PatRepr, string: String): Repr = pattern.matcher(string)
     def matches(r: Repr): Boolean = r.matches()
     def exists(r: Repr, index: Int): Boolean = r.group(index) != null
@@ -70,6 +96,21 @@ private[java] object RegExpImpl {
     def getOrElse(r: Repr, index: Int, default: String): String = {
       val result = r.group(index)
       if (result != null) result else default
+    }
+
+    def execFrom(pattern: PatRepr, string: String, startPos: Int): Repr = {
+      val matcher = pattern.matcher(string)
+      if (matcher.find(startPos)) matcher else null
+    }
+
+    def matchStart(r: Repr): Int = {
+      if (r == null) -1
+      else r.start()
+    }
+
+    def matchEnd(pattern: PatRepr, r: Repr): Int = {
+      if (r == null) -1
+      else r.end()
     }
   }
 }

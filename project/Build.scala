@@ -2362,13 +2362,8 @@ object Build {
                 !endsWith(f, "/lang/ClassValueTest.scala") && // js.Map in ClassValue
 
                 // javalib/util
-                !endsWith(f, "/FormatterTest.scala") &&
                 !endsWith(f, "/DateTest.scala") && // js.Date
                 !endsWith(f, "/PropertiesTest.scala") && // Date.toString
-
-                // javalib/io
-                !endsWith(f, "/io/PrintWriterTest.scala") && // Formatter
-                !endsWith(f, "/io/PrintStreamTest.scala") && // Formatter
 
                 // javalib/net
                 !endsWith(f, "/net/URITest.scala") // URI.normalize
