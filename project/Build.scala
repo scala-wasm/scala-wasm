@@ -1027,7 +1027,9 @@ object Build {
             javalibInternal, javalib, scalalibInternal, libraryAux, scalalib, library,
             testInterface, jUnitRuntime, testBridge, jUnitPlugin, jUnitAsyncJS,
             jUnitAsyncJVM, jUnitTestOutputsJS, jUnitTestOutputsJVM,
-            helloworld, reversi, testingExample, testSuite, testSuiteJVM,
+            helloworld, helloworldWasm, helloworldWASI, helloworldComponentModel,
+            echoserver, testComponentModel,
+            reversi, testingExample, testSuite, testSuiteJVM,
             javalibExtDummies, testSuiteEx, testSuiteExJVM, testSuiteLinker,
             partest, partestSuite,
             scalaTestSuite
