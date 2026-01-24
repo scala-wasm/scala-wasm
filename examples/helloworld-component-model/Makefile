@@ -1,4 +1,7 @@
-SCALA_MODULE := .2.12/target/scala-2.12/helloworld-component-model-fastopt/main.wasm
+# Scala version: 2.12 or 2.13 (default: 2.13)
+SCALA_VERSION ?= 2.13
+
+SCALA_MODULE := .$(SCALA_VERSION)/target/scala-$(SCALA_VERSION)/helloworld-component-model-fastopt/main.wasm
 RUST_MODULE := rust-greeter/target/wasm32-wasip1/release/rust_greeter.wasm
 OUT := out.wasm
 

@@ -77,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suffix: [2_12] # TODO: test with 2_13 too
+        suffix: [2_12, 2_13]
         esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
         eh-support: [true, false]
     env:
@@ -107,7 +107,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suffix: [2_12] # TODO: test with 2_13 too
+        suffix: [2_12, 2_13]
+        include:
+          - suffix: 2_12
+            scalaVersion: "2.12"
+          - suffix: 2_13
+            scalaVersion: "2.13"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -137,13 +142,8 @@ jobs:
         working-directory: examples/test-component-model/rust-run
       - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
         run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
-      - name: Compose
-        run: |
-          wac plug --plug rust-exports/target/wasm32-wasip1/release/rust_exports.wasm .2.12/target/scala-2.12/testing-module-for-component-model-fastopt/main.wasm -o scala.wasm
-          wac plug --plug scala.wasm rust-run/target/wasm32-wasip1/release/rust_run.wasm -o out.wasm
-        working-directory: examples/test-component-model
-      - name: Run tests
-        run: wasmtime -W function-references,gc,exceptions out.wasm
+      - name: Compose and run tests
+        run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
         working-directory: examples/test-component-model
 
       # echoserver test, check at least it links
