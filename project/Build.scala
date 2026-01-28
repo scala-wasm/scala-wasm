@@ -2353,13 +2353,8 @@ object Build {
           originalSources
             .filter(f =>
               contains(f, "/shared/src/test/scala-old-collections/") ||
-              contains(f, "/shared/src/test/require-scala2/") && (
-                !endsWith(f, "/scalalib/SymbolTestScala2.scala") // Symbol#JSUniquenessCache
-              ) ||
+              contains(f, "/shared/src/test/require-scala2/") ||
               contains(f, "/shared/src/test/scala/org/scalajs/testsuite/") && (
-                // scalalib
-                !endsWith(f, "/scalalib/SymbolTest.scala") && // Symbol#JSUniquenessCache
-
                 // javalib/lang
                 !endsWith(f, "/lang/ClassValueTest.scala") && // js.Map in ClassValue
 
