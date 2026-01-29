@@ -22,6 +22,7 @@ import org.scalajs.linker.standard.ModuleSet.ModuleID
 
 import org.scalajs.ir.ClassKind
 import org.scalajs.ir.Names._
+import org.scalajs.ir.Position
 import org.scalajs.ir.Trees.MemberNamespace
 import org.scalajs.ir.Types._
 
@@ -238,7 +239,10 @@ object Analysis {
       from: From
   ) extends Error
 
-  final case class JSInteropInPureWasm(from: From) extends Error
+  final case class JSInteropInPureWasm(
+      jsInteropUsages: Array[(Position, String)],
+      from: From
+  ) extends Error
 
   sealed trait From
   final case class FromMethod(methodInfo: MethodInfo) extends From
@@ -304,8 +308,11 @@ object Analysis {
         "Uses an orphan await (outside of an async block) without targeting WebAssembly"
       case InvalidLinkTimeProperty(name, tpe, _) =>
         s"Uses invalid link-time property ${name} of type ${tpe}"
-      case JSInteropInPureWasm(_) =>
-        s"Uses JS interop with targetPureWasm = true"
+      case JSInteropInPureWasm(jsInteropUsages, _) =>
+        val usages = jsInteropUsages.map { case (pos, irStr) =>
+          s"  at ${pos.source}:${pos.line + 1}:${pos.column + 1}: $irStr"
+        }.mkString("\n")
+        s"Uses JS interop with targetPureWasm = true:\n$usages"
     }
 
     logger.log(level, headMsg)
