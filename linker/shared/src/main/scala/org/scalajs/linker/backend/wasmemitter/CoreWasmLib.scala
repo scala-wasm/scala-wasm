@@ -4575,7 +4575,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += Call(genFunctionID.itoa)
     }
 
-    fb.buildAndAddToModule
+    fb.buildAndAddToModule()
   }
 
   /** Get the type of the given Wasm type of `x` without JS,

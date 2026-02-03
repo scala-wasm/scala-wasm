@@ -179,7 +179,7 @@ object CABIToScalaJS {
           genNewScalaClass(fb, juOptionalClass, ctorID) {
             fb += wa.LocalGet(ptr)
             genLoadMemory(fb, t)
-            t.toIRType match {
+            t.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -308,7 +308,7 @@ object CABIToScalaJS {
           // non-null
           genNewScalaClass(fb, juOptionalClass, ctorID) {
             genLoadStack(fb, t, vi)
-            t.toIRType match {
+            t.toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -431,7 +431,7 @@ object CABIToScalaJS {
                   fb += wa.LocalGet(ptr)
                   genLoadMemory(fb, tpe)
                   if (boxValue) {
-                    tpe.toIRType match {
+                    tpe.toIRType() match {
                       case t: PrimTypeWithRef => genBox(fb, t)
                       case _                  =>
                     }
@@ -479,7 +479,7 @@ object CABIToScalaJS {
                   genCoerceValues(fb, vi.copy(), flattened, expect)
                   genLoadStack(fb, tpe, ValueIterator(fb, expect))
                   if (boxValue) {
-                    tpe.toIRType match {
+                    tpe.toIRType() match {
                       case t: PrimTypeWithRef => genBox(fb, t)
                       case _                  =>
                     }
