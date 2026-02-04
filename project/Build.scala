@@ -497,16 +497,16 @@ object Build {
   }
 
   val publishConfigSettings = Seq(
-      organization := "org.scala-js",
+      organization := ir.ScalaJSVersions.organization,
       version := scalaJSVersion,
 
       homepage := Some(url("https://www.scala-js.org/")),
       startYear := Some(2013),
       licenses += (("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0"))),
       scmInfo := Some(ScmInfo(
-          url("https://github.com/scala-js/scala-js"),
-          "scm:git:git@github.com:scala-js/scala-js.git",
-          Some("scm:git:git@github.com:scala-js/scala-js.git"))),
+          url("https://github.com/scala-wasm/scala-wasm"),
+          "scm:git:git@github.com:scala-wasm/scala-wasm.git",
+          Some("scm:git:git@github.com:scala-wasm/scala-wasm.git"))),
 
       publishTo := {
         val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
