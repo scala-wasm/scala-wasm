@@ -46,6 +46,8 @@ object ScalaJSPlugin extends AutoPlugin {
     /** The current version of the Scala.js sbt plugin and tool chain. */
     val scalaJSVersion = ScalaJSVersions.current
 
+    val scalaJSOrganization = ScalaJSVersions.organization
+
     /** Declares `Tag`s which may be used to limit the concurrency of build
      *  tasks.
      *
@@ -392,7 +394,7 @@ object ScalaJSPlugin extends AutoPlugin {
           val retrieveDir = s.cacheDirectory / "scalajs-linker" / scalaJSVersion
           val lm = (scalaJSLinkerImpl / dependencyResolution).value
           lm.retrieve(
-              "org.scala-js" % ("scalajs-linker" + PluginCompat.linkerScalaSuffix) % scalaJSVersion,
+              scalaJSOrganization % ("scalajs-linker" + PluginCompat.linkerScalaSuffix) % scalaJSVersion,
               scalaModuleInfo = None, retrieveDir, log)
             .fold(w => throw w.resolveException, files => PluginCompat.toAttributedFiles(files.toSeq))
         },

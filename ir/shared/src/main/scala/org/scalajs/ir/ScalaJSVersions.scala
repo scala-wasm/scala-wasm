@@ -17,9 +17,11 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.util.matching.Regex
 
 object ScalaJSVersions extends VersionChecks(
-      current = "1.21.1-SNAPSHOT",
+      current = "1.21.1-wasm.4",
       binaryEmitted = "1.21"
-    )
+    ) {
+  final val organization = "io.github.scala-wasm"
+}
 
 /** Helper class to allow for testing of logic. */
 class VersionChecks private[ir] (

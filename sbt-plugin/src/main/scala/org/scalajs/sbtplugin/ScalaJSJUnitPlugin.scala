@@ -38,14 +38,14 @@ object ScalaJSJUnitPlugin extends AutoPlugin {
       val scalaV = scalaVersion.value
       if (scalaV.startsWith("3.")) {
         Seq(
-          "org.scala-js" % "scalajs-junit-test-runtime_2.13" % scalaJSVersion % "test"
+          scalaJSOrganization % "scalajs-junit-test-runtime_2.13" % scalaJSVersion % "test"
         )
       } else {
         val scalaBinV = scalaBinaryVersion.value
         Seq(
-          PluginCompat.scalaJSFullCrossVersionLib("org.scala-js", "scalajs-junit-test-plugin",
+          PluginCompat.scalaJSFullCrossVersionLib(scalaJSOrganization, "scalajs-junit-test-plugin",
               scalaJSVersion, scalaV) % "scala-js-test-plugin",
-          PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-junit-test-runtime",
+          PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-junit-test-runtime",
               scalaJSVersion, scalaBinV) % "test"
         )
       }

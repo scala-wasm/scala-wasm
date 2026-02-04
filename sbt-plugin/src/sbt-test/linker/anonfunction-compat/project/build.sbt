@@ -1,6 +1,7 @@
 val scalaJSVersion = sys.props("plugin.version")
+val scalaJSOrganization = "io.github.scala-wasm"
 
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % scalaJSVersion)
+addSbtPlugin("io.github.scala-wasm" % "sbt-scalajs" % scalaJSVersion)
 
 /* Workaround: we use scalajs-linker_2.13 in sbt2 because linker is not yet
  * published for Scala 3.
@@ -18,9 +19,9 @@ addSbtPlugin("org.scala-js" % "sbt-scalajs" % scalaJSVersion)
  * It shouldn't be a problem for regular Scala.js project,
  * as long as they don't use linker directly.
  */
-libraryDependencies += ("org.scala-js" %% "scalajs-linker" % scalaJSVersion)
+libraryDependencies += (scalaJSOrganization %% "scalajs-linker" % scalaJSVersion)
   .cross(CrossVersion.for3Use2_13)
-  .exclude("org.scala-js", "scalajs-linker-interface_2.13")
-  .exclude("org.scala-js", "scalajs-ir_2.13")
-  .exclude("org.scala-js", "scalajs-logging_2.13")
+  .exclude(scalaJSOrganization, "scalajs-linker-interface_2.13")
+  .exclude(scalaJSOrganization, "scalajs-ir_2.13")
+  .exclude(scalaJSOrganization, "scalajs-logging_2.13")
 

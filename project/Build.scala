@@ -508,16 +508,16 @@ object Build {
   }
 
   val publishConfigSettings = Seq(
-      organization := "org.scala-js",
+      organization := ir.ScalaJSVersions.organization,
       version := scalaJSVersion,
 
       homepage := Some(url("https://www.scala-js.org/")),
       startYear := Some(2013),
       licenses += (("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0"))),
       scmInfo := Some(ScmInfo(
-          url("https://github.com/scala-js/scala-js"),
-          "scm:git:git@github.com:scala-js/scala-js.git",
-          Some("scm:git:git@github.com:scala-js/scala-js.git"))),
+          url("https://github.com/scala-wasm/scala-wasm"),
+          "scm:git:git@github.com:scala-wasm/scala-wasm.git",
+          Some("scm:git:git@github.com:scala-wasm/scala-wasm.git"))),
 
       publishTo := {
         val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
@@ -992,15 +992,6 @@ object Build {
 
   val thisBuildSettings = Def.settings(
       cross212ScalaVersions := Seq(
-        "2.12.6",
-        "2.12.7",
-        "2.12.8",
-        "2.12.9",
-        "2.12.10",
-        "2.12.11",
-        "2.12.12",
-        "2.12.13",
-        "2.12.14",
         "2.12.15",
         "2.12.16",
         "2.12.17",
@@ -1010,9 +1001,6 @@ object Build {
         "2.12.21",
       ),
       cross213ScalaVersions := Seq(
-        "2.13.3",
-        "2.13.4",
-        "2.13.5",
         "2.13.6",
         "2.13.7",
         "2.13.8",
@@ -1306,9 +1294,13 @@ object Build {
       fatalWarningsSettings,
       name := "Scala.js linker",
 
-      // Temporarily disable scaladoc generation for linker on publish
+      // Temporarily publish an empty scaladoc jar for linker artifacts.
       // https://github.com/scala-js/scala-js/issues/5272
-      Compile / packageDoc / publishArtifact := false,
+      Compile / doc := {
+        val dir = (Compile / doc / target).value
+        IO.createDirectory(dir)
+        dir
+      },
 
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/main/scala",
