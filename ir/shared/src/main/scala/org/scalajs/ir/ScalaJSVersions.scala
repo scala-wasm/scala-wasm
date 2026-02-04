@@ -19,7 +19,9 @@ import scala.util.matching.Regex
 object ScalaJSVersions extends VersionChecks(
       current = "1.20.2-wasm.1-SNAPSHOT",
       binaryEmitted = "1.20"
-    )
+    ) {
+  final val organization = "io.github.scala-wasm"
+}
 
 /** Helper class to allow for testing of logic. */
 class VersionChecks private[ir] (
