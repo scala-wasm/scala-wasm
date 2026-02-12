@@ -255,6 +255,11 @@ object ScalaJSPlugin extends AutoPlugin {
         "Base package name for generated Scala bindings from WIT files (default: None)",
         CSetting)
 
+    val scalaJSWitBindgenWith = SettingKey[Map[String, String]](
+        "scalaJSWitBindgenWith",
+        "Mappings for --with option of wit-bindgen to re-use pre-generated bindings (e.g. \"wasi:io\" -> \"scala.scalajs.wasi.io\")",
+        CSetting)
+
     val scalaJSStage = SettingKey[Stage]("scalaJSStage",
         "The optimization stage at which run and test are executed", APlusSetting)
 
@@ -327,6 +332,15 @@ object ScalaJSPlugin extends AutoPlugin {
         scalaJSWitDirectory := file("wit"),
         scalaJSWitWorld := None,
         scalaJSWitPackage := None,
+        scalaJSWitBindgenWith := Map(
+            "wasi:io" -> "scala.scalajs.wasi.io",
+            "wasi:cli" -> "scala.scalajs.wasi.cli",
+            "wasi:clocks" -> "scala.scalajs.wasi.clocks",
+            "wasi:random" -> "scala.scalajs.wasi.random",
+            "wasi:filesystem" -> "scala.scalajs.wasi.filesystem",
+            "wasi:sockets" -> "scala.scalajs.wasi.sockets",
+            "wasi:http" -> "scala.scalajs.wasi.http"
+        ),
 
         scalaJSLinkerImpl / dependencyResolution := {
           val log = streams.value.log

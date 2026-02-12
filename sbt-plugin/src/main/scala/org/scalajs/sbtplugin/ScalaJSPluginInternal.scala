@@ -680,6 +680,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
         val witPackage = scalaJSWitPackage.value
+        val witBindgenWith = scalaJSWitBindgenWith.value
         val targetDir = (Compile / sourceManaged).value / "wit-bindgen"
         val s = streams.value
         val log = s.log
@@ -710,7 +711,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
                     targetDir.absolutePath)
                 val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
                 val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
-                val fullCmd = baseCmd ++ worldArgs ++ packageArgs
+                val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) => Seq("--with", s"$k=$v") }
+                val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
 
                 log.info(s"Running: ${fullCmd.mkString(" ")}")
 
