@@ -12,7 +12,7 @@ import scala.scalajs.WitUtils._
 import scala.collection.mutable
 
 import echo.exports.wasi.http.IncomingHandler
-import echo.wasi.http.types._
+import scala.scalajs.wasi.http.types._
 
 @WitImplementation
 object Server extends IncomingHandler {

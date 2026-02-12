@@ -34,6 +34,7 @@ private[webassembly] object WasiWitExtractor {
           "wasi-cli-0.2.0",
           "wasi-clocks-0.2.0",
           "wasi-filesystem-0.2.0",
+          "wasi-http-0.2.0",
           "wasi-io-0.2.0",
           "wasi-random-0.2.0",
           "wasi-sockets-0.2.0"

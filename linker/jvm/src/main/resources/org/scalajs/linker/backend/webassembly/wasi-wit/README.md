@@ -12,5 +12,5 @@ From project root:
 wit-bindgen scala linker/jvm/src/main/resources/org/scalajs/linker/backend/webassembly/wasi-wit \
   --world wasi-bindings \
   --out-dir library/src/main/scala \
-  --base-package scala.scalajs.wasi
+  --base-package scala.scalajs
 ```

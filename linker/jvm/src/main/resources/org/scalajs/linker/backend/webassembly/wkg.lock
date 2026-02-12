@@ -30,6 +30,15 @@ version = "0.2.0"
 digest = "sha256:39c6e0f5618a6b6c8bdf5c39035a048f666c0ed5f44fe04ed172f010ab0c36d4"
 
 [[packages]]
+name = "wasi:http"
+registry = "warg.wa.dev"
+
+[[packages.versions]]
+requirement = "=0.2.0"
+version = "0.2.0"
+digest = "sha256:5a568e6e2d60c1ce51220e1833cdd5b88db9f615720edc762a9b4a6f36b383bd"
+
+[[packages]]
 name = "wasi:io"
 registry = "warg.wa.dev"
 
