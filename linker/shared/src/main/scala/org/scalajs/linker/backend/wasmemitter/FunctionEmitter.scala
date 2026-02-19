@@ -2744,6 +2744,7 @@ private class FunctionEmitter private (
 
       case StringType =>
         if (targetPureWasm) {
+          fb += wa.RefCast(watpe.RefType.nullable(genTypeID.wasmString))
           val sig = watpe.FunctionType(List(watpe.RefType.nullable(genTypeID.wasmString)),
               List(watpe.RefType(genTypeID.wasmString)))
           fb.block(sig) { nonNullLabel =>

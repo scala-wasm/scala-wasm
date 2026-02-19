@@ -183,6 +183,16 @@ class RegressionTest {
     assertEquals(null, ref)
   }
 
+  @Test def unboxStringPureWasm(): Unit = {
+    // copied from https://github.com/scala/scala/blob/4d415e3a1b81655b7809581d2e955cb4d882459d/src/library/scala/util/hashing/MurmurHash3.scala#L87
+    def testHashCode(x: Product, seed: Int, caseClassName: String): Int =
+      (if (caseClassName != null) caseClassName else x.productPrefix).hashCode()
+    final case class Mini(value: Int)
+    val h1 = testHashCode(Mini(1), seed = 123, caseClassName = null)
+    val h2 = testHashCode(Mini(1), seed = 123, caseClassName = null)
+    assertEquals(h1, h2)
+  }
+
   @Test def paramDefsInTailrecMethodsAreMutable_Issue825(): Unit = {
     @tailrec
     def foo(x: Int, y: Int): Unit = {
