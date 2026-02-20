@@ -120,7 +120,7 @@ object Long {
     if (radix == 10 || Character.isRadixInvalid(radix))
       toString(i)
     else
-      toStringImpl(i, radix)
+      toStringPlatform(i, radix)
   }
 
   @inline // because radix is almost certainly constant at call site
@@ -133,7 +133,7 @@ object Long {
         val radix1 =
           if (Character.isRadixInvalid(radix)) 10
           else radix
-        toUnsignedStringImpl(i, radix1)
+        toUnsignedStringPlatform(i, radix1)
     }
   }
 
@@ -141,7 +141,7 @@ object Long {
   @inline def toString(i: scala.Long): String = "" + i
 
   @inline def toUnsignedString(i: scala.Long): String =
-    toUnsignedStringImpl(i, 10)
+    toUnsignedStringPlatform(i, 10)
 
   // Must be called only with valid radix
   @inline
@@ -258,6 +258,35 @@ object Long {
     // build the result string
     val remStr = approxRem.toString(radix)
     approxQuot.toString(radix) + paddingZeros.jsSubstring(remStr.length) + remStr
+  }
+
+  @inline
+  private def toStringWasmGenericImpl(value0: scala.Long, radix: scala.Int,
+      negative: scala.Boolean): String = {
+    if (value0 == 0L) {
+      "0"
+    } else {
+      val maxChars = 65 // worst case: sign + 64 base-2 digits
+      val buffer = new Array[Char](maxChars)
+      var pos = maxChars - 1
+      var value = value0
+      val longRadix = radix.toLong
+
+      while (value != 0L) {
+        val nextValue = Long.divideUnsigned(value, longRadix)
+        val digit = (value - longRadix * nextValue).toInt
+        buffer(pos) = ((if (digit < 10) '0'.toInt else 'a'.toInt - 10) + digit).toChar
+        pos -= 1
+        value = nextValue
+      }
+
+      if (negative) {
+        buffer(pos) = '-'
+        pos -= 1
+      }
+
+      new String(buffer, pos + 1, maxChars - pos - 1)
+    }
   }
 
   private def parseLongFail(s: String): Nothing =
