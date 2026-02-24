@@ -1,0 +1,5 @@
+package scalajs:testbridge;
+
+world test-bridge {
+  export wasi:cli/run@0.2.0;
+}

@@ -29,6 +29,7 @@ import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
 
 import java.io.{InputStream, OutputStream}
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicReference
 
 import sbt._
@@ -43,11 +44,12 @@ import org.scalajs.linker.interface._
 import org.scalajs.linker.interface.unstable.IRFileImpl
 
 import org.scalajs.jsenv._
+import org.scalajs.jsenv.wasi.WASIEnv
 
 import org.scalajs.ir.IRVersionNotSupportedException
 import org.scalajs.ir.Printers.IRTreePrinter
 
-import org.scalajs.testing.adapter.{TestAdapter, HTMLRunnerBuilder, TestAdapterInitializer}
+import org.scalajs.testing.adapter.{HTMLRunnerBuilder, TestAdapter, TestAdapterInitializer}
 
 import sjsonnew.BasicJsonProtocol._
 
@@ -80,6 +82,137 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
   private[sbtplugin] def closeAllTestAdapters(): Unit =
     createdTestAdapters.getAndSet(Nil).foreach(_.close())
+
+  private def pureWasmInput(input: Seq[Input]): Seq[Input] = {
+    val wasmComponents = input.collect { case wasm: Input.WasmComponent => wasm }
+
+    if (wasmComponents.nonEmpty) {
+      if (wasmComponents.size != 1) {
+        throw new MessageOnlyException(
+            s"Pure-wasm/component-model execution requires exactly one Input.WasmComponent, got ${wasmComponents.size}.")
+      }
+
+      wasmComponents
+    } else {
+      val esModules = input.collect { case Input.ESModule(path) => path }
+      val mainJS =
+        esModules.find(_.getFileName.toString == "main.js").orElse(esModules.headOption).getOrElse {
+          throw new MessageOnlyException(
+              "Pure-wasm/component-model execution requires exactly one Input.WasmComponent " +
+              "or at least one Input.ESModule (typically `main.js`).")
+        }
+
+      val wasmPath = mainJS.getParent.resolve("main.wasm").normalize()
+      Seq(Input.WasmComponent(wasmPath))
+    }
+  }
+
+  private def newWASIEnv(configuredEnvVars: Map[String, String]): WASIEnv = {
+    val config = WASIEnv.Config()
+      .withArgs(List(
+          "run",
+          "-W", "gc,function-references,exceptions",
+          "-S", "cli,inherit-env,inherit-network,tcp"
+      ))
+      .withEnv(configuredEnvVars)
+
+    new WASIEnv(config)
+  }
+
+  private object EmbeddedTestBridgeWit {
+    private final val ResourcePrefix =
+      "/org/scalajs/sbtplugin/internal/testbridge-wit"
+    private final val World = "test-bridge"
+
+    private final val RequiredResources = List(
+        "world.wit",
+        "deps/wasi-cli-0.2.0/package.wit"
+    )
+
+    private lazy val extractedDirectory: File = {
+      val base = new File(
+          System.getProperty("java.io.tmpdir"),
+          s"scalajs-sbtplugin-testbridge-wit-$scalaJSVersion")
+
+      RequiredResources.foreach { relPath =>
+        val target = new File(base, relPath)
+        if (!target.exists()) {
+          IO.createDirectory(target.getParentFile)
+          val in = openResourceOrLocalFile(relPath)
+          try {
+            Files.copy(in, target.toPath)
+          } finally {
+            in.close()
+          }
+        }
+      }
+
+      base
+    }
+
+    private def openResourceOrLocalFile(relPath: String): InputStream = {
+      val resourcePath = s"$ResourcePrefix/$relPath"
+      val resourceStream = getClass.getResourceAsStream(resourcePath)
+      if (resourceStream != null) {
+        resourceStream
+      } else {
+        val localFile = new File(new File("test-bridge", "wit"), relPath)
+        if (localFile.exists() && localFile.isFile) {
+          new java.io.FileInputStream(localFile)
+        } else {
+          throw new MessageOnlyException(
+              s"Missing embedded test-bridge WIT resource: $resourcePath")
+        }
+      }
+    }
+
+    def applyIfMissing(config: StandardConfig): StandardConfig = {
+      val wasmFeatures = config.wasmFeatures
+      if (wasmFeatures.targetPureWasm &&
+          wasmFeatures.componentModel &&
+          wasmFeatures.witDirectory.isEmpty) {
+        config.withWasmFeatures { prev =>
+          prev
+            .withWitDirectory(Some(extractedDirectory.getAbsolutePath))
+            .withWitWorld(prev.witWorld.orElse(Some(World)))
+        }
+      } else {
+        config
+      }
+    }
+  }
+
+  private def writeGeneratedPureWasmTestEntryPoint(targetFile: File): Unit = {
+    val content =
+      """package org.scalajs.testing.bridge
+        |
+        |import scala.util.control.NonFatal
+        |
+        |import scala.scalajs.wit
+        |import scala.scalajs.wit.annotation._
+        |
+        |@WitExportInterface
+        |private[bridge] trait GeneratedWasiCliRunExports {
+        |  @WitExport("wasi:cli/run@0.2.0", "run")
+        |  def run(): wit.Result[Unit, Unit]
+        |}
+        |
+        |@WitImplementation
+        |private[bridge] object GeneratedWasiCliRunExportsImpl extends GeneratedWasiCliRunExports {
+        |  override def run(): wit.Result[Unit, Unit] = {
+        |    try {
+        |      Bridge.start()
+        |      wit.Ok(())
+        |    } catch {
+        |      case NonFatal(_) =>
+        |        wit.Err(())
+        |    }
+        |  }
+        |}
+        |""".stripMargin
+
+    IO.write(targetFile, content)
+  }
 
   private def enhanceIRVersionNotSupportedException[A](body: => A): A = {
     try {
@@ -195,7 +328,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
       key / scalaJSLinkerBox := new CacheBox,
 
       legacyKey / scalaJSLinker := {
-        val config = (key / scalaJSLinkerConfig).value
+        val config = EmbeddedTestBridgeWit.applyIfMissing((key / scalaJSLinkerConfig).value)
         val box = (key / scalaJSLinkerBox).value
         val linkerImpl = (key / scalaJSLinkerImpl).value
 
@@ -233,7 +366,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
         scalaJSModuleInitializers.value.map(ModuleInitializer.fingerprint),
 
       key / scalaJSLinkerConfigFingerprint :=
-        StandardConfig.fingerprint((key / scalaJSLinkerConfig).value),
+        StandardConfig.fingerprint(
+            EmbeddedTestBridgeWit.applyIfMissing((key / scalaJSLinkerConfig).value)),
 
       key / moduleName := (legacyKey / moduleName).value,
 
@@ -605,19 +739,36 @@ private[sbtplugin] object ScalaJSPluginInternal {
       },
 
       run := {
-        if (!scalaJSUseMainModuleInitializer.value) {
+        val log = streams.value.log
+        val linkerConfig = scalaJSLinkerConfig.value
+        val targetPureWasm = linkerConfig.wasmFeatures.targetPureWasm
+        val componentModel = linkerConfig.wasmFeatures.componentModel
+        val useMainModuleInitializer = scalaJSUseMainModuleInitializer.value
+        if (!targetPureWasm && !useMainModuleInitializer) {
           throw new MessageOnlyException("`run` is only supported with " +
             "scalaJSUseMainModuleInitializer := true")
         }
+        if (targetPureWasm && !componentModel) {
+          throw new MessageOnlyException(
+              "Pure-wasm `run` execution requires `wasmFeatures.componentModel = true`.\n" +
+              "Set:\n" +
+              "  Compile / scalaJSLinkerConfig ~= " +
+              "(_.withWasmFeatures(_.withComponentModel(true)))")
+        }
+        val configuredEnvVars = (run / envVars).value
+        val env =
+          if (targetPureWasm) newWASIEnv(configuredEnvVars)
+          else jsEnv.value
 
-        val log = streams.value.log
-        val env = jsEnv.value
-
-        val className = mainClass.value.getOrElse("<unknown class>")
+        val className =
+          if (targetPureWasm) "wasi:cli/run"
+          else mainClass.value.getOrElse("<unknown class>")
         log.info(s"Running $className.")
         log.debug(s"with JSEnv ${env.name}")
 
-        val input = jsEnvInput.value
+        val input =
+          if (targetPureWasm) pureWasmInput(jsEnvInput.value)
+          else jsEnvInput.value
 
         /* The list of threads that are piping output to System.out and
          * System.err. This is not an AtomicReference or any other thread-safe
@@ -640,7 +791,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
          */
         val config = RunConfig()
           .withLogger(scalaJSLoggerFactory.value(log))
-          .withEnv((run / envVars).value)
+          .withEnv(configuredEnvVars)
           .withInheritOut(false)
           .withInheritErr(false)
           .withOnOutputStream { (out, err) =>
@@ -742,12 +893,37 @@ private[sbtplugin] object ScalaJSPluginInternal {
        */
       scalaJSUseMainModuleInitializer := false,
 
+      scalaJSLinkerConfig ~= { prev =>
+        EmbeddedTestBridgeWit.applyIfMissing(prev)
+      },
+
+      sourceGenerators += Def.task {
+        val linkerConfig = scalaJSLinkerConfig.value
+        val needsPureWasmEntryPoint =
+          linkerConfig.wasmFeatures.targetPureWasm &&
+          linkerConfig.wasmFeatures.componentModel
+
+        val outputBase = sourceManaged.value / "scalajs-generated"
+        val outputFile =
+          outputBase / "org" / "scalajs" / "testing" / "bridge" / "GeneratedWasiTestMain.scala"
+
+        if (needsPureWasmEntryPoint) {
+          IO.createDirectory(outputFile.getParentFile)
+          writeGeneratedPureWasmTestEntryPoint(outputFile)
+          Seq(outputFile)
+        } else {
+          IO.delete(outputFile)
+          Nil
+        }
+      }.taskValue,
+
       // Use test module initializer by default.
       scalaJSUseTestModuleInitializer := true,
 
       scalaJSModuleInitializers ++= {
         val useMain = scalaJSUseMainModuleInitializer.value
         val useTest = scalaJSUseTestModuleInitializer.value
+        val targetPureWasm = scalaJSLinkerConfig.value.wasmFeatures.targetPureWasm
         val configName = configuration.value.name
 
         if (useTest) {
@@ -757,11 +933,15 @@ private[sbtplugin] object ScalaJSPluginInternal {
               s"`$configName / scalaJSUseTestModuleInitializer` true")
           }
 
-          Seq(
-              ModuleInitializer.mainMethod(
-                  TestAdapterInitializer.ModuleClassName,
-                  TestAdapterInitializer.MainMethodName)
-          )
+          if (targetPureWasm) {
+            Seq.empty
+          } else {
+            Seq(
+                ModuleInitializer.mainMethod(
+                    TestAdapterInitializer.ModuleClassName,
+                    TestAdapterInitializer.MainMethodName)
+            )
+          }
         } else {
           Seq.empty
         }
@@ -792,15 +972,30 @@ private[sbtplugin] object ScalaJSPluginInternal {
         }
 
         val frameworks = testFrameworks.value
-        val env = jsEnv.value
+        val targetPureWasm = scalaJSLinkerConfig.value.wasmFeatures.targetPureWasm
+        val componentModel = scalaJSLinkerConfig.value.wasmFeatures.componentModel
+        if (targetPureWasm && !componentModel) {
+          throw new MessageOnlyException(
+              "Pure-wasm test execution requires `wasmFeatures.componentModel = true`.\n" +
+              "Set:\n" +
+              "  Test / scalaJSLinkerConfig ~= " +
+              "(_.withWasmFeatures(_.withComponentModel(true)))")
+        }
+        val configuredJSEnv = jsEnv.value
+        val configuredEnvVars = envVars.value
+        val env =
+          if (targetPureWasm) newWASIEnv(configuredEnvVars)
+          else configuredJSEnv
+        val adapterInput =
+          if (targetPureWasm) pureWasmInput(input) else input
         val frameworkNames = frameworks.map(_.implClassNames.toList).toList
 
         val log = streams.value.log
         val config = TestAdapter.Config()
           .withLogger(scalaJSLoggerFactory.value(log))
-          .withEnv(envVars.value)
+          .withEnv(configuredEnvVars)
 
-        val adapter = newTestAdapter(env, input, config)
+        val adapter = newTestAdapter(env, adapterInput, config)
         val frameworkAdapters = enhanceNotInstalledException(resolvedScoped.value, log) {
           adapter.loadFrameworks(frameworkNames)
         }

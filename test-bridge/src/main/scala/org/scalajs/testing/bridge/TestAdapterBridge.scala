@@ -31,6 +31,7 @@ private[bridge] object TestAdapterBridge {
     JSRPC.attach(detectFrameworks)(detectFrameworksFun)
     JSRPC.attach(createControllerRunner)(createRunnerFun(isController = true))
     JSRPC.attach(createWorkerRunner)(createRunnerFun(isController = false))
+    JSRPC.startIfPureWasm()
   }
 
   private def detectFrameworksFun = { names: List[List[String]] =>

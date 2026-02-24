@@ -104,15 +104,53 @@ final class BaseLinker(config: CommonPhaseConfig, checkIR: Boolean) {
       assembled <- Future.traverse(analysis.classInfos.values)(assembleClass)
     } yield {
       val (linkedClassDefs, linkedTopLevelExports) = assembled.unzip
+      val flattenedTopLevelExports = linkedTopLevelExports.flatten.toList
+
+      validateComponentModelUsage(linkedClassDefs.toList, flattenedTopLevelExports)
 
       val globalInfo = new LinkedGlobalInfo(
         analysis.isClassSuperClassUsed
       )
 
       new LinkingUnit(linkedClassDefs.toList,
-          linkedTopLevelExports.flatten.toList,
+          flattenedTopLevelExports,
           moduleInitializers.toList,
           globalInfo)
+    }
+  }
+
+  private def validateComponentModelUsage(
+      linkedClassDefs: List[LinkedClass],
+      linkedTopLevelExports: List[LinkedTopLevelExport]
+  ): Unit = {
+    val componentModelEnabled = config.coreSpec.wasmFeatures.componentModel
+    if (componentModelEnabled) return
+
+    val classesWithWitNativeMembers =
+      linkedClassDefs.filter(_.witNativeMembers.nonEmpty).map(_.className.nameString).sorted
+    val witTopLevelExports =
+      linkedTopLevelExports.filter(_.tree.isWitExport).map(_.exportName).sorted
+
+    if (classesWithWitNativeMembers.nonEmpty || witTopLevelExports.nonEmpty) {
+      val classPart = {
+        if (classesWithWitNativeMembers.nonEmpty)
+          s"classes with WIT-native members: ${classesWithWitNativeMembers.mkString(", ")}"
+        else
+          "classes with WIT-native members: <none>"
+      }
+
+      val exportPart = {
+        if (witTopLevelExports.nonEmpty)
+          s"WIT top-level exports: ${witTopLevelExports.mkString(", ")}"
+        else
+          "WIT top-level exports: <none>"
+      }
+
+      throw new LinkingException(
+          "Component-related IR was found while `wasmFeatures.componentModel` is disabled.\n" +
+          s"$classPart\n$exportPart\n" +
+          "Enable component model with: " +
+          "`scalaJSLinkerConfig ~= (_.withWasmFeatures(_.withComponentModel(true)))`")
     }
   }
 }

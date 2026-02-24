@@ -228,6 +228,8 @@ object Instructions {
   case class I64tore8(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store8", 0x3c, arg)
   case class I64tore16(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store16", 0x3d, arg)
   case class I64tore32(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store32", 0x3e, arg)
+  final case class MemorySize(i: MemoryID) extends Instr("memory.size", 0x3f)
+  final case class MemoryGrow(i: MemoryID) extends Instr("memory.grow", 0x40)
 
   // Literals of primitive numeric types
 

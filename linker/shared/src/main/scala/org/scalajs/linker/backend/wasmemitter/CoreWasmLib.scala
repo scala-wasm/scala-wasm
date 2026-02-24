@@ -841,6 +841,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     if (semantics.nullPointers != CheckedBehavior.Unchecked) {
       genThrowNullPointerException()
     }
+    genThrowOutOfMemoryTrap()
 
     if (semantics.moduleInit == CheckedBehavior.Fatal) {
       genThrowModuleInitError()
@@ -973,6 +974,9 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       val alignment = 8 // max alignment?
 
       val base = fb.addLocal("base", Int32)
+      val requiredEnd = fb.addLocal("requiredEnd", Int32)
+      val currentMemEnd = fb.addLocal("currentMemEnd", Int32)
+      val pagesToGrow = fb.addLocal("pagesToGrow", Int32)
 
       fb += GlobalGet(genGlobalID.stackPointer)
 
@@ -988,9 +992,40 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       fb += I32Mul
       fb += LocalTee(base)
 
-      fb += LocalGet(nbytes) // newPtr = stackPointer + nbytes
+      fb += LocalGet(nbytes)
       fb += I32Add
+      fb += LocalSet(requiredEnd)
 
+      // Grow linear memory on demand.
+      fb += MemorySize(genMemoryID.memory)
+      fb += I32Const(16)
+      fb += I32Shl // pages -> bytes
+      fb += LocalSet(currentMemEnd)
+
+      fb += LocalGet(requiredEnd)
+      fb += LocalGet(currentMemEnd)
+      fb += I32GtU
+      fb.ifThen() {
+        // ceil((requiredEnd - currentMemEnd) / 65536)
+        fb += LocalGet(requiredEnd)
+        fb += LocalGet(currentMemEnd)
+        fb += I32Sub
+        fb += I32Const(65535)
+        fb += I32Add
+        fb += I32Const(65536)
+        fb += I32DivU
+        fb += LocalSet(pagesToGrow)
+
+        fb += LocalGet(pagesToGrow)
+        fb += MemoryGrow(genMemoryID.memory)
+        fb += I32Const(-1)
+        fb += I32Eq
+        fb.ifThen() {
+          fb += Call(genFunctionID.throwOutOfMemoryTrap)
+        }
+      }
+
+      fb += LocalGet(requiredEnd)
       fb += GlobalSet(genGlobalID.stackPointer)
 
       fb += LocalGet(base)
@@ -2289,6 +2324,16 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     }
     genThrow(fb, fakeResult = Nil)
 
+    fb.buildAndAddToModule()
+  }
+
+  /** `throwOutOfMemoryTrap: void -> void`.
+   *
+   *  This helper exists to make OOM-like traps recognizable in wasm backtraces.
+   */
+  private def genThrowOutOfMemoryTrap()(implicit ctx: WasmContext): Unit = {
+    val fb = newFunctionBuilder(genFunctionID.throwOutOfMemoryTrap)
+    fb += Unreachable
     fb.buildAndAddToModule()
   }
 

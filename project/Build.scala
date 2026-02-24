@@ -60,6 +60,8 @@ object ExposedValues extends AutoPlugin {
       settingKey("enable the Google Closure Compiler in fullLinkJS")
     val enableWasmEverywhere: SettingKey[Boolean] =
       settingKey("enable the WebAssembly backend everywhere, including additional required linker config")
+    val enableWasmtimeTestsEverywhere: SettingKey[Boolean] =
+      settingKey("enable the pure-wasm + component-model test profile for test suites")
 
     val regenerateUnicodeData: TaskKey[Unit] =
       taskKey("regenerate all the Unicode data in the source files")
@@ -117,6 +119,7 @@ import ExposedValues.autoImport.{
   enableMinifyEverywhere,
   enableGCCEverywhere,
   enableWasmEverywhere,
+  enableWasmtimeTestsEverywhere,
   regenerateUnicodeData,
 }
 
@@ -169,6 +172,7 @@ object MyScalaJSPlugin extends AutoPlugin {
       enableMinifyEverywhere := false,
       enableGCCEverywhere := false,
       enableWasmEverywhere := false,
+      enableWasmtimeTestsEverywhere := false,
 
       scalaJSLinkerConfig := {
         var config = scalaJSLinkerConfig.value
@@ -403,6 +407,8 @@ object Build {
   val previousVersion = previousVersions.last
 
   val previousBinaryCrossVersion = CrossVersion.binaryWith("sjs1_", "")
+
+  val scalaJSJSEnvsVersion: String = "1.4.0-wasmcomponent-SNAPSHOT"
 
   val newScalaBinaryVersionsInThisRelease: Set[String] =
     Set()
@@ -1352,8 +1358,8 @@ object Build {
       libraryDependencies ++= Seq(
           "com.google.javascript" % "closure-compiler" % "v20220202",
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
-          "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0" % "test",
-          "org.scala-js" %% "scalajs-js-envs-test-kit" % "1.4.0" % "test"
+          "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion % "test",
+          "org.scala-js" %% "scalajs-js-envs-test-kit" % scalaJSJSEnvsVersion % "test"
       ) ++ (
           parallelCollectionsDependencies(scalaVersion.value)
       ),
@@ -1425,7 +1431,7 @@ object Build {
       name := "Scala.js sbt test adapter",
       libraryDependencies ++= Seq(
           "org.scala-sbt" % "test-interface" % "1.0",
-          "org.scala-js" %% "scalajs-js-envs" % "1.4.0",
+          "org.scala-js" %% "scalajs-js-envs" % scalaJSJSEnvsVersion,
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
       ),
       libraryDependencies ++= JUnitDeps,
@@ -1453,8 +1459,9 @@ object Build {
       mimaBinaryIssueFilters ++= BinaryIncompatibilities.SbtPlugin,
 
       addSbtPlugin("org.portable-scala" % "sbt-platform-deps" % "1.0.2"),
-      libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.4.0",
-      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0",
+      libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % scalaJSJSEnvsVersion,
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion,
+      libraryDependencies += "org.scala-js" %% "scalajs-env-wasi" % scalaJSJSEnvsVersion,
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
@@ -1501,6 +1508,14 @@ object Build {
             testAdapter.v2_12 / publishLocal,
         ).value
       },
+
+      Compile / resourceGenerators += Def.task {
+        val sourceDir = baseDirectory.value.getParentFile / "test-bridge" / "wit"
+        val targetDir = (Compile / resourceManaged).value / "org/scalajs/sbtplugin/internal/testbridge-wit"
+        val mappings = (sourceDir ** "*.wit").pair(Path.rebase(sourceDir, targetDir))
+        IO.copy(mappings)
+        mappings.unzip._2
+      }.taskValue,
 
       // Add API mappings for sbt (seems they don't export their API URL)
       apiMappings ++= {
@@ -1951,6 +1966,8 @@ object Build {
        */
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "test-common/src/main/scala",
+      Compile / unmanagedResourceDirectories +=
+        baseDirectory.value / "wit",
       Test / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "test-common/src/test/scala"
   ).withScalaJSCompiler.withScalaJSJUnitPlugin.dependsOnLibrary.dependsOn(
@@ -2352,6 +2369,7 @@ object Build {
         else {
           originalSources
             .filter(f =>
+              contains(f, "/src_managed/test/scalajs-generated/") ||
               contains(f, "/shared/src/test/scala-old-collections/") ||
               contains(f, "/shared/src/test/require-scala2/") ||
               contains(f, "/shared/src/test/scala/org/scalajs/testsuite/") && (
@@ -2457,9 +2475,18 @@ object Build {
 
   def testSuiteJSExecutionFilesSetting: Setting[_] = {
     jsEnvInput := {
-      val resourceDir = (Test / resourceDirectory).value
-      val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
-      Input.Script(f) +: jsEnvInput.value
+      val baseInput = jsEnvInput.value
+      val linkerConfig = (Test / scalaJSLinkerConfig).value
+      val targetPureWasm = linkerConfig.wasmFeatures.targetPureWasm
+      val componentModel = linkerConfig.wasmFeatures.componentModel
+
+      if (targetPureWasm && componentModel) {
+        baseInput
+      } else {
+        val resourceDir = (Test / resourceDirectory).value
+        val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
+        Input.Script(f) +: baseInput
+      }
     }
   }
 
@@ -2533,7 +2560,48 @@ object Build {
 
       Test / scalacOptions ++= scalaJSCompilerOption("genStaticForwardersForNonTopLevelObjects"),
       Test / scalacOptions ++= scalaJSCompilerOption("nowarnGlobalExecutionContext"),
+      Compile / scalaJSLinkerConfig := {
+        val prev = (Compile / scalaJSLinkerConfig).value
+        val enableWasmtimeTests = (ThisBuild / enableWasmtimeTestsEverywhere).value
 
+        if (!enableWasmtimeTests) {
+          prev
+        } else {
+          val root = (ThisBuild / baseDirectory).value
+          val witDir = root / "test-bridge" / "wit"
+          prev
+            .withExperimentalUseWebAssembly(true)
+            .withModuleKind(ModuleKind.ESModule)
+            .withWasmFeatures { wasmFeatures =>
+              wasmFeatures
+                .withTargetPureWasm(true)
+                .withComponentModel(true)
+                .withWitDirectory(Some(witDir.getAbsolutePath))
+                .withWitWorld(Some("test-bridge"))
+            }
+        }
+      },
+      Test / scalaJSLinkerConfig := {
+        val prev = (Test / scalaJSLinkerConfig).value
+        val enableWasmtimeTests = (ThisBuild / enableWasmtimeTestsEverywhere).value
+
+        if (!enableWasmtimeTests) {
+          prev
+        } else {
+          val root = (ThisBuild / baseDirectory).value
+          val witDir = root / "test-bridge" / "wit"
+          prev
+            .withExperimentalUseWebAssembly(true)
+            .withModuleKind(ModuleKind.ESModule)
+            .withWasmFeatures { wasmFeatures =>
+              wasmFeatures
+                .withTargetPureWasm(true)
+                .withComponentModel(true)
+                .withWitDirectory(Some(witDir.getAbsolutePath))
+                .withWitWorld(Some("test-bridge"))
+            }
+        }
+      },
       scalaJSLinkerConfig ~= { _.withSemantics(TestSuiteLinkerOptions.semantics _) },
       Test / scalaJSModuleInitializers ++= TestSuiteLinkerOptions.moduleInitializers,
 
@@ -2857,7 +2925,7 @@ object Build {
 
       resolvers += Resolver.typesafeIvyRepo("releases"),
 
-      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0",
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion,
 
       fetchScalaSource / artifactPath :=
         baseDirectory.value.getParentFile / "fetchedSources" / scalaVersion.value,

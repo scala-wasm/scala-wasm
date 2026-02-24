@@ -25,16 +25,29 @@ import scala.scalajs.LinkingInfo.linkTimeIf
  */
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
 
-import scala.concurrent.duration._
-
 import org.scalajs.testing.common.RPCCore
 
-/** JS RPC Core. Uses `scalajsCom`. */
+/** JS RPC Core. */
 private[bridge] final object JSRPC extends RPCCore {
-  linkTimeIf(LinkingInfo.targetPureWasm) {
-    ScalajsCom.init()
-  } {
+  linkTimeIf(!LinkingInfo.targetPureWasm) {
     Com.init(handleMessage _)
+  } {
+    ()
+  }
+
+  def startIfPureWasm(): Unit = {
+    linkTimeIf(LinkingInfo.targetPureWasm) {
+      WasiDirectRpcTransport.init()
+
+      var continue = true
+      while (continue) {
+        val msg = WasiDirectRpcTransport.pollNextMessage()
+        if (msg == null) continue = false
+        else handleMessage(msg)
+      }
+    } {
+      ()
+    }
   }
 
   /** The method referenced by the ScalajsCom.init function,
@@ -47,7 +60,7 @@ private[bridge] final object JSRPC extends RPCCore {
 
   override protected def send(msg: String): Unit = {
     linkTimeIf(LinkingInfo.targetPureWasm) {
-      ScalajsCom.send(msg)
+      WasiDirectRpcTransport.send(msg)
     } {
       Com.send(msg)
     }
@@ -60,18 +73,5 @@ private[bridge] final object JSRPC extends RPCCore {
     def send(msg: String): Unit = js.native
     // We support close, but do not use it. The JS side just terminates.
     // def close(): Unit = js.native
-  }
-}
-
-private[bridge] final object ScalajsCom {
-  @noinline
-  def send(msg: String): Unit = {}
-
-  @noinline
-  def init(): Unit = {
-    // This is a dummy call to make handleMessage0 reachable.
-    // We cannot use SymbolRequirement because handleMessage0 is only
-    // available in the Test scope, but the linker has no idea it's in Test.
-    JSRPC.handleMessage0("")
   }
 }

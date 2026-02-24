@@ -218,6 +218,7 @@ object VarGen {
     case object throwArrayIndexOutOfBoundsException extends FunctionID
     case object throwNegativeArraySizeException extends FunctionID
     case object throwNullPointerException extends FunctionID
+    case object throwOutOfMemoryTrap extends FunctionID
     case object checkedStringCharAt extends FunctionID
     case object checkedStringCodePointAt extends FunctionID
     case object checkedSubstringStart extends FunctionID
