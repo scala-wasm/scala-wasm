@@ -20,6 +20,7 @@ package object incoming_handler {
    *  with an error on its behalf.
    */
   @scala.scalajs.wit.annotation.WitImport("wasi:http/incoming-handler@0.2.0", "handle")
-  def handle(request: IncomingRequest, responseOut: ResponseOutparam): Unit = scala.scalajs.wit.native
+  def handle(request: IncomingRequest, responseOut: ResponseOutparam): Unit =
+    scala.scalajs.wit.native
 
 }

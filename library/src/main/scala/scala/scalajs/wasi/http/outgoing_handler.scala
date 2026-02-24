@@ -24,6 +24,8 @@ package object outgoing_handler {
    *  through the `future-incoming-response`.
    */
   @scala.scalajs.wit.annotation.WitImport("wasi:http/outgoing-handler@0.2.0", "handle")
-  def handle(request: OutgoingRequest, options: java.util.Optional[RequestOptions]): scala.scalajs.wit.Result[FutureIncomingResponse, scala.scalajs.wasi.http.types.ErrorCode] = scala.scalajs.wit.native
+  def handle(request: OutgoingRequest,
+      options: java.util.Optional[RequestOptions]): scala.scalajs.wit.Result[FutureIncomingResponse,
+      scala.scalajs.wasi.http.types.ErrorCode] = scala.scalajs.wit.native
 
 }
