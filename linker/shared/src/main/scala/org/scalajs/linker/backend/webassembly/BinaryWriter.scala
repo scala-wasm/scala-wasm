@@ -579,6 +579,10 @@ private sealed class BinaryWriter(module: Module, emitDebugInfo: Boolean) {
       case MemoryCopy(src, dst) =>
         writeMemoryIdx(src)
         writeMemoryIdx(dst)
+      case MemorySize(memory) =>
+        writeMemoryIdx(memory)
+      case MemoryGrow(memory) =>
+        writeMemoryIdx(memory)
 
       case PositionMark(pos) =>
         throw new AssertionError(s"Unexpected $instr")
