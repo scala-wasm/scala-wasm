@@ -564,9 +564,11 @@ private[sbtplugin] object ScalaJSPluginInternal {
           case ModuleKind.ESModule       => Input.ESModule(path)
           case ModuleKind.CommonJSModule => Input.CommonJSModule(path)
 
-          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+          case ModuleKind.MinimalWasmModule =>
             // Pretend that we are an ES module for now
             Input.ESModule(path)
+          case ModuleKind.WasmComponent =>
+            Input.WasmComponent((linkerOutputDir / s"${mainModule.moduleID}.wasm").toPath)
         }
       },
 
@@ -609,15 +611,25 @@ private[sbtplugin] object ScalaJSPluginInternal {
       },
 
       run := {
-        if (!scalaJSUseMainModuleInitializer.value) {
+        val linkerConfig = scalaJSLinkerConfig.value
+        val isWasmComponent = linkerConfig.moduleKind == ModuleKind.WasmComponent
+        // Currently, `run` is supported for Wasm Component when it implements `wasi:cli/run`.
+        // We might want to automatiacally implement `wasi:cli/run` that invokes
+        // `scalaJSMainModuleInitializer.value` in future?
+        if (!scalaJSUseMainModuleInitializer.value && !isWasmComponent) {
           throw new MessageOnlyException("`run` is only supported with " +
             "scalaJSUseMainModuleInitializer := true")
         }
-
         val log = streams.value.log
-        val env = jsEnv.value
+        val env = if (isWasmComponent) {
+          wasmEnv.value
+        } else {
+          jsEnv.value
+        }
 
-        val className = mainClass.value.getOrElse("<unknown class>")
+        val className =
+          if (isWasmComponent) "wasi:cli/run"
+          else mainClass.value.getOrElse("<unknown class>")
         log.info(s"Running $className.")
         log.debug(s"with JSEnv ${env.name}")
 

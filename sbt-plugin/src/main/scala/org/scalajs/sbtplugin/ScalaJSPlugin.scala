@@ -32,6 +32,7 @@ import org.scalajs.linker.interface._
 
 import org.scalajs.jsenv.{Input, JSEnv}
 import org.scalajs.jsenv.nodejs.NodeJSEnv
+import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 object ScalaJSPlugin extends AutoPlugin {
   override def requires: Plugins = plugins.JvmPlugin
@@ -275,6 +276,10 @@ object ScalaJSPlugin extends AutoPlugin {
         "The JavaScript environment in which to run and test Scala.js applications.",
         AMinusTask)
 
+    val wasmEnv = TaskKey[JSEnv]("wasmEnv",
+        "The WebAssembly environment in which to run no-JS Wasm Scala.js applications.",
+        AMinusTask)
+
     /** All Scala.js class names on the fullClasspath, used by scalajsp. */
     val scalaJSClassNamesOnClasspath = TaskKey[Seq[String]]("scalaJSClassNamesOnClasspath",
         "All Scala.js class names on the fullClasspath, used by scalajsp",
@@ -407,6 +412,18 @@ object ScalaJSPlugin extends AutoPlugin {
         },
 
         jsEnv := new NodeJSEnv(),
+
+        wasmEnv := {
+          val configuredEnvVars = envVars.value
+          val config = WasmtimeEnv.Config()
+            .withArgs(List(
+                "run",
+                "-W", "gc,function-references,exceptions",
+                "-S", "cli,inherit-env,inherit-network,tcp"
+            ))
+            .withEnv(configuredEnvVars)
+          new WasmtimeEnv(config)
+        },
 
         scalaJSLoggerFactory := Loggers.sbtLogger2ToolsLogger _,
 
