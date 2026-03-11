@@ -415,6 +415,8 @@ object Build {
 
   val previousBinaryCrossVersion = CrossVersion.binaryWith("sjs1_", "")
 
+  val scalaJSJSEnvsVersion: String = "1.6.0"
+
   val newScalaBinaryVersionsInThisRelease: Set[String] =
     Set()
 
@@ -1388,8 +1390,8 @@ object Build {
       libraryDependencies ++= Seq(
           "com.google.javascript" % "closure-compiler" % "v20220202",
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
-          "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0" % "test",
-          "org.scala-js" %% "scalajs-js-envs-test-kit" % "1.4.0" % "test"
+          "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion % "test",
+          "org.scala-js" %% "scalajs-js-envs-test-kit" % scalaJSJSEnvsVersion % "test"
       ) ++ (
           parallelCollectionsDependencies(scalaVersion.value)
       ),
@@ -1462,7 +1464,7 @@ object Build {
       name := "Scala.js sbt test adapter",
       libraryDependencies ++= Seq(
           "org.scala-sbt" % "test-interface" % "1.0",
-          "org.scala-js" %% "scalajs-js-envs" % "1.5.0",
+          "org.scala-js" %% "scalajs-js-envs" % scalaJSJSEnvsVersion,
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
       ),
       libraryDependencies ++= JUnitDeps,
@@ -1528,8 +1530,9 @@ object Build {
         }
       },
 
-      libraryDependencies += ("org.scala-js" %% "scalajs-js-envs" % "1.5.0"),
-      libraryDependencies += ("org.scala-js" %% "scalajs-env-nodejs" % "1.5.0"),
+      libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % scalaJSJSEnvsVersion,
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion,
+      libraryDependencies += "org.scala-js" %% "scalajs-env-wasmtime" % scalaJSJSEnvsVersion,
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
@@ -2945,7 +2948,7 @@ object Build {
 
       resolvers += Resolver.typesafeIvyRepo("releases"),
 
-      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0",
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % scalaJSJSEnvsVersion,
 
       fetchScalaSource / artifactPath :=
         baseDirectory.value.getParentFile / "fetchedSources" / scalaVersion.value,
