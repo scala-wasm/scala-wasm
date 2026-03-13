@@ -15,6 +15,8 @@ package java.util
 import scala.annotation.switch
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import java.lang.{Double => JDouble}
 import java.lang.Utils._
@@ -1107,7 +1109,7 @@ object Formatter {
         if (ePos < 0) {
           0
         } else {
-          LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+          LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
             java.lang.Integer.parseInt(s.substring(ePos + 1))
           } {
             js.Dynamic.global.parseInt(s.substring(ePos + 1)).asInstanceOf[Int]

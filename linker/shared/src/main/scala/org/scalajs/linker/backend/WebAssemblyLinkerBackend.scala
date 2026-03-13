@@ -33,8 +33,9 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     extends LinkerBackendImpl(config) {
 
   require(
-    coreSpec.moduleKind == ModuleKind.ESModule,
-    s"The WebAssembly backend only supports ES modules; was ${coreSpec.moduleKind}."
+    Set[ModuleKind](ModuleKind.ESModule, ModuleKind.MinimalWasmModule, ModuleKind.WasmComponent)
+      .contains(coreSpec.moduleKind),
+    s"The WebAssembly backend does not support the module kind ${coreSpec.moduleKind}."
   )
   require(
     coreSpec.esFeatures.useECMAScript2015Semantics,
@@ -139,7 +140,7 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
          val binaryOutput = BinaryWriter.write(wasmModule, emitDebugInfo)
          outputImpl.writeFull(wasmFileName, binaryOutput)
        }).flatMap { _ =>
-        if (!coreSpec.wasmFeatures.componentModel) {
+        if (coreSpec.moduleKind != ModuleKind.WasmComponent) {
           Future.unit
         } else {
           processComponentModel()

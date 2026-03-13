@@ -25,8 +25,7 @@ import org.scalajs.ir.Trees.{FieldDef, ParamDef, JSNativeLoadSpec}
 import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 
-import org.scalajs.linker.interface.ModuleInitializer
-import org.scalajs.linker.interface.unstable.ModuleInitializerImpl
+import org.scalajs.linker.interface.ModuleKind
 import org.scalajs.linker.standard.{CoreSpec, LinkedClass, LinkedTopLevelExport}
 
 import org.scalajs.linker.backend.emitter.{NameGen => JSNameGen}
@@ -51,6 +50,8 @@ final class WasmContext(
     val itablesLength: Int
 ) {
   import WasmContext._
+
+  val hasJSInterop = coreSpec.moduleKind == ModuleKind.ESModule
 
   private val functionTypes = LinkedHashMap.empty[watpe.FunctionType, wanme.TypeID]
   private val tableFunctionTypes = mutable.HashMap.empty[MethodName, wanme.TypeID]
@@ -99,8 +100,8 @@ final class WasmContext(
     new mutable.LinkedHashSet()
 
   val stringPool: StringPool =
-    if (coreSpec.wasmFeatures.targetPureWasm) new DataStringPool
-    else new JSStringPool
+    if (hasJSInterop) new JSStringPool
+    else new DataStringPool
 
   val constantArrayPool: ConstantArrayPool = new ConstantArrayPool
 

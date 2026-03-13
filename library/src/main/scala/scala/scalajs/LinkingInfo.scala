@@ -224,6 +224,11 @@ object LinkingInfo {
   def useECMAScript2015Semantics: Boolean =
     linkTimePropertyBoolean("core/useECMAScript2015Semantics")
 
+  /** Kind of module structure emitted for the Scala.js output. */
+  @inline @linkTimeProperty("core/moduleKind")
+  def moduleKind: Int =
+    linkTimePropertyInt("core/moduleKind")
+
   /** Whether we are linking to WebAssembly.
    *
    *  This property can be used to delegate to different code paths optimized
@@ -257,10 +262,6 @@ object LinkingInfo {
   @inline @linkTimeProperty("core/isWebAssembly")
   def isWebAssembly: Boolean =
     linkTimePropertyBoolean("core/isWebAssembly")
-
-  @inline @linkTimeProperty("core/targetPureWasm")
-  def targetPureWasm: Boolean =
-    linkTimePropertyBoolean("core/targetPureWasm")
 
   /** Version of the linker. */
   @inline @linkTimeProperty("core/linkerVersion")
@@ -372,6 +373,37 @@ object LinkingInfo {
     final val ES2021 = 12
   }
 
+  /** Constants for the value of `moduleKind`. */
+  object ModuleKind {
+
+    /** No module structure.
+     *
+     *  With this module kind, exports are stored on the global object.
+     *
+     *  Imports are not supported.
+     */
+    final val NoModule = 1
+
+    /** An ECMAScript 2015 module.
+     *
+     *  Scala.js imports and exports directly map to `import` and `export`
+     *  clauses in the ES module.
+     */
+    final val ESModule = 2
+
+    /** A CommonJS module (notably used by Node.js).
+     *
+     *  Imported modules are fetched with `require`. Exports go to the `exports`
+     *  module-global variable.
+     */
+    final val CommonJSModule = 3
+
+    /** A minimal Wasm module. */
+    final val MinimalWasmModule = 4
+
+    /** A Wasm Component in the Component Model. */
+    final val WasmComponent = 5
+  }
   private[scalajs] def linkTimePropertyInt(name: String): Int =
     throw new java.lang.Error("stub")
 

@@ -81,7 +81,7 @@ jobs:
         esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
         eh-support: [true, false]
     env:
-      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withWasmFeatures(_.withTargetPureWasm(true).withExceptionHandling(${{ matrix.eh-support }}))))'
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withModuleKind(ModuleKind.MinimalWasmModule).withWasmFeatures(_.withExceptionHandling(${{ matrix.eh-support }}))))'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4

@@ -565,7 +565,7 @@ object Infos {
   }
 
   final class InfoGenerator(linkTimeProperties: LinkTimeProperties,
-      targetPureWasm: Boolean) {
+      registerJSInterop: Boolean) {
     def genReferencedFieldClasses(fields: List[AnyFieldDef]): Map[FieldName, ClassName] = {
       val builder = Map.newBuilder[FieldName, ClassName]
 
@@ -591,7 +591,7 @@ object Infos {
      *  [[org.scalajs.ir.Trees.MethodDef Trees.MethodDef]].
      */
     def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
-      new GenInfoTraverser(methodDef.version, linkTimeProperties, targetPureWasm)
+      new GenInfoTraverser(methodDef.version, linkTimeProperties, registerJSInterop)
         .generateMethodInfo(methodDef)
     }
 
@@ -599,7 +599,7 @@ object Infos {
      *  [[org.scalajs.ir.Trees.JSConstructorDef Trees.JSConstructorDef]].
      */
     def generateJSConstructorInfo(ctorDef: JSConstructorDef): ReachabilityInfo = {
-      new GenInfoTraverser(ctorDef.version, linkTimeProperties, targetPureWasm)
+      new GenInfoTraverser(ctorDef.version, linkTimeProperties, registerJSInterop)
         .generateJSConstructorInfo(ctorDef)
     }
 
@@ -607,7 +607,7 @@ object Infos {
      *  [[org.scalajs.ir.Trees.JSMethodDef Trees.JSMethodDef]].
      */
     def generateJSMethodInfo(methodDef: JSMethodDef): ReachabilityInfo = {
-      new GenInfoTraverser(methodDef.version, linkTimeProperties, targetPureWasm)
+      new GenInfoTraverser(methodDef.version, linkTimeProperties, registerJSInterop)
         .generateJSMethodInfo(methodDef)
     }
 
@@ -615,7 +615,7 @@ object Infos {
      *  [[org.scalajs.ir.Trees.JSPropertyDef Trees.JSPropertyDef]].
      */
     def generateJSPropertyInfo(propertyDef: JSPropertyDef): ReachabilityInfo = {
-      new GenInfoTraverser(propertyDef.version, linkTimeProperties, targetPureWasm)
+      new GenInfoTraverser(propertyDef.version, linkTimeProperties, registerJSInterop)
         .generateJSPropertyInfo(propertyDef)
     }
 
@@ -627,7 +627,7 @@ object Infos {
     /** Generates the [[MethodInfo]] for the top-level exports. */
     def generateTopLevelExportInfo(enclosingClass: ClassName,
         topLevelExportDef: TopLevelExportDef): TopLevelExportInfo = {
-      val info = new GenInfoTraverser(Version.Unversioned, linkTimeProperties, targetPureWasm)
+      val info = new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
         .generateTopLevelExportInfo(enclosingClass, topLevelExportDef)
       new TopLevelExportInfo(info,
           ModuleID(topLevelExportDef.moduleID),
@@ -635,13 +635,13 @@ object Infos {
     }
 
     def generateWitNativeMember(member: WitNativeMemberDef): MethodInfo = {
-      new GenInfoTraverser(Version.Unversioned, linkTimeProperties, targetPureWasm)
+      new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
         .generateWitNativeMember(member)
     }
   }
 
   private final class GenInfoTraverser(version: Version,
-      linkTimeProperties: LinkTimeProperties, targetPureWasm: Boolean)
+      linkTimeProperties: LinkTimeProperties, registerJSInterop: Boolean)
       extends Traverser {
 
     private val builder = new ReachabilityInfoBuilder(version)
@@ -831,7 +831,7 @@ object Infos {
     override def traverse(tree: Tree): Unit = {
       builder.maybeAddReferencedClass(tree.tpe)
 
-      if (targetPureWasm)
+      if (registerJSInterop)
         checkJSInterop(tree)
 
       tree match {

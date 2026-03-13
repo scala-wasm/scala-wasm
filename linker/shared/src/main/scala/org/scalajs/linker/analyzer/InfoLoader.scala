@@ -31,9 +31,9 @@ import Platform.emptyThreadSafeMap
 
 private[analyzer] final class InfoLoader(irLoader: IRLoader,
     checkIRFor: Option[CheckingPhase], linkTimeProperties: LinkTimeProperties,
-    targetPureWasm: Boolean) {
+    registerJSInterop: Boolean) {
 
-  private val generator = new Infos.InfoGenerator(linkTimeProperties, targetPureWasm)
+  private val generator = new Infos.InfoGenerator(linkTimeProperties, registerJSInterop)
   private var logger: Logger = _
   private val cache = emptyThreadSafeMap[ClassName, InfoLoader.ClassInfoCache]
 

@@ -14,25 +14,30 @@ package org.scalajs.testing.bridge
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation.{JSGlobalScope, JSName}
-import scala.scalajs.LinkingInfo.linkTimeIf
-import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import org.scalajs.testing.common._
 
 private[bridge] object Bridge {
   // Called via org.scalajs.testing.adapter.testAdapterInitializer
   def start(): Unit = mode match {
-    case TestBridgeMode.FullBridge        => TestAdapterBridge.start()
+    case TestBridgeMode.FullBridge =>
+      TestAdapterBridge.start()
+
     case TestBridgeMode.HTMLRunner(tests) =>
-      linkTimeIf(LinkingInfo.targetPureWasm) { // shouldn't reach here
+      linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+        // shouldn't reach here
         throw new AssertionError("The HTML runner is not supported in pure Wasm.")
       } {
         HTMLRunner.start(tests)
       }
   }
 
-  private def mode = {
-    linkTimeIf(!LinkingInfo.targetPureWasm) {
+  private def mode: TestBridgeMode = {
+    linkTimeIf[TestBridgeMode](moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      TestBridgeMode.FullBridge
+    } {
       if (js.typeOf(js.Dynamic.global.__ScalaJSTestBridgeMode) == "undefined") {
         TestBridgeMode.FullBridge
       } else {
@@ -40,8 +45,6 @@ private[bridge] object Bridge {
           js.Dynamic.global.__ScalaJSTestBridgeMode.asInstanceOf[String]
         Serializer.deserialize[TestBridgeMode](modeStr)
       }
-    } {
-      TestBridgeMode.FullBridge
     }
   }
 }

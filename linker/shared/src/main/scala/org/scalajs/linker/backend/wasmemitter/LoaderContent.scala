@@ -23,8 +23,8 @@ object LoaderContent {
   val bytesContent: Array[Byte] =
     stringContent.getBytes(StandardCharsets.UTF_8)
 
-  val pureWasmBytesContent: Array[Byte] =
-    pureWasmStringContent.getBytes(StandardCharsets.UTF_8)
+  val noJSInteropBytesContent: Array[Byte] =
+    noJSInteropStringContent.getBytes(StandardCharsets.UTF_8)
 
   private def stringContent: String = {
     raw"""
@@ -225,7 +225,7 @@ export async function load(wasmFileURL, exportSetters, privateJSFieldGetters,
     """
   }
 
-  private def pureWasmStringContent: String = {
+  private def noJSInteropStringContent: String = {
     import org.scalajs.ir.OriginalName.NoOriginalName
     import org.scalajs.ir.OriginalName
     import org.scalajs.ir.Position.{NoPosition => NoPos}

@@ -56,8 +56,16 @@ final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
   private val linkTimeProperties = LinkTimeProperties.fromCoreSpec(config.coreSpec)
 
   private val infoLoader: InfoLoader = {
-    new InfoLoader(irLoader, checkIRFor, linkTimeProperties,
-        config.coreSpec.wasmFeatures.targetPureWasm)
+    /* We only ask the InfoLoader to register JS interop if we actually need to
+     * report errors for them. Otherwise, it is too expensive.
+     */
+    val registerJSInterop = config.coreSpec.moduleKind match {
+      case ModuleKind.MinimalWasmModule => true
+      case ModuleKind.WasmComponent     => true
+      case _                            => false
+    }
+
+    new InfoLoader(irLoader, checkIRFor, linkTimeProperties, registerJSInterop)
   }
 
   def computeReachability(moduleInitializers: Seq[ModuleInitializer],

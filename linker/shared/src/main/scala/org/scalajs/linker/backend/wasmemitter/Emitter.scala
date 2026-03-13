@@ -62,8 +62,8 @@ final class Emitter(config: Emitter.Config) {
   def emit(module: ModuleSet.Module, globalInfo: LinkedGlobalInfo, logger: Logger): Result = {
     val (wasmModule, jsFileContentInfo) = emitWasmModule(module, globalInfo)
     val loaderContent =
-      if (coreSpec.wasmFeatures.targetPureWasm) LoaderContent.pureWasmBytesContent
-      else LoaderContent.bytesContent
+      if (coreSpec.moduleKind == ModuleKind.ESModule) LoaderContent.bytesContent
+      else LoaderContent.noJSInteropBytesContent
     val jsFileContent = buildJSFileContent(module, jsFileContentInfo)
 
     new Result(wasmModule, loaderContent, jsFileContent)
@@ -201,11 +201,10 @@ final class Emitter(config: Emitter.Config) {
       ModuleInitializerImpl.fromInitializer(init) match {
         case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
           val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
-          SWasmGen.genArrayValue(
-              fb, stringArrayTypeRef, args.size, coreSpec.wasmFeatures.targetPureWasm) {
+          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
             for (arg <- args) {
               fb ++= ctx.stringPool.getConstantStringInstr(arg)
-              if (!coreSpec.wasmFeatures.targetPureWasm)
+              if (ctx.hasJSInterop)
                 fb += wa.AnyConvertExtern
             }
           }
@@ -228,7 +227,7 @@ final class Emitter(config: Emitter.Config) {
         fb += wa.I32Const(c.toInt)
       fb += wa.ArrayNewFixed(genTypeID.i16Array, message.length())
 
-      if (coreSpec.wasmFeatures.componentModel)
+      if (coreSpec.moduleKind == ModuleKind.WasmComponent)
         fb += wa.Drop // TODO
       else
         fb += wa.Call(genFunctionID.wasmEssentials.print)
@@ -594,7 +593,7 @@ object Emitter {
       callStaticMethod(WasmRuntimeClass, fmodfMethodName),
       callStaticMethod(WasmRuntimeClass, fmoddMethodName),
 
-      cond(coreSpec.wasmFeatures.targetPureWasm) {
+      cond(coreSpec.moduleKind != ModuleKind.ESModule) {
         callStaticMethod(RyuDoubleClass, doubleToStringMethodName)
       }
     )

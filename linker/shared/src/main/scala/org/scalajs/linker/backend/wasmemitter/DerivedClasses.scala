@@ -24,7 +24,7 @@ import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 import org.scalajs.ir.{EntryPointsInfo, Version}
 
-import org.scalajs.linker.interface.IRFile
+import org.scalajs.linker.interface.{IRFile, ModuleKind}
 import org.scalajs.linker.interface.unstable.IRFileImpl
 
 import org.scalajs.linker.standard.{LinkedClass, CoreSpec}
@@ -34,7 +34,7 @@ import SpecialNames._
 /** Derives `CharacterBox` and `LongBox` from `jl.Character` and `jl.Long`. */
 object DerivedClasses {
   def deriveClasses(classes: List[LinkedClass], coreSpec: CoreSpec): List[LinkedClass] = {
-    if (coreSpec.wasmFeatures.targetPureWasm) {
+    if (coreSpec.moduleKind != ModuleKind.ESModule) {
       classes.collect {
         case clazz
             if clazz.className == BoxedCharacterClass ||

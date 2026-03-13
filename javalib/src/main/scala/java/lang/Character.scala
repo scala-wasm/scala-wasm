@@ -21,7 +21,8 @@ import scala.annotation.{tailrec, switch}
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import java.lang.constant.Constable
 import java.util.{ArrayList, Arrays, HashMap}
@@ -132,7 +133,7 @@ object Character {
     if (!isValidCodePoint(codePoint))
       throw new IllegalArgumentException()
 
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       if (isBmpCodePoint(codePoint)) {
         Character.toString(codePoint.toChar)
       } else {
@@ -723,7 +724,7 @@ object Character {
       case _ =>
         // In WASI implementation, we cannot use String#toUpperCase
         // since it uses Character#toUpperCase.
-        LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+        LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
           import CaseUtil._
           toCase(codePoint, a, z, lowerBeta, lowerRanges, lowerDeltas, lowerSteps)
         } {
@@ -752,7 +753,7 @@ object Character {
       case 0x0130 =>
         0x0069 // İ => i
       case _ =>
-        LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+        LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
           // in pure Wasm implementation, we cannot use String#toLowerCase
           // since it uses Character$toLowerCase
           import CaseUtil._

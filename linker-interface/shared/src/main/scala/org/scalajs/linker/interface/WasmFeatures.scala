@@ -4,8 +4,6 @@ import Fingerprint.FingerprintBuilder
 
 final class WasmFeatures private (
     _exceptionHandling: Boolean,
-    _targetPureWasm: Boolean,
-    _componentModel: Boolean,
     _witDirectory: Option[String],
     _witWorld: Option[String],
     _autoIncludeWasiImports: Boolean
@@ -15,8 +13,6 @@ final class WasmFeatures private (
   private def this() = {
     this(
       _exceptionHandling = true,
-      _targetPureWasm = false,
-      _componentModel = false,
       _witDirectory = None,
       _witWorld = None,
       _autoIncludeWasiImports = true
@@ -24,20 +20,12 @@ final class WasmFeatures private (
   }
 
   val exceptionHandling = _exceptionHandling
-  val targetPureWasm = _targetPureWasm
-  val componentModel = _componentModel
   val witDirectory = _witDirectory
   val witWorld = _witWorld
   val autoIncludeWasiImports = _autoIncludeWasiImports
 
   def withExceptionHandling(exceptionHandling: Boolean): WasmFeatures =
     copy(exceptionHandling = exceptionHandling)
-
-  def withTargetPureWasm(targetPureWasm: Boolean): WasmFeatures =
-    copy(targetPureWasm = targetPureWasm)
-
-  def withComponentModel(componentModel: Boolean): WasmFeatures =
-    copy(componentModel = componentModel)
 
   def withWitDirectory(witDirectory: Option[String]): WasmFeatures =
     copy(witDirectory = witDirectory)
@@ -51,8 +39,6 @@ final class WasmFeatures private (
   override def equals(that: Any): Boolean = that match {
     case that: WasmFeatures =>
       this.exceptionHandling == that.exceptionHandling &&
-      this.targetPureWasm == that.targetPureWasm &&
-      this.componentModel == that.componentModel &&
       this.witDirectory == that.witDirectory &&
       this.witWorld == that.witWorld &&
       this.autoIncludeWasiImports == that.autoIncludeWasiImports
@@ -64,19 +50,15 @@ final class WasmFeatures private (
     import scala.util.hashing.MurmurHash3._
     var acc = HashSeed
     acc = mix(acc, exceptionHandling.##)
-    acc = mix(acc, targetPureWasm.##)
-    acc = mix(acc, componentModel.##)
     acc = mix(acc, witDirectory.##)
     acc = mix(acc, witWorld.##)
     acc = mixLast(acc, autoIncludeWasiImports.##)
-    finalizeHash(acc, 6)
+    finalizeHash(acc, 4)
   }
 
   override def toString(): String = {
     s"""WasmFeatures(
        |  exceptionHandling = $exceptionHandling,
-       |  targetPureWasm = $targetPureWasm,
-       |  componentModel = $componentModel,
        |  witDirectory = $witDirectory,
        |  witWorld = $witWorld,
        |  autoIncludeWasiImports = $autoIncludeWasiImports
@@ -85,16 +67,12 @@ final class WasmFeatures private (
 
   private def copy(
       exceptionHandling: Boolean = this.exceptionHandling,
-      targetPureWasm: Boolean = this.targetPureWasm,
-      componentModel: Boolean = this.componentModel,
       witDirectory: Option[String] = this.witDirectory,
       witWorld: Option[String] = this.witWorld,
       autoIncludeWasiImports: Boolean = this.autoIncludeWasiImports
   ): WasmFeatures = {
     new WasmFeatures(
       _exceptionHandling = exceptionHandling,
-      _targetPureWasm = targetPureWasm,
-      _componentModel = componentModel,
       _witDirectory = witDirectory,
       _witWorld = witWorld,
       _autoIncludeWasiImports = autoIncludeWasiImports
@@ -113,8 +91,6 @@ object WasmFeatures {
     override def fingerprint(wasmFeatures: WasmFeatures): String = {
       new FingerprintBuilder("WasmFeatures")
         .addField("exceptionHandling", wasmFeatures.exceptionHandling)
-        .addField("targetPureWasm", wasmFeatures.targetPureWasm)
-        .addField("componentModel", wasmFeatures.componentModel)
         .addField("witDirectory", wasmFeatures.witDirectory)
         .addField("witWorld", wasmFeatures.witWorld)
         .addField("autoIncludeWasiImports", wasmFeatures.autoIncludeWasiImports)

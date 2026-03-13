@@ -27,6 +27,8 @@ import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 import org.scalajs.testsuite.utils.Platform._
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class MathTest {
 
@@ -442,7 +444,7 @@ class MathTest {
 
   @Test def expm1(): Unit = {
     assumeFalse(executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       assertTrue(1 / Math.expm1(-0.0) < 0)
       assertTrue(1 / Math.expm1(0.0) > 0)
       assertSameDouble(-0.0, Math.expm1(-0.0))
@@ -459,7 +461,7 @@ class MathTest {
 
   @Test def sinh(): Unit = {
     assumeFalse(executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       assertEquals(Double.NegativeInfinity, Math.sinh(-1234.56), 0.0)
       assertEquals(Double.PositiveInfinity, Math.sinh(1234.56), 0.0)
       assertSameDouble(0.0, Math.sinh(0.0))
@@ -472,7 +474,7 @@ class MathTest {
 
   @Test def cosh(): Unit = {
     assumeFalse(executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       assertEquals(Double.PositiveInfinity, Math.cosh(-1234.56), 0.0)
       assertEquals(Double.PositiveInfinity, Math.cosh(1234.56), 0.0)
       assertEquals(1.0, Math.cosh(-0.0), 0.01)
@@ -485,7 +487,7 @@ class MathTest {
 
   @Test def tanh(): Unit = {
     assumeFalse(executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       assertEquals(-1.0, Math.tanh(-1234.56), 0.01)
       assertEquals(-1.0, Math.tanh(-120.56), 0.01)
       assertEquals(1.0, Math.tanh(1234.56), 0.01)

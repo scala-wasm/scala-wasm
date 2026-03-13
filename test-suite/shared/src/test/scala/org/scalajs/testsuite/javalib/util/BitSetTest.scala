@@ -21,6 +21,8 @@ import org.scalajs.testsuite.utils.AssertThrows._
 import org.scalajs.testsuite.utils.Platform._
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class BitSetTest {
   @Test def test_Constructor_empty(): Unit = {
@@ -1499,7 +1501,7 @@ class BitSetTest {
   @Test def valueOf_ByteBuffer_typedArrays(): Unit = {
     assumeFalse("requires support for direct Buffers, which isn't available in pure Wasm",
         executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       assumeTrue("requires support for direct Buffers", hasDirectBuffers)
 
       val eightBS = makeEightBS()

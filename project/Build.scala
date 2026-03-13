@@ -242,7 +242,7 @@ object MyScalaJSPlugin extends AutoPlugin {
         val baseConfig = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
         val config = if (enableWasmEverywhere.value) {
           val linkerConfig = scalaJSLinkerConfig.value
-          val additionWasmArgs = if (!linkerConfig.wasmFeatures.targetPureWasm) {
+          val additionWasmArgs = if (linkerConfig.moduleKind == ModuleKind.ESModule) {
             List(
               "--experimental-wasm-exnref",
               "--experimental-wasm-imported-strings", // for JS string builtins
@@ -275,6 +275,10 @@ object MyScalaJSPlugin extends AutoPlugin {
           case ModuleKind.NoModule       => "commonjs"
           case ModuleKind.CommonJSModule => "commonjs"
           case ModuleKind.ESModule       => "module"
+
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+            // Nonsensical, but we need to emit something
+            "module"
         }
 
         val path = target.value / "package.json"
@@ -2085,11 +2089,9 @@ object Build {
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withExperimentalUseWebAssembly(true)
-         .withModuleKind(ModuleKind.ESModule)
+         .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withTargetPureWasm(true)
-             .withComponentModel(true)
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
          }
@@ -2108,8 +2110,7 @@ object Build {
       scalaJSLinkerConfig ~= {
         _.withPrettyPrint(true)
          .withExperimentalUseWebAssembly(true)
-         .withModuleKind(ModuleKind.ESModule)
-         .withWasmFeatures(_.withTargetPureWasm(true))
+         .withModuleKind(ModuleKind.MinimalWasmModule)
       },
       jsEnv := {
         val config = NodeJSEnv.Config().withArgs(List(
@@ -2138,11 +2139,9 @@ object Build {
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withExperimentalUseWebAssembly(true)
-         .withModuleKind(ModuleKind.ESModule)
+         .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withTargetPureWasm(true)
-             .withComponentModel(true)
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
           }
@@ -2166,11 +2165,9 @@ object Build {
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withExperimentalUseWebAssembly(true)
-         .withModuleKind(ModuleKind.ESModule)
+         .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withTargetPureWasm(true)
-             .withComponentModel(true)
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
           }
@@ -2193,12 +2190,10 @@ object Build {
         val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
-         .withModuleKind(ModuleKind.ESModule)
+         .withModuleKind(ModuleKind.WasmComponent)
          .withExperimentalUseWebAssembly(true)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withTargetPureWasm(true)
-             .withComponentModel(true)
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
          }
@@ -2309,7 +2304,11 @@ object Build {
 
       Test / unmanagedSourceDirectories ++= {
         val config = (Test / scalaJSLinkerConfig).value
-        val targetPureWasm = config.wasmFeatures.targetPureWasm
+
+        val isWasmNoJS = config.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
 
         val testDir = (Test / sourceDirectory).value
         val sharedTestDir =
@@ -2320,7 +2319,7 @@ object Build {
         val javaV = javaVersion.value
         val scalaV = scalaVersion.value
 
-        if (targetPureWasm) {
+        if (isWasmNoJS) {
           List(
             sharedTestDir / "scala",
             jsTestDir, // run only a few tests (filtered out in sources)
@@ -2339,7 +2338,11 @@ object Build {
 
       Test / sources := {
         val config = (Test / scalaJSLinkerConfig).value
-        val targetPureWasm = config.wasmFeatures.targetPureWasm
+
+        val isWasmNoJS = config.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
 
         def endsWith(f: File, suffix: String): Boolean =
           f.getPath().replace('\\', '/').endsWith(suffix)
@@ -2348,8 +2351,9 @@ object Build {
           f.getPath().replace('\\', '/').contains(substr)
 
         val originalSources = (Test / sources).value
-        if (!targetPureWasm) originalSources
-        else {
+        if (!isWasmNoJS) {
+          originalSources
+        } else {
           originalSources
             .filter(f =>
               contains(f, "/shared/src/test/scala-old-collections/") ||
@@ -2489,9 +2493,13 @@ object Build {
         val moduleKind = linkerConfig.moduleKind
         val hasModules = moduleKind != ModuleKind.NoModule
         val isWebAssembly = linkerConfig.experimentalUseWebAssembly
-        val targetPureWasm = linkerConfig.wasmFeatures.targetPureWasm
 
-        if (targetPureWasm) Nil
+        val isWasmNoJS = linkerConfig.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
+
+        if (isWasmNoJS) Nil
         else {
         collectionsEraDependentDirectory(scalaV, testDir) ::
         includeIf(testDir / "require-new-target",
@@ -2519,15 +2527,13 @@ object Build {
 
       Test / unmanagedResourceDirectories ++= {
         val testDir = (Test / sourceDirectory).value
-        val targetPureWasm = scalaJSLinkerConfig.value.wasmFeatures.targetPureWasm
 
-        if (targetPureWasm) Nil
-        else {
-          scalaJSLinkerConfig.value.moduleKind match {
-            case ModuleKind.NoModule       => Nil
-            case ModuleKind.CommonJSModule => Seq(testDir / "resources-commonjs")
-            case ModuleKind.ESModule       => Seq(testDir / "resources-esmodule")
-          }
+        scalaJSLinkerConfig.value.moduleKind match {
+          case ModuleKind.NoModule          => Nil
+          case ModuleKind.CommonJSModule    => Seq(testDir / "resources-commonjs")
+          case ModuleKind.ESModule          => Seq(testDir / "resources-esmodule")
+          case ModuleKind.MinimalWasmModule => Nil
+          case ModuleKind.WasmComponent     => Nil
         }
       },
 
@@ -2570,6 +2576,8 @@ object Build {
           "isNoModule" -> (moduleKind == ModuleKind.NoModule),
           "isESModule" -> (moduleKind == ModuleKind.ESModule),
           "isCommonJSModule" -> (moduleKind == ModuleKind.CommonJSModule),
+          "isMinimalWasmModule" -> (moduleKind == ModuleKind.MinimalWasmModule),
+          "isWasmComponent" -> (moduleKind == ModuleKind.WasmComponent),
           "usesClosureCompiler" -> linkerConfig.closureCompiler,
           "hasMinifiedNames" -> (linkerConfig.closureCompiler || linkerConfig.minify),
           "compliantAsInstanceOfs" -> (sems.asInstanceOfs == CheckedBehavior.Compliant),
@@ -2583,7 +2591,6 @@ object Build {
           "esVersion" -> linkerConfig.esFeatures.esVersion.edition,
           "useECMAScript2015Semantics" -> linkerConfig.esFeatures.useECMAScript2015Semantics,
           "isWebAssembly" -> linkerConfig.experimentalUseWebAssembly,
-          "targetPureWasm" -> linkerConfig.wasmFeatures.targetPureWasm,
         )
       },
 

@@ -18,7 +18,9 @@ import java.lang.Utils._
 import java.nio._
 
 import scala.scalajs.js
-import scala.scalajs.LinkingInfo.{targetPureWasm, linkTimeIf}
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class CoderResult private (kind: Int, _length: Int) {
   import CoderResult._
@@ -61,7 +63,7 @@ object CoderResult {
 
   // This is a sparse array
   private val uniqueMalformedJS = {
-    linkTimeIf(!targetPureWasm) {
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       js.Array[js.UndefOr[CoderResult]]()
     } {
       null
@@ -69,7 +71,7 @@ object CoderResult {
   }
 
   private val uniqueMalformedWasm = {
-    linkTimeIf(targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       new java.util.HashMap[Int, CoderResult]()
     } {
       null
@@ -83,7 +85,7 @@ object CoderResult {
 
   // This is a sparse array
   private val uniqueUnmappableJS = {
-    linkTimeIf(!targetPureWasm) {
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       js.Array[js.UndefOr[CoderResult]]()
     } {
       null
@@ -91,7 +93,7 @@ object CoderResult {
   }
 
   private val uniqueUnmappableWasm = {
-    linkTimeIf(targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       new java.util.HashMap[Int, CoderResult]()
     } {
       null
@@ -107,7 +109,7 @@ object CoderResult {
   }
 
   private def malformedForLengthImpl(length: Int): CoderResult = {
-    linkTimeIf(targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       uniqueMalformedWasm.computeIfAbsent(length, _ => new CoderResult(Malformed, length))
     } {
       undefOrFold(uniqueMalformedJS(length)) { () =>
@@ -129,7 +131,7 @@ object CoderResult {
   }
 
   private def unmappableForLengthImpl(length: Int): CoderResult = {
-    linkTimeIf(targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       uniqueUnmappableWasm.computeIfAbsent(length, _ => new CoderResult(Unmappable, length))
     } {
       undefOrFold(uniqueUnmappableJS(length)) { () =>

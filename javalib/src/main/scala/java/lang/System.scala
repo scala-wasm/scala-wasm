@@ -17,6 +17,8 @@ import java.io._
 import scala.scalajs.js
 import scala.scalajs.js.Dynamic.global
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.{ESVersion, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import java.{util => ju}
 import java.util.function._
@@ -68,7 +70,7 @@ object System {
 
   @inline
   def currentTimeMillis(): scala.Long = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       WasmSystem.currentTimeMillis()
     } {
       js.Date.now().toLong
@@ -86,7 +88,7 @@ object System {
 
   @inline
   def nanoTime(): scala.Long = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       WasmSystem.nanoTime()
     } {
       (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
@@ -192,7 +194,8 @@ object System {
   private object SystemProperties {
 
     private val storageImpl: StorageImpl = {
-      LinkingInfo.linkTimeIf[StorageImpl](LinkingInfo.targetPureWasm) {
+      LinkingInfo.linkTimeIf[StorageImpl](
+          moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
         StorageImpl.HashMapStorageImpl
       } {
         StorageImpl.DictStorageImpl
@@ -460,7 +463,7 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       WasmSystem.print(line)
     } {
       import js.DynamicImplicits.truthValue

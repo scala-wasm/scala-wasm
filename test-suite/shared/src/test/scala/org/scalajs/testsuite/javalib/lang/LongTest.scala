@@ -22,6 +22,8 @@ import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 import org.scalajs.testsuite.utils.Platform.executingInPureWebAssembly
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** Tests the implementation of the java standard library Long
  *  requires jsinterop/LongTest to work to make sense
@@ -192,7 +194,7 @@ class LongTest {
 
   @Test def parseStringBase2To36(): Unit = {
     assumeFalse("Doesn't link StringRadixInfos", executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       def test(radix: Int, s: String, v: Long): Unit = {
         assertEquals(v, JLong.parseLong(s, radix))
         assertEquals(v, JLong.valueOf(s, radix).longValue())

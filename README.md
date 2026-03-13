@@ -24,7 +24,7 @@ This is a friendly fork of Scala.js, targeting stand-alone Wasm runtimes such as
 ### `test-suite`
 ```sh
 sbt:Scala.js> set Global/enableWasmEverywhere := true
-sbt:Scala.js> set scalaJSLinkerConfig in testSuite.v2_12 ~= (_.withWasmFeatures(_.withTargetPureWasm(true)))
+sbt:Scala.js> set scalaJSLinkerConfig in testSuite.v2_12 ~= (_.withModuleKind(ModuleKind.MinimalWasmModule))
 sbt:Scala.js> testSuite2_12/test
 ```
 

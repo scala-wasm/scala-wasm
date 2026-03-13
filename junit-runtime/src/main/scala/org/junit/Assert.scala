@@ -10,7 +10,6 @@ import org.junit.internal.InexactComparisonCriteria
 import org.junit.internal.ExactComparisonCriteria
 import org.hamcrest.Matcher
 import org.hamcrest.MatcherAssert
-import scala.scalajs.LinkingInfo
 
 object Assert {
   @noinline
@@ -411,17 +410,9 @@ object Assert {
             actualThrown)
     }
 
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
-      throw new AssertionError(
-        buildPrefix +
-        "expecte " + formatClass(expectedThrowable) + " to be thrown, but nothing was thrown"
-      )
-    } {
-      throw new AssertionError(
-          buildPrefix +
-          String.format(
-              "expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable)))
-    }
+    throw new AssertionError(
+        s"${buildPrefix}expected ${formatClass(expectedThrowable)} " +
+        "to be thrown, but nothing was thrown")
 
     // scalastyle:on return
   }

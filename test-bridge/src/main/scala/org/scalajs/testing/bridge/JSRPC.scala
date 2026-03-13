@@ -14,8 +14,8 @@ package org.scalajs.testing.bridge
 
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
-import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.linkTimeIf
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /* Use the queue execution context (based on JS promises) explicitly:
  * We do not have anything better at our disposal and it is accceptable in
@@ -31,7 +31,7 @@ import org.scalajs.testing.common.RPCCore
 
 /** JS RPC Core. Uses `scalajsCom`. */
 private[bridge] final object JSRPC extends RPCCore {
-  linkTimeIf(LinkingInfo.targetPureWasm) {
+  linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
     ScalajsCom.init()
   } {
     Com.init(handleMessage _)
@@ -46,7 +46,7 @@ private[bridge] final object JSRPC extends RPCCore {
     handleMessage(msg)
 
   override protected def send(msg: String): Unit = {
-    linkTimeIf(LinkingInfo.targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       ScalajsCom.send(msg)
     } {
       Com.send(msg)

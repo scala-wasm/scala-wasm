@@ -19,8 +19,13 @@ package scala.scalajs
  *  Once all tests link to pure Wasm and linkTimeIf removed, this shim will no longer be needed.
  */
 object LinkingInfo {
-  final val targetPureWasm = false
+  val moduleKind = -1
 
   def linkTimeIf[T](cond: Boolean)(thenp: T)(elsep: T): T =
     if (cond) thenp else elsep
+
+  object ModuleKind {
+    final val MinimalWasmModule = 4
+    final val WasmComponent = 5
+  }
 }

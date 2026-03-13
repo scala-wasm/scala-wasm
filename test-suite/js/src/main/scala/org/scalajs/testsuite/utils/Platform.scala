@@ -13,7 +13,8 @@
 package org.scalajs.testsuite.utils
 
 import scala.scalajs.js
-import scala.scalajs.LinkingInfo.{ESVersion, targetPureWasm, linkTimeIf}
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import org.scalajs.testsuite.utils.{BuildInfo => ScalaJSBuildInfo}
 
@@ -33,8 +34,6 @@ object Platform {
   def executingInJVMWithJDKIn(range: Range): Boolean = false
 
   def executingInWebAssembly: Boolean = BuildInfo.isWebAssembly
-
-  def executingInPureWebAssembly: Boolean = BuildInfo.targetPureWasm
 
   def executingInNodeJS: Boolean = {
     js.typeOf(js.Dynamic.global.process) != "undefined" &&
@@ -93,7 +92,7 @@ object Platform {
   def hasCompliantModuleInit: Boolean = BuildInfo.compliantModuleInit
 
   def hasDirectBuffers: Boolean =
-    linkTimeIf(targetPureWasm)(false)(typedArrays)
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent)(false)(typedArrays)
 
   def regexSupportsUnicodeCase: Boolean =
     assumedESVersion >= ESVersion.ES2015
@@ -107,6 +106,10 @@ object Platform {
   def isNoModule: Boolean = BuildInfo.isNoModule
   def isESModule: Boolean = BuildInfo.isESModule
   def isCommonJSModule: Boolean = BuildInfo.isCommonJSModule
+  def isMinimalWasmModule: Boolean = BuildInfo.isMinimalWasmModule
+  def isWasmComponent: Boolean = BuildInfo.isWasmComponent
+
+  def executingInPureWebAssembly: Boolean = isMinimalWasmModule || isWasmComponent
 
   /** Runs the specified piece of code in the global context.
    *

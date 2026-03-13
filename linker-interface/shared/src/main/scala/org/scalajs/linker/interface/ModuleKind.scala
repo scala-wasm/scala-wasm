@@ -23,9 +23,12 @@ object ModuleKind {
    *  whoever maintains the back-ends.
    */
   val All: List[ModuleKind] = List(
-      NoModule,
-      ESModule,
-      CommonJSModule)
+    NoModule,
+    ESModule,
+    MinimalWasmModule,
+    WasmComponent,
+    CommonJSModule
+  )
 
   /** No module structure.
    *
@@ -42,6 +45,12 @@ object ModuleKind {
    */
   case object ESModule extends ModuleKind
 
+  /** A minimal Wasm module. */
+  case object MinimalWasmModule extends ModuleKind
+
+  /** A Wasm Component in the Component Model. */
+  case object WasmComponent extends ModuleKind
+
   /** A CommonJS module (notably used by Node.js).
    *
    *  Imported modules are fetched with `require`. Exports go to the `exports`
@@ -53,9 +62,11 @@ object ModuleKind {
 
     override def fingerprint(moduleKind: ModuleKind): String = {
       moduleKind match {
-        case NoModule       => "NoModule"
-        case ESModule       => "ESModule"
-        case CommonJSModule => "CommonJSModule"
+        case NoModule          => "NoModule"
+        case ESModule          => "ESModule"
+        case MinimalWasmModule => "MinimalWasmModule"
+        case WasmComponent     => "WasmComponent"
+        case CommonJSModule    => "CommonJSModule"
       }
     }
   }

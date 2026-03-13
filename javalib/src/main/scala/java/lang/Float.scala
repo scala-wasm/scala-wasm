@@ -16,7 +16,9 @@ import java.lang.constant.{Constable, ConstantDesc}
 import java.util.regex.{Matcher, Pattern, RegExpImpl}
 
 import scala.scalajs.js
-import scala.scalajs.LinkingInfo._
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.{ESVersion, esVersion, linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /* This is a hijacked class. Its instances are primitive numbers.
  * Constructors are not emitted.
@@ -150,7 +152,7 @@ object Float {
   private def parseFloatDecimal(fullNumberStr: String,
       integralPartStr: String, fractionalPartStr: String,
       exponentStr: String): scala.Float = {
-    linkTimeIf[scala.Float](targetPureWasm) {
+    linkTimeIf[scala.Float](moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       parseFloatDecimalWasm(fullNumberStr, integralPartStr, fractionalPartStr, exponentStr)
     } {
       parseFloatDecimalJS(fullNumberStr, integralPartStr, fractionalPartStr, exponentStr)

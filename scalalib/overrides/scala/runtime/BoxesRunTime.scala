@@ -3,7 +3,8 @@ package scala.runtime
 import scala.math.ScalaNumber
 
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.linkTimeIf
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /* The declaration of the class is only to make the JVM back-end happy when
  * compiling the scalalib.
@@ -52,7 +53,7 @@ object BoxesRunTime {
   def unboxToDouble(d: Any): Double = d.asInstanceOf[Double]
 
   def equals(x: Object, y: Object): Boolean =
-    linkTimeIf(LinkingInfo.targetPureWasm) {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       if (x eq y) {
         x match {
           case x: java.lang.Double => x == x // rejects NaN

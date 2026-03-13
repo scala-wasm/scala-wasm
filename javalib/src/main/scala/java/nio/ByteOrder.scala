@@ -16,6 +16,8 @@ import scala.scalajs.js
 import scala.scalajs.js.typedarray._
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 final class ByteOrder private (name: String) {
   override def toString(): String = name
@@ -26,7 +28,7 @@ object ByteOrder {
   val LITTLE_ENDIAN: ByteOrder = new ByteOrder("LITTLE_ENDIAN")
 
   private[nio] val areTypedArraysBigEndian = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       true
     } {
       if (js.typeOf(js.Dynamic.global.Int32Array) != "undefined") {

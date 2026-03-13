@@ -17,6 +17,8 @@ import scala.language.higherKinds
 import java.util.function.Supplier
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** Underlying engine used by `Pattern`.
  *
@@ -109,7 +111,7 @@ private[regex] abstract class Engine {
 
 private[regex] object Engine {
   val engine: Engine = {
-    LinkingInfo.linkTimeIf[Engine](LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf[Engine](moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       WasmEngine
     } {
       JSEngine

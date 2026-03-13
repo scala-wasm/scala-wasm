@@ -17,6 +17,8 @@ import scala.annotation.tailrec
 import java.util.ScalaOps._
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import PatternCompiler.Support._
 
@@ -140,7 +142,7 @@ final class Pattern private[regex] (
 
   private[regex] def getIndices(lastMatch: engine.ExecResult,
       forMatches: Boolean): engine.IndicesArray = {
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       val indices = engine.getIndices(lastMatch)
       if (indices == null)
         throw new AssertionError("Unreachable; WasmEngine always supports and produces indices")

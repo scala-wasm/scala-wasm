@@ -23,6 +23,8 @@ import org.scalajs.testsuite.utils.AssertThrows.{assertThrows, _}
 import org.scalajs.testsuite.utils.Platform._
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class RegressionTest {
   import RegressionTest._
@@ -110,7 +112,7 @@ class RegressionTest {
     assumeFalse("TODO: mutable.Buffer doesn't link in pure Wasm, it uses typedarray",
         executingInPureWebAssembly)
 
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       val a = scala.collection.mutable.Buffer.empty[Int]
       a.insert(0, 0)
       a.remove(0)

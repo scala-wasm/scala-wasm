@@ -19,6 +19,8 @@ import org.junit.Assume._
 import org.scalajs.testsuite.utils.Platform.{executingInJVM, executingInPureWebAssembly}
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class ThreadTest {
 
@@ -38,7 +40,7 @@ class ThreadTest {
 
   @Test def currentThreadGetStackTrace(): Unit = {
     assumeFalse("Doesn't link in pure Wasm", executingInPureWebAssembly)
-    LinkingInfo.linkTimeIf(!LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
       val _ = Thread.currentThread().getStackTrace()
     } {}
   }

@@ -563,6 +563,10 @@ private[sbtplugin] object ScalaJSPluginInternal {
           case ModuleKind.NoModule       => Input.Script(path)
           case ModuleKind.ESModule       => Input.ESModule(path)
           case ModuleKind.CommonJSModule => Input.CommonJSModule(path)
+
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+            // Pretend that we are an ES module for now
+            Input.ESModule(path)
         }
       },
 
@@ -686,7 +690,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val log = s.log
 
         // Only run when component model is enabled
-        if (!linkerConfig.wasmFeatures.componentModel) {
+        if (linkerConfig.moduleKind != ModuleKind.WasmComponent) {
           Seq.empty[File]
         } else if (!witDir.exists()) {
           log.debug(s"WIT directory $witDir does not exist, skipping wit-bindgen")

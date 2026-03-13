@@ -30,7 +30,8 @@ import java.util.ScalaOps._
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** Compiler from Java regular expressions to JavaScript regular expressions.
  *
@@ -50,7 +51,7 @@ private[regex] object PatternCompiler {
 
   /** RegExp to renumber backreferences (used for possessive quantifiers).
    *
-   *  Lazy because we cannot link it under targetPureWasm.
+   *  Lazy because we cannot link it under Wasm without JS interop.
    */
   private lazy val renumberingRegExp =
     new js.RegExp("(\\\\+)(\\d+)", "g")
@@ -1209,7 +1210,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
   private def buildPossessiveQuantifier(compiledGroupCountBeforeThisToken: Int,
       compiledToken: String, baseRepeater: String): String = {
 
-    LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       /* Our WasmEngine supports possessive quantifiers.
        * We use them so that we don't need renumbering, which we otherwise
        * use a js.RegExp for.
@@ -1910,7 +1911,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
       } else if (c1 == '>') {
         // Atomic group
         pIndex = start + 3
-        LinkingInfo.linkTimeIf(LinkingInfo.targetPureWasm) {
+        LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
           // Our WasmEngine directly supports atomic groups, so use them.
           s"(?>${compileInsideGroup()})"
         } {
@@ -1945,7 +1946,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
   @inline
   def ucSubstring(s: String, start: Int): String = {
     LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
-      // use s.substring anyway, for the intrinsic or the targetPureWasm implementation
+      // use s.substring anyway, for the intrinsic or the Wasm-only implementation
       s.substring(start)
     } {
       // avoid range checks
@@ -1958,7 +1959,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
   @inline
   def ucSubstring(s: String, start: Int, end: Int): String = {
     LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
-      // use s.substring anyway, for the intrinsic or the targetPureWasm implementation
+      // use s.substring anyway, for the intrinsic or the Wasm-only implementation
       s.substring(start, end)
     } {
       // avoid range checks

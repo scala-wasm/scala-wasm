@@ -22,6 +22,8 @@ private[utils] object BuildInfo {
   final val isNoModule = false
   final val isESModule = false
   final val isCommonJSModule = false
+  final val isMinimalWasmModule = false
+  final val isWasmComponent = false
   final val usesClosureCompiler = false
   final val hasMinifiedNames = false
   final val compliantAsInstanceOfs = false

@@ -17,7 +17,8 @@ import java.util.regex.RegExpImpl
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.linkTimeIf
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import Utils._
 
@@ -127,7 +128,7 @@ object Double {
     import RegExpImpl.impl
     val groups = impl.exec(doubleStrPat, s)
     if (impl.matches(groups)) {
-      linkTimeIf(LinkingInfo.targetPureWasm) {
+      linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
         parseDoubleWasm(s, groups)
       } {
         js.Dynamic.global.parseFloat(impl.get(groups, 1)).asInstanceOf[scala.Double]
@@ -289,7 +290,7 @@ object Double {
     @inline def nativeParseInt(s: String, radix: Int): scala.Double =
       js.Dynamic.global.parseInt(s, radix).asInstanceOf[scala.Double]
 
-    val mantissa = linkTimeIf(LinkingInfo.targetPureWasm) {
+    val mantissa = linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       val mantissaLong = Long.parseUnsignedLong(truncatedMantissaStr, 16)
       // convert unsigned long to double
       (mantissaLong >>> 32).toDouble * (1L << 32) + (mantissaLong & 0xffffffffL).toDouble
@@ -298,7 +299,7 @@ object Double {
     }
     // Assert: mantissa != 0.0 && mantissa != scala.Double.PositiveInfinity
 
-    val binaryExp = linkTimeIf(LinkingInfo.targetPureWasm) {
+    val binaryExp = linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       if (binaryExpStr.length() > 11) {
         if (binaryExpStr.charAt(0) == '-') Int.MinValue
         else Int.MaxValue

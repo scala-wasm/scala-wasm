@@ -12,7 +12,9 @@
 
 package java.util.regex
 
-import scala.scalajs.LinkingInfo._
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** A wrapper class to select regex implementation across different platforms.
  *
@@ -38,7 +40,8 @@ private[java] sealed abstract class RegExpImpl {
 }
 
 private[java] object RegExpImpl {
-  val impl = linkTimeIf[RegExpImpl](targetPureWasm) {
+  val impl = LinkingInfo.linkTimeIf[RegExpImpl](
+      moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
     JavaRegExpImpl
   } {
     JSRegExpImpl

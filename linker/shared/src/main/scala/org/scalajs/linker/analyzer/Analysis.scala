@@ -312,7 +312,7 @@ object Analysis {
         val usages = jsInteropUsages.map { case (pos, irStr) =>
           s"  at ${pos.source}:${pos.line + 1}:${pos.column + 1}: $irStr"
         }.mkString("\n")
-        s"Uses JS interop with targetPureWasm = true:\n$usages"
+        s"Uses JS interop with with a Wasm-only module kind:\n$usages"
     }
 
     logger.log(level, headMsg)

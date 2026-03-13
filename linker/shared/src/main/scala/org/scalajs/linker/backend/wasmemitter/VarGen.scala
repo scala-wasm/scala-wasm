@@ -57,7 +57,7 @@ object VarGen {
     case object bZeroLong extends GlobalID
     case object lastIDHashCode extends GlobalID
 
-    // targetPureWasm
+    // Wasm-only, without JS interop
     case object stringLiteralCache extends GlobalID
     case object bZeroBoolean extends GlobalID
     case object bZeroInteger extends GlobalID
@@ -264,7 +264,8 @@ object VarGen {
       case object equals extends JSHelperFunctionID
     }
 
-    object wasmString { // targetPureWasm
+    // Wasm-only, without JS interop
+    object wasmString {
       // case object stringFromCharCode extends FunctionID
       case object stringConcat extends FunctionID
       case object stringEquals extends FunctionID
@@ -426,7 +427,7 @@ object VarGen {
        */
       case object reflectiveProxies extends FieldID
 
-      /** The name data as the 3 arguments to `stringLiteral`. (targetPureWasm only)
+      /** The name data as the 3 arguments to `stringLiteral` (only without JS interop).
        *
        *  It is only meaningful for primitives and for classes. For array types, they are all 0, as
        *  array types compute their `name` from the `name` of their component type.
@@ -457,7 +458,9 @@ object VarGen {
       case object fun extends FieldID
     }
 
-    object wasmString { // targetPureWasm
+    // Wasm-only, without JS interop
+    object wasmString {
+
       /** Internal i16Array storage for the characters of the string.
        *
        *  For concatenation optimizations, this array may initially contain
@@ -542,8 +545,8 @@ object VarGen {
 
     case object typeDataArray extends TypeID
     case object reflectiveProxies extends TypeID
-    case object undefined extends TypeID // targetPureWasm
-    case object wasmString extends TypeID // targetPureWasm
+    case object undefined extends TypeID // Wasm-only, without JS interop
+    case object wasmString extends TypeID // Wasm-only, without JS interop
 
     // primitive array types, underlying the Array[T] classes
     case object i8Array extends TypeID

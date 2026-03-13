@@ -26,7 +26,6 @@ object SpecialNames {
   val CharBoxClass = BoxedCharacterClass.withSuffix("Box")
   val LongBoxClass = BoxedLongClass.withSuffix("Box")
 
-  // targetPureWasm
   val BooleanBoxClass = BoxedBooleanClass.withSuffix("Box")
   val IntegerBoxClass = BoxedIntegerClass.withSuffix("Box")
   val DoubleBoxClass = BoxedDoubleClass.withSuffix("Box")

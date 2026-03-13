@@ -54,8 +54,6 @@ private[optimizer] abstract class OptimizerCore(
 
   private val isWasm: Boolean = config.coreSpec.targetIsWebAssembly
 
-  private val targetPureWasm: Boolean = config.coreSpec.wasmFeatures.targetPureWasm
-
   // Uncomment and adapt to print debug messages only during one method
   // lazy val debugThisMethod: Boolean =
   //  debugID == "java.lang.FloatingPointBits$.numberHashCode;D;I"
@@ -146,7 +144,7 @@ private[optimizer] abstract class OptimizerCore(
     !config.coreSpec.esFeatures.allowBigIntsForLongs && !isWasm
 
   private val intrinsics =
-    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm, targetPureWasm)
+    Intrinsics.buildIntrinsics(config.coreSpec)
 
   private val integerDivisions = new IntegerDivisions(useRuntimeLong)
 
@@ -7436,14 +7434,13 @@ private[optimizer] object OptimizerCore {
     )
     // scalafmt: {}
 
-    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean,
-        targetPureWasm: Boolean): Intrinsics = {
-      val allIntrinsics = if (isWasm) {
+    def buildIntrinsics(coreSpec: CoreSpec): Intrinsics = {
+      val allIntrinsics = if (coreSpec.targetIsWebAssembly) {
         commonIntrinsics ::: wasmIntrinsics :::
-        (if (targetPureWasm) Nil else wasmJSStringIntrinsics)
+        (if (coreSpec.moduleKind == ModuleKind.ESModule) wasmJSStringIntrinsics else Nil)
       } else {
         val baseIntrinsics = commonIntrinsics ::: baseJSIntrinsics
-        if (esFeatures.allowBigIntsForLongs) baseIntrinsics
+        if (coreSpec.esFeatures.allowBigIntsForLongs) baseIntrinsics
         else baseIntrinsics ++ runtimeLongIntrinsics
       }
 

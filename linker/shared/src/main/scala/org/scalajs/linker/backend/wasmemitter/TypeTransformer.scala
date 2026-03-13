@@ -110,7 +110,7 @@ object TypeTransformer {
     val heapType: watpe.HeapType = ctx.getClassInfoOption(className) match {
       case Some(info) =>
         if (className == BoxedStringClass) {
-          if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+          if (!ctx.hasJSInterop)
             watpe.HeapType(genTypeID.wasmString)
           else
             watpe.HeapType.Extern // for all the JS string builtin functions
@@ -153,7 +153,7 @@ object TypeTransformer {
       case FloatType   => watpe.Float32
       case DoubleType  => watpe.Float64
       case StringType  =>
-        if (ctx.coreSpec.wasmFeatures.targetPureWasm)
+        if (!ctx.hasJSInterop)
           watpe.RefType(genTypeID.wasmString)
         else
           watpe.RefType.extern
