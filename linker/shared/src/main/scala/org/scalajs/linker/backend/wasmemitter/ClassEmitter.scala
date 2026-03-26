@@ -592,7 +592,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
       ) ::: (
         strictAncestorsTypeData // strictAncestors
       ) ::: List(
-        wa.GlobalGet(nonArrayTypeDataGlobalID(baseTypeRef)), // componentType
+        wa.GlobalGet(genGlobalID.forVTable(baseTypeRef)), // componentType
         wa.RefNull(watpe.HeapType.None), // classOf
         wa.RefNull(watpe.HeapType.None), // arrayOf
         wa.RefFunc(genFunctionID.cloneArray(baseTypeRef)), // clone

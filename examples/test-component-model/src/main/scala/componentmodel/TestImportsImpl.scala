@@ -17,8 +17,6 @@ import java.util.Optional
 @WitImplementation
 object TestImportsImpl extends TestImports {
   override def run(): Unit = {
-    def newCounterArray(size: Int): Array[Counter] =
-      new Array[Counter](size)
 
     val start = System.currentTimeMillis()
 
@@ -63,15 +61,6 @@ object TestImportsImpl extends TestImports {
 
     val arr3 = Array[C1](C1.A(0), C1.B(3))
     assert(arr3.sameElements(roundtripListVariant(arr3)))
-
-    val counter1 = Counter(1)
-    val counter2 = Counter(2)
-    val counterArr = newCounterArray(2)
-    assert(counterArr.length == 2)
-    counterArr(0) = counter1
-    counterArr(1) = counter2
-    assert(counterArr(0).valueOf() == 1)
-    assert(counterArr(1).valueOf() == 2)
 
     assert("foo" == roundtripString("foo"))
     assert("" == roundtripString(""))

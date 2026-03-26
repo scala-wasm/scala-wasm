@@ -25,14 +25,6 @@ import org.scalajs.linker.backend.webassembly.Identitities.LocalID
 /** Scala.js-specific Wasm generators that are used across the board. */
 object SWasmGen {
 
-  def nonArrayTypeDataGlobalID(typeRef: NonArrayTypeRef) = typeRef match {
-    case WitResourceTypeRef(className) =>
-      // Resource classes currently share the class-backed typeData/vtable global.
-      genGlobalID.forVTable(className)
-    case _ =>
-      genGlobalID.forVTable(typeRef)
-  }
-
   def genZeroOf(tpe: Type)(implicit ctx: WasmContext): List[Instr] = {
     tpe match {
       case WitResourceType(className) =>
@@ -91,7 +83,7 @@ object SWasmGen {
   }
 
   def genLoadNonArrayTypeData(fb: FunctionBuilder, typeRef: NonArrayTypeRef): Unit =
-    fb += GlobalGet(nonArrayTypeDataGlobalID(typeRef))
+    fb += GlobalGet(genGlobalID.forVTable(typeRef))
 
   def genLoadArrayTypeData(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef): Unit = {
     val ArrayTypeRef(base, dimensions) = arrayTypeRef

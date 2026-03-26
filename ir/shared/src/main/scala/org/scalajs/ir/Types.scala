@@ -548,8 +548,6 @@ object Types {
                  * Object in their ancestors.
                  */
                 rhsBaseName == ObjectClass || isSubclass(lhsBaseName, rhsBaseName)
-              case (WitResourceTypeRef(lhsBaseName), WitResourceTypeRef(rhsBaseName)) =>
-                lhsBaseName == rhsBaseName
               case _ =>
                 lhsBase eq rhsBase
             }
