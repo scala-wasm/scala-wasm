@@ -291,7 +291,7 @@ package object network {
    *  There is no need for this to map 1:1 to a physical network interface.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/network@0.2.0", "network")
-  trait Network {
+  final class Network private () extends Object {
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }

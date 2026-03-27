@@ -44,7 +44,7 @@ package object streams {
    *  for using `wasi:io/poll`.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "input-stream")
-  trait InputStream {
+  final class InputStream private () extends Object {
 
     /** Perform a non-blocking read from the stream.
      *
@@ -126,7 +126,7 @@ package object streams {
    *  polled for using `wasi:io/poll`.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "output-stream")
-  trait OutputStream {
+  final class OutputStream private () extends Object {
 
     /** Check readiness for writing. This function never blocks.
      *

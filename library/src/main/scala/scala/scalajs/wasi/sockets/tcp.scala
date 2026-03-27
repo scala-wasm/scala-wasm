@@ -60,7 +60,7 @@ package object tcp {
    *  `error(invalid-state)` when in the `closed` state.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/tcp@0.2.0", "tcp-socket")
-  trait TcpSocket {
+  final class TcpSocket private () extends Object {
 
     /** Bind the socket to a specific network on the provided IP address and port.
      *

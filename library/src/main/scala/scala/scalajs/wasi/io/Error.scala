@@ -24,7 +24,7 @@ package object error {
    *  concrete type is open.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/error@0.2.0", "error")
-  trait Error {
+  final class Error private () extends Object {
 
     /** Returns a string that is suitable to assist humans in debugging
      *  this error.
