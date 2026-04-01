@@ -1,0 +1,7 @@
+package scalajs:test-rpc;
+
+interface rpc {
+  init: func();
+  send: func(msg: string);
+  poll: func() -> option<string>;
+}

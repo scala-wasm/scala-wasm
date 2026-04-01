@@ -420,7 +420,7 @@ object ScalaJSPlugin extends AutoPlugin {
           new NodeJSEnv()
         },
 
-        wasmEnv := {
+        wasmEnv := Def.uncached {
           val configuredEnvVars = envVars.value
           val config = WasmtimeEnv.Config()
             .withArgs(List(

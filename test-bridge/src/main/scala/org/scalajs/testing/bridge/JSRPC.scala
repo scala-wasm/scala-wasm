@@ -29,12 +29,32 @@ import scala.concurrent.duration._
 
 import org.scalajs.testing.common.RPCCore
 
-/** JS RPC Core. Uses `scalajsCom`. */
+/** JS RPC Core. */
 private[bridge] final object JSRPC extends RPCCore {
-  linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+  linkTimeIf(moduleKind == MinimalWasmModule) {
     ScalajsCom.init()
   } {
-    Com.init(handleMessage _)
+    linkTimeIf(moduleKind == WasmComponent) {
+      TestRpcTransport.init()
+    } {
+      Com.init(handleMessage _)
+    }
+  }
+
+  def startPollingIfWasmComponent(): Unit = {
+    linkTimeIf(moduleKind == WasmComponent) {
+      var continue = true
+      while (continue) {
+        val maybeMsg = TestRpcTransport.poll()
+        if (maybeMsg.isPresent) {
+          handleMessage(maybeMsg.get())
+        } else {
+          continue = false
+        }
+      }
+    } {
+      () // do nothing
+    }
   }
 
   /** The method referenced by the ScalajsCom.init function,
@@ -46,10 +66,14 @@ private[bridge] final object JSRPC extends RPCCore {
     handleMessage(msg)
 
   override protected def send(msg: String): Unit = {
-    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+    linkTimeIf(moduleKind == MinimalWasmModule) {
       ScalajsCom.send(msg)
     } {
-      Com.send(msg)
+      linkTimeIf(moduleKind == WasmComponent) {
+        TestRpcTransport.send(msg)
+      } {
+        Com.send(msg)
+      }
     }
   }
 

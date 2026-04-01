@@ -52,6 +52,8 @@ final class Emitter(config: Emitter.Config) {
 
   private val coreSpec = config.coreSpec
 
+  private val WasiCliRunExportName = "wasi:cli/run@0.2.0#run"
+
   private val classEmitter = new ClassEmitter(coreSpec)
 
   val symbolRequirements: SymbolRequirement =
@@ -86,7 +88,6 @@ final class Emitter(config: Emitter.Config) {
 
     val topLevelExports = module.topLevelExports
     val moduleInitializers = module.initializers.toList
-
     val coreLib = new CoreWasmLib(coreSpec, globalInfo)
 
     implicit val ctx: WasmContext =
@@ -98,7 +99,24 @@ final class Emitter(config: Emitter.Config) {
     classEmitter.genArrayClasses()
     coreLib.genPostClasses()
 
-    genStartFunction(sortedClasses, moduleInitializers, topLevelExports)
+    /* For Wasm components, `wasm-tools component new` first instantiates the
+     * core module with shim imports, then uses the instantiated core module's
+     * exports such as `memory` and `cabi_realloc` to lower the final component
+     * imports, and finally patches the shim through a fixup step. The core
+     * module's `start` function runs during core module instantiation, before
+     * that fixup is complete. Any module initializer that calls into component
+     * imports (e.g., `Bridge.start()` for tests, or user `main` methods that
+     * use imported WIT interfaces) would trap with `uninitialized element`
+     * because the fixup has not happened yet. Move all module initializers to
+     * the synthetic `wasi:cli/run` export, which executes after component
+     * instantiation is completed for WasmComponent.
+     */
+    val isWasmComponent = coreSpec.moduleKind == ModuleKind.WasmComponent
+    if (isWasmComponent && moduleInitializers.nonEmpty)
+      genSyntheticWasiCliRunExport(moduleInitializers)
+    val startModuleInitializers =
+      if (isWasmComponent) Nil else moduleInitializers
+    genStartFunction(sortedClasses, startModuleInitializers, topLevelExports)
 
     val privateJSFields = genPrivateJSFields(sortedClasses)
 
@@ -121,6 +139,38 @@ final class Emitter(config: Emitter.Config) {
     )
 
     (wasmModule, jsFileContentInfo)
+  }
+
+  private def genModuleInitializers(
+      fb: FunctionBuilder,
+      moduleInitializers: List[ModuleInitializer.Initializer])(
+      afterCall: => Unit)(
+      implicit ctx: WasmContext): Unit = {
+    import org.scalajs.ir.Trees.MemberNamespace
+
+    moduleInitializers.foreach { init =>
+      def genCallStatic(className: ClassName, methodName: MethodName): Unit = {
+        val funcID = genFunctionID.forMethod(MemberNamespace.PublicStatic, className, methodName)
+        fb += wa.Call(funcID)
+        afterCall
+      }
+
+      ModuleInitializerImpl.fromInitializer(init) match {
+        case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
+          val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
+          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
+            for (arg <- args) {
+              fb ++= ctx.stringPool.getConstantStringInstr(arg)
+              if (ctx.hasJSInterop)
+                fb += wa.AnyConvertExtern
+            }
+          }
+          genCallStatic(className, encodedMainMethodName)
+
+        case ModuleInitializerImpl.VoidMainMethod(className, encodedMainMethodName) =>
+          genCallStatic(className, encodedMainMethodName)
+      }
+    }
   }
 
   private def genStartFunction(
@@ -191,29 +241,7 @@ final class Emitter(config: Emitter.Config) {
 
     // Emit the module initializers
 
-    moduleInitializers.foreach { init =>
-      def genCallStatic(className: ClassName, methodName: MethodName): Unit = {
-        val funcID = genFunctionID.forMethod(MemberNamespace.PublicStatic, className, methodName)
-        fb += wa.Call(funcID)
-        genForwardThrow()
-      }
-
-      ModuleInitializerImpl.fromInitializer(init) match {
-        case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
-          val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
-          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
-            for (arg <- args) {
-              fb ++= ctx.stringPool.getConstantStringInstr(arg)
-              if (ctx.hasJSInterop)
-                fb += wa.AnyConvertExtern
-            }
-          }
-          genCallStatic(className, encodedMainMethodName)
-
-        case ModuleInitializerImpl.VoidMainMethod(className, encodedMainMethodName) =>
-          genCallStatic(className, encodedMainMethodName)
-      }
-    }
+    genModuleInitializers(fb, moduleInitializers)(genForwardThrow())
 
     // Top-level exception handler
 
@@ -240,6 +268,33 @@ final class Emitter(config: Emitter.Config) {
 
     fb.buildAndAddToModule()
     ctx.moduleBuilder.setStart(genFunctionID.start)
+  }
+
+  private def genSyntheticWasiCliRunExport(
+      moduleInitializers: List[ModuleInitializer.Initializer])(
+      implicit ctx: WasmContext): Unit = {
+    implicit val pos = Position.NoPosition
+
+    val functionID = genFunctionID.forExport(WasiCliRunExportName)
+    val fb = new FunctionBuilder(
+      ctx.moduleBuilder,
+      functionID,
+      OriginalName(WasiCliRunExportName),
+      pos
+    )
+    fb.setResultType(watpe.Int32)
+
+    genModuleInitializers(fb, moduleInitializers)(())
+
+    fb += wa.I32Const(0)
+
+    fb.buildAndAddToModule()
+    ctx.moduleBuilder.addExport(
+      wamod.Export(
+        WasiCliRunExportName,
+        wamod.ExportDesc.Func(functionID)
+      )
+    )
   }
 
   private def genTopLevelExportedFun(fb: FunctionBuilder, exportName: String,
