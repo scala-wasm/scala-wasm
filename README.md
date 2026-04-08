@@ -17,11 +17,11 @@ addSbtPlugin("io.github.scala-wasm" % "sbt-scalajs" % "1.21.1-wasm.4")
 ## Prerequisites
 - [wasm-tools](https://github.com/bytecodealliance/wasm-tools)
 - [wasmtime](https://github.com/bytecodealliance/wasmtime)
-- [wit-bindgen](https://github.com/scala-wasm/wit-bindgen) with scala-wasm support:
+- [wit-bindgen-scala](https://github.com/scala-wasm/wit-bindgen-scala):
 
-  ```sh
-  cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
-  ```
+```sh
+cargo install wit-bindgen-scala --version 0.1.0-rc.1
+```
 
 - (optional) [wkg](https://github.com/bytecodealliance/wasm-pkg-tools)
   - Required if you want to add Wasm Component Model dependencies.

@@ -18,8 +18,8 @@ sealed abstract class ClassKind {
   import ClassKind._
 
   def isClass: Boolean = this match {
-    case Class | ModuleClass => true
-    case _                   => false
+    case Class | ModuleClass | WasmComponentResourceClass => true
+    case _                                                => false
   }
 
   def isJSClass: Boolean = this match {
@@ -46,8 +46,11 @@ sealed abstract class ClassKind {
   }
 
   def isAnyNonNativeClass: Boolean = this match {
-    case Class | ModuleClass | JSClass | JSModuleClass => true
-    case _                                             => false
+    case Class | ModuleClass | JSClass | JSModuleClass |
+        WasmComponentResourceClass =>
+      true
+    case _ =>
+      false
   }
 
   @deprecated("not a meaningful operation", since = "1.13.2")
@@ -69,19 +72,19 @@ object ClassKind {
   case object JSModuleClass extends ClassKind
   case object NativeJSClass extends ClassKind
   case object NativeJSModuleClass extends ClassKind
-  case object NativeWasmComponentResourceClass extends ClassKind
+  case object WasmComponentResourceClass extends ClassKind
 
   private[ir] def toByte(kind: ClassKind): Byte = kind match {
-    case ClassKind.Class                            => 1
-    case ClassKind.ModuleClass                      => 2
-    case ClassKind.Interface                        => 3
-    case ClassKind.AbstractJSType                   => 4
-    case ClassKind.HijackedClass                    => 5
-    case ClassKind.JSClass                          => 6
-    case ClassKind.JSModuleClass                    => 7
-    case ClassKind.NativeJSClass                    => 8
-    case ClassKind.NativeJSModuleClass              => 9
-    case ClassKind.NativeWasmComponentResourceClass => 10
+    case ClassKind.Class                      => 1
+    case ClassKind.ModuleClass                => 2
+    case ClassKind.Interface                  => 3
+    case ClassKind.AbstractJSType             => 4
+    case ClassKind.HijackedClass              => 5
+    case ClassKind.JSClass                    => 6
+    case ClassKind.JSModuleClass              => 7
+    case ClassKind.NativeJSClass              => 8
+    case ClassKind.NativeJSModuleClass        => 9
+    case ClassKind.WasmComponentResourceClass => 10
   }
 
   private[ir] def fromByte(b: Byte): ClassKind = (b: @switch) match {
@@ -94,6 +97,6 @@ object ClassKind {
     case 7  => ClassKind.JSModuleClass
     case 8  => ClassKind.NativeJSClass
     case 9  => ClassKind.NativeJSModuleClass
-    case 10 => ClassKind.NativeWasmComponentResourceClass
+    case 10 => ClassKind.WasmComponentResourceClass
   }
 }

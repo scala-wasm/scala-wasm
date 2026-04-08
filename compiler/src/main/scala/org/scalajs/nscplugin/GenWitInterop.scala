@@ -34,7 +34,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
   import jsDefinitions._
 
   // - annotated with @WitResourceMethod
-  // - owner is a companion object of @WitResourceImport annotated trait
+  // - owner is a companion object of @WitResourceImport annotated class
   def isWasmWitResourceStaticMethod(sym: Symbol): Boolean = {
     sym.hasAnnotation(WitResourceStaticMethodAnnotation) &&
     sym.owner.isModuleClass &&
@@ -70,13 +70,6 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val Apply(Select(qual, _), args) = tree
       implicit val pos = tree.pos
       val methodIdent = encodeMethodSym(method)
-
-      // Not using encodeClassName(method.owner)
-      // The method.owner of `close` methods will be `component.Resource` instead of the specific resource class that extends the Resource trait.
-      // `component.Resource` defines a `final def close`, preventing users from overriding the close implementation.
-      // However, the actual `close` methods to be called are automatically generated for all resource classes.
-      // val className = encodeClassName(qual.symbol.tpe.typeSymbol)
-
       val className = encodeClassName(method.owner)
       js.WitFunctionApply(
         receiver.map(genExpr(_)),
@@ -84,48 +77,6 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
         methodIdent,
         args.map(genExpr(_)) // genActualArgs?
       )(toIRType(tree.tpe))
-    }
-
-    def genWasmComponentResourceClassData(cd: ClassDef): js.ClassDef = {
-      val sym = cd.symbol
-      implicit val pos = sym.pos
-
-      val classIdent = encodeClassNameIdent(sym)
-      val kind = ClassKind.NativeWasmComponentResourceClass
-
-      val annot = sym.getAnnotation(WitResourceImportAnnotation).get
-      val moduleName = annot.stringArg(0).get
-      val resourceName = annot.stringArg(1).get
-
-      val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.Public)
-      val witNativeMembersBuilder = List.newBuilder[js.WitNativeMemberDef]
-      for (stat <- cd.impl.body) {
-        stat match {
-          case dd: DefDef if dd.symbol.hasAnnotation(WitResourceMethodAnnotation) =>
-            for {
-              annot <- dd.symbol.getAnnotation(WitResourceMethodAnnotation)
-              functionName <- annot.stringArg(0)
-            } {
-              witNativeMembersBuilder +=
-                genWitNativeMemberDef(flags, dd, moduleName,
-                    js.WitFunctionName.ResourceMethod(functionName, resourceName))
-            }
-
-          case dd: DefDef if dd.symbol.hasAnnotation(WitResourceDropAnnotation) =>
-            for {
-              annot <- dd.symbol.getAnnotation(WitResourceDropAnnotation)
-            } {
-              witNativeMembersBuilder +=
-                genWitNativeMemberDef(flags, dd, moduleName,
-                    js.WitFunctionName.ResourceDrop(resourceName))
-            }
-          case _ =>
-        }
-      }
-      js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass = None,
-          interfaces = Nil, None, None,
-          Nil, Nil, None, Nil, Nil, witNativeMembersBuilder.result(), Nil)(
-          js.OptimizerHints.empty)
     }
   }
 

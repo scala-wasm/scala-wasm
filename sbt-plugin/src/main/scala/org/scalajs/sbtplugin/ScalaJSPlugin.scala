@@ -210,7 +210,7 @@ object ScalaJSPlugin extends AutoPlugin {
 
     val scalaJSGenerateWitBindings = TaskKey[Seq[File]](
         "scalaJSGenerateWitBindings",
-        "Generate Scala bindings from WIT files using wit-bindgen",
+        "Generate Scala bindings from WIT files using wit-bindgen-scala",
         CTask)
 
     val scalaJSModuleInitializers = TaskKey[Seq[ModuleInitializer]]("scalaJSModuleInitializers",
@@ -262,7 +262,7 @@ object ScalaJSPlugin extends AutoPlugin {
 
     val scalaJSWitBindgenWith = SettingKey[Map[String, String]](
         "scalaJSWitBindgenWith",
-        "Mappings for --with option of wit-bindgen to re-use pre-generated bindings (e.g. \"wasi:io\" -> \"scala.scalajs.wasi.io\")",
+        "Mappings for --with option of wit-bindgen-scala to re-use pre-generated bindings (e.g. \"wasi:io\" -> \"scala.scalajs.wasi.io\")",
         CSetting)
 
     val scalaJSStage = SettingKey[Stage]("scalaJSStage",

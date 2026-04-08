@@ -85,7 +85,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case NativeWasmComponentResourceClass =>
+        case WasmComponentResourceClass =>
           val cleanedTree = cleanTree(tree, jsTypes, errorManager)
           writeIRFile(output, cleanedTree)
           resultBuilder += output
@@ -558,8 +558,6 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
             ArrayTypeRef(ClassRef(ObjectClass), typeRef.dimensions)
           else
             ArrayTypeRef(ClassRef(transformClassName(baseClassName)), typeRef.dimensions)
-        case WitResourceTypeRef(className) =>
-          ArrayTypeRef(WitResourceTypeRef(transformClassName(className)), typeRef.dimensions)
       }
     }
 
@@ -567,7 +565,6 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         implicit pos: Position): TypeRef = typeRef match {
       case typeRef: PrimRef                  => typeRef
       case typeRef: ClassRef                 => transformClassRef(typeRef)
-      case WitResourceTypeRef(className) => WitResourceTypeRef(transformClassName(className))
       case typeRef: ArrayTypeRef             => transformArrayTypeRef(typeRef)
       case typeRef: TransientTypeRef         => TransientTypeRef(typeRef.name)(transformType(typeRef.tpe))
     }
@@ -598,8 +595,6 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
           ArrayType(transformArrayTypeRef(arrayTypeRef), nullable, exact)
         case ClosureType(paramTypes, resultType, nullable) =>
           ClosureType(paramTypes.map(transformType(_)), transformType(resultType), nullable)
-        case WitResourceType(className) =>
-          WitResourceType(transformClassName(className))
         case AnyType | AnyNotNullType | _:PrimType | _:RecordType =>
           tpe
       }

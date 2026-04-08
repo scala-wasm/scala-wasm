@@ -489,9 +489,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 }
               } else if (isWasmWitRecordClass(sym)) {
                 genClass(cd)
-              } else if (isWasmWitResourceType(sym)) {
-                genWasmComponentResourceClassData(cd)
-                // TODO: export resource?
               } else if (sym.isTraitOrInterface) {
                 genInterface(cd)
               } else {
@@ -675,9 +672,25 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       val jsNativeMembersBuilder = List.newBuilder[js.JSNativeMemberDef]
       val witNativeMembersBuilder = List.newBuilder[js.WitNativeMemberDef]
       val witExportDefsBuilder = List.newBuilder[js.WitExportDef]
+      val isWitResourceClass = isWasmWitResourceType(sym)
 
       for (dd <- collectDefDefs(cd.impl)) {
-        if (dd.symbol.hasAnnotation(WitImportAnnotation)) {
+        if (isWitResourceClass && (dd.symbol.hasAnnotation(WitResourceMethodAnnotation) ||
+              dd.symbol.hasAnnotation(WitResourceDropAnnotation))) {
+          val annot = sym.getAnnotation(WitResourceImportAnnotation).get
+          val moduleName = annot.stringArg(0).get
+          val resourceName = annot.stringArg(1).get
+          val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.Public)
+          if (dd.symbol.hasAnnotation(WitResourceMethodAnnotation)) {
+            val methodAnnot = dd.symbol.getAnnotation(WitResourceMethodAnnotation).get
+            val functionName = methodAnnot.stringArg(0).get
+            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, moduleName,
+                js.WitFunctionName.ResourceMethod(functionName, resourceName))
+          } else {
+            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, moduleName,
+                js.WitFunctionName.ResourceDrop(resourceName))
+          }
+        } else if (dd.symbol.hasAnnotation(WitImportAnnotation)) {
           val annot = dd.symbol.getAnnotation(WitImportAnnotation).get
           val moduleName = annot.stringArg(0).get
           val functionName = annot.stringArg(1).get
@@ -802,6 +815,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       // The complete class definition
       val kind = {
         if (isStaticModule(sym)) ClassKind.ModuleClass
+        else if (isWitResourceClass) ClassKind.WasmComponentResourceClass
         else if (isHijacked) ClassKind.HijackedClass
         else ClassKind.Class
       }
@@ -3474,8 +3488,6 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             genNewArray(arr, args.map(genExpr))
           case prim: jstpe.PrimRef =>
             abort(s"unexpected primitive type $prim in New at $pos")
-          case jstpe.WitResourceTypeRef(_) =>
-            abort(s"unexpected component resource type in New at $pos")
           case typeRef: jstpe.TransientTypeRef =>
             abort(s"unexpected special type ref $typeRef in New at $pos")
         }

@@ -167,8 +167,6 @@ object Serializers {
             // nothing to do
           case ClassRef(className) =>
             encodedNameToIndex(className.encoded)
-          case WitResourceTypeRef(className) =>
-            encodedNameToIndex(className.encoded)
           case ArrayTypeRef(base, _) =>
             reserveTypeRef(base)
           case typeRef: TransientTypeRef =>
@@ -237,9 +235,6 @@ object Serializers {
           }
         case ClassRef(className) =>
           s.writeByte(TagClassRef)
-          s.writeInt(encodedNameIndexMap(new EncodedNameKey(className.encoded)))
-        case WitResourceTypeRef(className) =>
-          s.writeByte(TagWitResourceTypeRef)
           s.writeInt(encodedNameIndexMap(new EncodedNameKey(className.encoded)))
         case ArrayTypeRef(base, dimensions) =>
           s.writeByte(TagArrayTypeRef)
@@ -964,10 +959,6 @@ object Serializers {
           buffer.write(tag)
           writeName(className)
 
-        case WitResourceType(className) =>
-          buffer.write(TagWitResourceType)
-          writeName(className)
-
         case ArrayType(arrayTypeRef, nullable, exact) =>
           val tag = (exact, nullable) match {
             case (true, true)   => TagExactArrayType
@@ -1091,9 +1082,6 @@ object Serializers {
         }
       case ClassRef(className) =>
         buffer.writeByte(TagClassRef)
-        writeName(className)
-      case WitResourceTypeRef(className) =>
-        buffer.writeByte(TagWitResourceTypeRef)
         writeName(className)
       case typeRef: ArrayTypeRef =>
         buffer.writeByte(TagArrayTypeRef)
@@ -2837,8 +2825,6 @@ object Serializers {
         case TagExactNonNullArrayType =>
           ArrayType(readArrayTypeRef(), nullable = false, exact = true)
 
-        case TagWitResourceType => WitResourceType(readClassName())
-
         case TagClosureType | TagNonNullClosureType =>
           val paramTypes = readTypes()
           val resultType = readType()
@@ -2860,20 +2846,19 @@ object Serializers {
 
     def readTypeRef(): TypeRef = {
       readByte() match {
-        case TagVoidRef            => VoidRef
-        case TagBooleanRef         => BooleanRef
-        case TagCharRef            => CharRef
-        case TagByteRef            => ByteRef
-        case TagShortRef           => ShortRef
-        case TagIntRef             => IntRef
-        case TagLongRef            => LongRef
-        case TagFloatRef           => FloatRef
-        case TagDoubleRef          => DoubleRef
-        case TagNullRef            => NullRef
-        case TagNothingRef         => NothingRef
-        case TagClassRef           => ClassRef(readClassName())
-        case TagWitResourceTypeRef => WitResourceTypeRef(readClassName())
-        case TagArrayTypeRef       => readArrayTypeRef()
+        case TagVoidRef      => VoidRef
+        case TagBooleanRef   => BooleanRef
+        case TagCharRef      => CharRef
+        case TagByteRef      => ByteRef
+        case TagShortRef     => ShortRef
+        case TagIntRef       => IntRef
+        case TagLongRef      => LongRef
+        case TagFloatRef     => FloatRef
+        case TagDoubleRef    => DoubleRef
+        case TagNullRef      => NullRef
+        case TagNothingRef   => NothingRef
+        case TagClassRef     => ClassRef(readClassName())
+        case TagArrayTypeRef => readArrayTypeRef()
       }
     }
 

@@ -134,7 +134,7 @@ object WasmInterfaceTypes {
   }
 
   final case class ResourceType(className: ClassName) extends FundamentalType {
-    def toIRType(): jstpe.Type = jstpe.WitResourceType(className)
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, nullable = true, exact = false)
   }
 
   // ExternTypes
@@ -162,7 +162,7 @@ object WasmInterfaceTypes {
     case EnumType(labels)              => ???
     case OptionType(tpe)               => jstpe.ClassRef(ClassName("java.util.Optional"))
     case FlagsType(className, _)       => jstpe.ClassRef(className)
-    case ResourceType(className)       => jstpe.WitResourceTypeRef(className)
+    case ResourceType(className)       => jstpe.ClassRef(className)
   }
 
   def makeCtorName(tpe: Option[ValType]): MethodName = {

@@ -483,8 +483,7 @@ private[emitter] final class SJSGen(
       case VoidType | NullType | NothingType | AnyType |
           ClassType(_, true, _) | ClassType(_, _, true) |
           ArrayType(_, true, _) | ArrayType(_, _, true) |
-          _:ClosureType | _:RecordType |
-          _:WitResourceType =>
+          _:ClosureType | _:RecordType =>
         throw new AssertionError(s"Unexpected type $tpe in genIsInstanceOf")
     }
   }
@@ -560,8 +559,7 @@ private[emitter] final class SJSGen(
         case VoidType | NullType | NothingType | AnyNotNullType |
             ClassType(_, false, _) | ClassType(_, _, true) |
             ArrayType(_, false, _) | ArrayType(_, _, true) |
-            _:ClosureType | _:RecordType |
-            _:WitResourceType =>
+            _:ClosureType | _:RecordType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
     } else {
@@ -589,8 +587,7 @@ private[emitter] final class SJSGen(
         case VoidType | NullType | NothingType | AnyNotNullType |
             ClassType(_, false, _) | ClassType(_, _, true) |
             ArrayType(_, false, _) | ArrayType(_, _, true) |
-            _:ClosureType | _:RecordType |
-            _:WitResourceType =>
+            _:ClosureType | _:RecordType =>
           throw new AssertionError(s"Unexpected type $tpe in genAsInstanceOf")
       }
 
