@@ -3837,7 +3837,7 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
     // If we get here, we did not find the method; throw.
 
     if (!hasJSInterop) {
-      genNewScalaClass(fb, ArrayIndexOutOfBoundsExceptionClass,
+      genNewScalaClass(fb, IllegalArgumentExceptionClass,
           SpecialNames.StringArgConstructorName) {
         fb ++= ctx.stringPool.getConstantStringInstr("Method not found")
       }

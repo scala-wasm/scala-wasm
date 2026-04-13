@@ -97,6 +97,8 @@ jobs:
         run: npm install
       - name: helloworld-wasm${{ matrix.suffix }}/run
         run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/run"
+      - name: helloworld-wasm${{ matrix.suffix }}/fullLinkJS
+        run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/fullLinkJS"
       - name: helloworld-wasm${{ matrix.suffix }}/test
         run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/test"
       - name: testSuite${{ matrix.suffix }}/test
@@ -142,6 +144,8 @@ jobs:
         working-directory: examples/test-component-model/rust-run
       - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
         run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
+      - name: testComponentModel${{ matrix.suffix }}/fullLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fullLinkJS
       - name: Compose and run tests
         run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
         working-directory: examples/test-component-model
@@ -149,6 +153,8 @@ jobs:
       # echoserver test, check at least it links
       - name: echoserver${{ matrix.suffix }}/fastLinkJS
         run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fastLinkJS
+      - name: echoserver${{ matrix.suffix }}/fullLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fullLinkJS
 
   test-suite-jvm:
     runs-on: ubuntu-latest

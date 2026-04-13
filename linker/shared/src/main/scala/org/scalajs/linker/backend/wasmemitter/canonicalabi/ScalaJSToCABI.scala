@@ -384,8 +384,16 @@ object ScalaJSToCABI {
 
             // value
             fb += wa.LocalGet(arr)
+            fb += wa.StructGet(arrayStructTypeID, genFieldID.objStruct.arrayUnderlying)
             fb += wa.LocalGet(iLocal)
-            fb += wa.Call(genFunctionID.arrayGetFor(ArrayTypeRef.of(wit.toTypeRef(elemType))))
+            wit.toTypeRef(elemType) match {
+              case BooleanRef | CharRef =>
+                fb += wa.ArrayGetU(genTypeID.underlyingOf(arrayTypeRef))
+              case ByteRef | ShortRef =>
+                fb += wa.ArrayGetS(genTypeID.underlyingOf(arrayTypeRef))
+              case _ =>
+                fb += wa.ArrayGet(genTypeID.underlyingOf(arrayTypeRef))
+            }
             genStoreMemory(fb, elemType)
 
             // i := i + 1
