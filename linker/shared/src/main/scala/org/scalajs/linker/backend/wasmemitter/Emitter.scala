@@ -578,6 +578,15 @@ object Emitter {
       instantiateClass(ClassClass, NoArgConstructorName),
       instantiateClass(JSExceptionClass, AnyArgConstructorName),
       instantiateClass(IllegalArgumentExceptionClass, NoArgConstructorName),
+      /* In pure-Wasm mode, a failed reflective-proxy lookup throws an
+       * IllegalArgumentException with a message. See CoreWasmLib.
+       */
+      cond(
+        coreSpec.moduleKind == ModuleKind.MinimalWasmModule ||
+        coreSpec.moduleKind == ModuleKind.WasmComponent
+      ) {
+        instantiateClass(IllegalArgumentExceptionClass, StringArgConstructorName)
+      },
 
       // Wasm Component Model
       // instantiateClass(WasmComponentResultClass, NoArgConstructorName),
