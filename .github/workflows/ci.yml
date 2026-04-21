@@ -190,5 +190,7 @@ jobs:
           node-version: '24'
       - name: npm install
         run: npm install
-      - name: sbtPlugin/scripted
-        run: sbt sbtPlugin/scripted
+      - name: sbtPlugin2_12/scripted
+        run: sbt sbtPlugin2_12/scripted
+      - name: sbtPlugin3/scripted
+        run: sbt sbtPlugin3/scripted
