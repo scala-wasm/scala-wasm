@@ -422,6 +422,7 @@ object ScalaJSPlugin extends AutoPlugin {
           new NodeJSEnv()
         },
 
+<<<<<<< HEAD
         wasmEnv := Def.uncached {
           val configuredEnvVars = envVars.value
           val config = WasmtimeEnv.Config()
@@ -434,7 +435,7 @@ object ScalaJSPlugin extends AutoPlugin {
           new WasmtimeEnv(config)
         },
 
-        scalaJSLoggerFactory := Loggers.sbtLogger2ToolsLogger _,
+        scalaJSLoggerFactory := ((logger: Logger) => Loggers.sbtLogger2ToolsLogger(logger)),
 
         // Show a deprecation message if we load the build on JDK < 17
         onLoad := {
