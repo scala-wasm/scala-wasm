@@ -14,8 +14,9 @@ libraryDependencies += "com.google.jimfs" % "jimfs" % "1.1"
 
 libraryDependencies += "org.eclipse.jgit" % "org.eclipse.jgit.pgm" % "3.2.0.201312181205-r"
 
-libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.4.0"
-libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0"
+libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.6.0"
+libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0"
+libraryDependencies += "io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2"
 
 Compile / unmanagedSourceDirectories ++= {
   val root = baseDirectory.value.getParentFile
@@ -31,7 +32,10 @@ Compile / unmanagedSourceDirectories ++= {
   )
 }
 
-Compile / unmanagedResourceDirectories += {
+Compile / unmanagedResourceDirectories ++= {
   val root = baseDirectory.value.getParentFile
-  root / "test-adapter/src/main/resources"
+  Seq(
+    root / "test-adapter/src/main/resources",
+    root / "sbt-plugin/src/main/resources",
+  )
 }

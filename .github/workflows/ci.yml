@@ -142,6 +142,8 @@ jobs:
       - name: Build rust-run
         run: cargo component build --target wasm32-wasip2 -r
         working-directory: examples/test-component-model/rust-run
+      - name: testSuite${{ matrix.suffix }}/test with WasmComponent
+        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
       - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
         run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
       - name: testComponentModel${{ matrix.suffix }}/fullLinkJS
@@ -155,6 +157,8 @@ jobs:
         run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fastLinkJS
       - name: echoserver${{ matrix.suffix }}/fullLinkJS
         run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fullLinkJS
+      - name: testSuite${{ matrix.suffix }}/test with WasmComponent
+        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
 
   test-suite-jvm:
     runs-on: ubuntu-latest

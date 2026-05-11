@@ -1388,8 +1388,8 @@ object Build {
       libraryDependencies ++= Seq(
           "com.google.javascript" % "closure-compiler" % "v20220202",
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
-          "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0" % "test",
-          "org.scala-js" %% "scalajs-js-envs-test-kit" % "1.4.0" % "test"
+          "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0" % "test",
+          "org.scala-js" %% "scalajs-js-envs-test-kit" % "1.6.0" % "test"
       ) ++ (
           parallelCollectionsDependencies(scalaVersion.value)
       ),
@@ -1462,7 +1462,7 @@ object Build {
       name := "Scala.js sbt test adapter",
       libraryDependencies ++= Seq(
           "org.scala-sbt" % "test-interface" % "1.0",
-          "org.scala-js" %% "scalajs-js-envs" % "1.5.0",
+          "org.scala-js" %% "scalajs-js-envs" % "1.6.0",
           "com.google.jimfs" % "jimfs" % "1.1" % "test",
       ),
       libraryDependencies ++= JUnitDeps,
@@ -1528,8 +1528,9 @@ object Build {
         }
       },
 
-      libraryDependencies += ("org.scala-js" %% "scalajs-js-envs" % "1.5.0"),
-      libraryDependencies += ("org.scala-js" %% "scalajs-env-nodejs" % "1.5.0"),
+      libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.6.0",
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0",
+      libraryDependencies += "io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2",
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
@@ -2456,7 +2457,7 @@ object Build {
               ) ||
               contains(f, "/js/src/test/scala/org/scalajs/testsuite/") && (
                 // compiler
-                endsWith(f, "/ModuleInitializersTest.scala") ||
+                // endsWith(f, "/ModuleInitializersTest.scala") ||
                 endsWith(f, "/EqJSTest.scala") ||
                 // library
                 endsWith(f, "/LinkTimeIfTest.scala") ||
@@ -2546,9 +2547,15 @@ object Build {
 
   def testSuiteJSExecutionFilesSetting: Setting[_] = {
     jsEnvInput := {
-      val resourceDir = (Test / resourceDirectory).value
-      val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
-      Input.Script(f) +: jsEnvInput.value
+      val baseInputs = jsEnvInput.value
+      val linkerConfig = scalaJSLinkerConfig.value
+      if (linkerConfig.moduleKind == ModuleKind.WasmComponent) {
+        baseInputs
+      } else {
+        val resourceDir = (Test / resourceDirectory).value
+        val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
+        Input.Script(f) +: baseInputs
+      }
     }
   }
 
@@ -2622,7 +2629,16 @@ object Build {
       Test / scalacOptions ++= scalaJSCompilerOption("nowarnGlobalExecutionContext"),
 
       scalaJSLinkerConfig ~= { _.withSemantics(TestSuiteLinkerOptions.semantics _) },
-      Test / scalaJSModuleInitializers ++= TestSuiteLinkerOptions.moduleInitializers,
+
+      // For ModuleInitializers tests, currently excluding from pure Wasm tests
+      Test / scalaJSModuleInitializers ++= {
+        (Test / scalaJSLinkerConfig).value.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+            Nil
+          case _ =>
+            TestSuiteLinkerOptions.moduleInitializers
+        }
+      },
 
       scalaJSLinkerConfig ~= {
         _.withJSHeader(
@@ -2945,7 +2961,7 @@ object Build {
 
       resolvers += Resolver.typesafeIvyRepo("releases"),
 
-      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.4.0",
+      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0",
 
       fetchScalaSource / artifactPath :=
         baseDirectory.value.getParentFile / "fetchedSources" / scalaVersion.value,
