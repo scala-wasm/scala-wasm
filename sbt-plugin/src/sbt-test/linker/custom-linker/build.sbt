@@ -26,7 +26,7 @@ lazy val customLinker = project.in(file("custom-linker"))
       else "3.8.3"
     },
     libraryDependencies +=
-      ("org.scala-js" %% "scalajs-linker" % scalaJSVersion).cross(CrossVersion.for3Use2_13),
+      (scalaJSOrganization %% "scalajs-linker" % scalaJSVersion).cross(CrossVersion.for3Use2_13),
   )
 
 name := "Scala.js sbt test"

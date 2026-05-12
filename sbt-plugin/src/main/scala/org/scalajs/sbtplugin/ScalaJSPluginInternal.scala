@@ -1020,25 +1020,25 @@ private[sbtplugin] object ScalaJSPluginInternal {
                * (It will also depend on some version of scalajs-scalalib_2.13,
                * but we do not have to worry about that here.)
                */
-              "org.scala-js" % "scalajs-library_2.13" % scalaJSVersion,
-              "org.scala-js" % "scalajs-test-bridge_2.13" % scalaJSVersion % "test"
+              scalaJSOrganization % "scalajs-library_2.13" % scalaJSVersion,
+              scalaJSOrganization % "scalajs-test-bridge_2.13" % scalaJSVersion % "test"
           )
         } else {
           val scalaBinV = scalaBinaryVersion.value
           prev ++ Seq(
               compilerPlugin(
-                  PluginCompat.scalaJSFullCrossVersionLib("org.scala-js", "scalajs-compiler",
+                  PluginCompat.scalaJSFullCrossVersionLib(scalaJSOrganization, "scalajs-compiler",
                       scalaJSVersion, scalaV)),
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-library", scalaJSVersion,
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-library", scalaJSVersion,
                   scalaBinV),
               /* scalajs-library depends on some version of scalajs-scalalib,
                * but we want to make sure to bump it to be at least the one
                * of our own `scalaVersion` (which would have back-published in
                * the meantime).
                */
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-scalalib",
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-scalalib",
                   s"$scalaV+$scalaJSVersion", scalaBinV),
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-test-bridge", scalaJSVersion,
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-test-bridge", scalaJSVersion,
                   scalaBinV) % "test"
           )
         }
