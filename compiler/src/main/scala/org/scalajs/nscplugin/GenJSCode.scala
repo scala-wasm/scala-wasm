@@ -1104,7 +1104,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         val fieldsObjValue = {
           js.JSObjectConstr(privateFieldDefs.toList.map { fdef =>
             implicit val pos = fdef.pos
-            js.StringLiteral(fdef.name.name.nameString) -> jstpe.zeroOf(fdef.ftpe)
+            anonJSClassFieldIdentToStringLiteral(fdef.name) -> jstpe.zeroOf(fdef.ftpe)
           })
         }
         val definePrivateFieldsObj = {
@@ -7226,7 +7226,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         } else if (isAnonymousJSClass(sym.owner)) {
           js.JSSelect(
               js.JSSelect(qual, genPrivateFieldsSymbol()),
-              encodeFieldSymAsStringLiteral(sym))
+              encodeAnonJSClassFieldSymAsStringLiteral(sym))
         } else {
           js.JSPrivateSelect(qual, encodeFieldSym(sym))
         }
