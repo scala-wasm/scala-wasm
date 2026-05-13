@@ -33,7 +33,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
       - name: npm install
         run: npm install
       - name: helloworld${{ matrix.suffix }}/run
@@ -62,7 +62,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
       - name: npm install
         run: npm install
       - name: helloworld${{ matrix.suffix }}/run
@@ -92,7 +92,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
       - name: npm install
         run: npm install
       - name: helloworld-wasm${{ matrix.suffix }}/run
@@ -125,7 +125,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
       - name: npm install
         run: npm install
       - name: Install wasm32-wasip2
@@ -191,7 +191,7 @@ jobs:
       - uses: sbt/setup-sbt@v1
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '26'
       - name: npm install
         run: npm install
       - name: sbtPlugin2_12/scripted
