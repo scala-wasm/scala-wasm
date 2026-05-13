@@ -244,28 +244,7 @@ object MyScalaJSPlugin extends AutoPlugin {
       wantSourceMaps := true,
 
       jsEnv := {
-        val baseConfig = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
-        val config = if (enableWasmEverywhere.value) {
-          val linkerConfig = scalaJSLinkerConfig.value
-          val additionWasmArgs = if (linkerConfig.moduleKind == ModuleKind.ESModule) {
-            List(
-              "--experimental-wasm-exnref",
-              "--experimental-wasm-imported-strings", // for JS string builtins
-              "--experimental-wasm-jspi", // for JSPI, used by async/await
-            )
-          } else if (linkerConfig.wasmFeatures.exceptionHandling) {
-            List(
-              "--experimental-wasm-exnref",
-            )
-          } else {
-            List(
-              "--no-experimental-wasm-exnref",
-            )
-          }
-          baseConfig.withArgs(additionWasmArgs)
-        } else {
-          baseConfig
-        }
+        val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
         new NodeJSEnv(config)
       },
 
@@ -500,7 +479,8 @@ object Build {
 
   def addWconfSettingIf2_13(conf: String): Def.Setting[_] = {
     scalacOptions ++= {
-      if (scalaVersion.value.startsWith("2.13."))
+      val v = scalaVersion.value
+      if (v.startsWith("2.13.") || v.startsWith("3."))
         List("-Wconf:" + conf)
       else
         Nil
@@ -755,7 +735,28 @@ object Build {
   )
 
   val fatalWarningsSettings = Def.settings(
-      scalacOptions += "-Xfatal-warnings",
+      scalacOptions ++= {
+        if (scalaVersion.value.startsWith("3.")) {
+          /* Scala 3 deprecates a bunch of syntax. We cannot get rid of some of
+           * it, because we still have to cross-compile with Scala 2.
+           * We silence the corresponding warnings.
+           */
+          val messageKeywordsToSilence = List(
+            "`using` clause",
+            "`= _`",
+            "`_` is deprecated for wildcard arguments",
+            "private[this]",
+            "_*"
+          )
+          val regex = messageKeywordsToSilence.map(java.util.regex.Pattern.quote(_)).mkString("|")
+          Seq(
+            "-Werror",
+            s"-Wconf:msg=.*($regex).*:s",
+          )
+        } else {
+          Seq("-Xfatal-warnings")
+        }
+      },
 
       Compile / doc / scalacOptions := {
         val prev = (Compile / doc / scalacOptions).value
@@ -763,21 +764,6 @@ object Build {
           prev.filter(_ != "-Xfatal-warnings")
         else
           prev
-      }
-  )
-
-  /** Disables fatal warnings for Scala 3.
-   *
-   *  Scala 3 has migration warnings (e.g., implicit parameters should use `using`)
-   *  that we don't want to treat as errors for cross-compiled code.
-   */
-  val disableFatalWarningsScala3Settings = Def.settings(
-      scalacOptions := {
-        val opts = scalacOptions.value
-        if (scalaVersion.value.startsWith("3."))
-          opts.filterNot(_ == "-Xfatal-warnings")
-        else
-          opts
       }
   )
 
@@ -1095,21 +1081,18 @@ object Build {
 
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/main/scala",
+      Compile / unmanagedSourceDirectories +=
+        baseDirectory.value.getParentFile.getParentFile / s"shared/src/main/scala-${scalaVersion.value.take(1)}",
       Test / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/test/scala",
 
       /* The Scala 3 compiler includes this project by source. Therefore, we
        * test that we can compile it using Scala 3, with the compiler options
        * that are used when building the Scala 3 compiler.
-       *
-       * We do not include `-Yexplicit-nulls` although it is used in Scala 3,
-       * because we cannot cross-compile code that way. Instead, the build of
-       * Scala 3 adds an `import scala.language.unsafeNulls` in all the IR
-       * source files.
        */
       scalacOptions ++= {
         if (scalaVersion.value.startsWith("3."))
-          List("-Wsafe-init")
+          List("-Wsafe-init", "-Yexplicit-nulls")
         else
           Nil
       },
@@ -1119,7 +1102,6 @@ object Build {
       id = "ir", base = file("ir/jvm"), List("2.12", "2.13", "3")
   ).settings(
       commonIrProjectSettings,
-      disableFatalWarningsScala3Settings,
       libraryDependencies ++= JUnitDeps,
   )
 
@@ -1210,7 +1192,6 @@ object Build {
       id = "linkerInterface", base = file("linker-interface/jvm"), List("2.12", "2.13", "3")
   ).settings(
       commonLinkerInterfaceSettings,
-      disableFatalWarningsScala3Settings,
       libraryDependencies += "org.scala-js" %% "scalajs-logging" % "1.2.0",
       libraryDependencies ++= JUnitDeps,
   ).dependsOn(irProject, jUnitAsyncJVM % "test")
@@ -1450,7 +1431,6 @@ object Build {
       commonSettings,
       publishSettings(None),
       fatalWarningsSettings,
-      disableFatalWarningsScala3Settings,
       name := "Scala.js sbt test adapter",
       libraryDependencies ++= Seq(
           "org.scala-sbt" % "test-interface" % "1.0",
@@ -1488,8 +1468,6 @@ object Build {
           case _      => "2.0.0-RC12"
         }
       },
-
-      disableFatalWarningsScala3Settings,
 
       previousArtifactSetting,
       mimaBinaryIssueFilters ++= BinaryIncompatibilities.SbtPlugin,
@@ -2312,14 +2290,14 @@ object Build {
             if (!useMinifySizes) {
               Some(ExpectedSizes(
                   fastLink = 619000 to 620000,
-                  fullLink = 283000 to 284000,
+                  fullLink = 282000 to 283000,
                   fastLinkGz = 75000 to 76000,
                   fullLinkGz = 43000 to 44000,
               ))
             } else {
               Some(ExpectedSizes(
                   fastLink = 425000 to 426000,
-                  fullLink = 283000 to 284000,
+                  fullLink = 282000 to 283000,
                   fastLinkGz = 61000 to 62000,
                   fullLinkGz = 43000 to 44000,
               ))
