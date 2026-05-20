@@ -14,15 +14,12 @@ package org.scalajs.testsuite.javalib.lang
 
 import org.junit.Test
 import org.junit.Assert._
-import org.junit.Assume._
 
 import org.scalajs.testsuite.utils.Platform._
 
 class ObjectTest {
 
   @Test def testGetClass(): Unit = {
-    assumeFalse("TODO: className of java.lang.Boolean => java.lang.BooleanBox in pure Wasm",
-        executingInPureWebAssembly)
     @noinline
     def testNoInline(expected: Class[_], x: Any): Unit =
       assertSame(expected, x.getClass())
