@@ -192,7 +192,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
             """wit-bindgen is installed but the 'scala' subcommand is not available.
             |
             |Please install the Scala-enabled version of wit-bindgen:
-            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
+            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
             |""".stripMargin
         )
       }
@@ -204,7 +204,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
             """wit-bindgen is not installed or not in PATH.
             |
             |Please install the Scala-enabled version of wit-bindgen:
-            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
+            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
             |""".stripMargin
         )
     }
