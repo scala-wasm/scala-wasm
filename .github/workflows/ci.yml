@@ -133,7 +133,7 @@ jobs:
       - name: Install wasmtime, wasm-tools, wac-cli, cargo-component
         uses: taiki-e/install-action@v2
         with:
-          tool: wasmtime,wasm-tools,wac-cli,cargo-component
+          tool: wasmtime@44.0.2,wasm-tools,wac-cli,cargo-component
       - name: Install wit-bindgen from scala-wasm/wit-bindgen scala-wasm-wasm.4 tag
         run: cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
       - name: Build rust-exports
