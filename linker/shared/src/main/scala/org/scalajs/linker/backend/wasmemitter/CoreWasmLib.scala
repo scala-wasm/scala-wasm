@@ -3537,7 +3537,30 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
               fb += LocalGet(ourObjectLocal)
               fb += RefTest(RefType(genTypeID.forClass(SpecialNames.DoubleBoxClass)))
               fb.ifThenElse(typeDataType) {
-                fb += getHijackedClassTypeDataInstr(BoxedDoubleClass)
+                val structTypeID = genTypeID.forClass(SpecialNames.DoubleBoxClass)
+                val fieldName = FieldName(SpecialNames.DoubleBoxClass,
+                    SpecialNames.valueFieldSimpleName)
+
+                fb += LocalGet(ourObjectLocal)
+                fb += RefCast(RefType(structTypeID))
+                fb += StructGet(structTypeID,
+                    genFieldID.forClassInstanceField(fieldName))
+                fb += LocalTee(doubleValueLocal)
+
+                // if doubleValue.toFloat.toDouble == doubleValue, or it is NaN
+                fb += F32DemoteF64
+                fb += F64PromoteF32
+                fb += LocalGet(doubleValueLocal)
+                fb += F64Eq
+                fb += LocalGet(doubleValueLocal)
+                fb += LocalGet(doubleValueLocal)
+                fb += F64Ne
+                fb += I32Or
+                fb.ifThenElse(typeDataType) {
+                  fb += getHijackedClassTypeDataInstr(BoxedFloatClass)
+                } {
+                  fb += getHijackedClassTypeDataInstr(BoxedDoubleClass)
+                }
               } {
                 fb += LocalGet(ourObjectLocal)
                 fb += StructGet(genTypeID.ObjectStruct, genFieldID.objStruct.vtable)
