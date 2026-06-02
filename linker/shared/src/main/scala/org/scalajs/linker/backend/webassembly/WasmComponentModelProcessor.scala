@@ -25,8 +25,9 @@ private[backend] abstract class WasmComponentModelProcessor {
    *
    *  This method performs operations in sequence:
    *  1. Embeds WIT definitions from the specified directory using wasm-tools component embed (with utf16 encoding)
-   *  2. If autoIncludeWasiImports is true, embeds additional WASI WIT definitions
-   *  3. Converts the embedded module into a component using wasm-tools component new
+   *  2. If exportWasiCliRun is true, embeds WIT exporting `wasi:cli/run`
+   *  3. If autoIncludeWasiImports is true, embeds additional WASI WIT definitions
+   *  4. Converts the embedded module into a component using wasm-tools component new
    *
    *  @throws WasmToolsNotFoundException if wasm-tools is not installed
    *  @throws WasmToolsExecutionException if wasm-tools execution fails
@@ -36,6 +37,7 @@ private[backend] abstract class WasmComponentModelProcessor {
       wasmFileName: String,
       witDirectory: Path,
       worldName: Option[String],
+      exportWasiCliRun: Boolean,
       autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit]

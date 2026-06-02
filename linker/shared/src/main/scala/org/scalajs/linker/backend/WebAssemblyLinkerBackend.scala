@@ -177,6 +177,7 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
               wasmFileName,
               witDirPath,
               worldName,
+              exportWasiCliRun = onlyModule.initializers.nonEmpty,
               coreSpec.wasmFeatures.autoIncludeWasiImports,
               logger
             ).recover {

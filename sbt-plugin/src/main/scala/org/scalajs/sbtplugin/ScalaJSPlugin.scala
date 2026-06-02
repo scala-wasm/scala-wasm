@@ -33,7 +33,6 @@ import org.scalajs.linker.interface._
 
 import org.scalajs.jsenv.{Input, JSEnv}
 import org.scalajs.jsenv.nodejs.NodeJSEnv
-import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 import PluginCompat.DefOps
 
@@ -253,7 +252,7 @@ object ScalaJSPlugin extends AutoPlugin {
 
     val scalaJSWitWorld = SettingKey[Option[String]](
         "scalaJSWitWorld",
-        "World name to use for component model embedding (default: None, auto-detect)",
+        "World name to use for component model builds (required when scalaJSWitDirectory exists)",
         CSetting)
 
     val scalaJSWitPackage = SettingKey[Option[String]](
@@ -279,10 +278,6 @@ object ScalaJSPlugin extends AutoPlugin {
 
     val jsEnv = TaskKey[JSEnv]("jsEnv",
         "The JavaScript environment in which to run and test Scala.js applications.",
-        AMinusTask)
-
-    val wasmEnv = TaskKey[JSEnv]("wasmEnv",
-        "The WebAssembly environment in which to run no-JS Wasm Scala.js applications.",
         AMinusTask)
 
     /** All Scala.js class names on the fullClasspath, used by scalajsp. */
@@ -420,18 +415,6 @@ object ScalaJSPlugin extends AutoPlugin {
 
         jsEnv := Def.uncached {
           new NodeJSEnv()
-        },
-
-        wasmEnv := Def.uncached {
-          val configuredEnvVars = envVars.value
-          val config = WasmtimeEnv.Config()
-            .withArgs(List(
-                "run",
-                "-W", "gc,function-references,exceptions",
-                "-S", "cli,inherit-env,inherit-network,tcp"
-            ))
-            .withEnv(configuredEnvVars)
-          new WasmtimeEnv(config)
         },
 
         scalaJSLoggerFactory := ((logger: Logger) => Loggers.sbtLogger2ToolsLogger(logger)),

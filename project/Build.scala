@@ -31,6 +31,7 @@ import org.scalajs.sbtplugin._
 import org.scalajs.jsenv.{JSEnv, RunConfig, Input}
 import org.scalajs.jsenv.JSUtils.escapeJS
 import org.scalajs.jsenv.nodejs.NodeJSEnv
+import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 import ScalaJSPlugin.autoImport.{ModuleKind => _, _}
 import org.scalastyle.sbt.ScalastylePlugin.autoImport.scalastyle
@@ -244,8 +245,19 @@ object MyScalaJSPlugin extends AutoPlugin {
       wantSourceMaps := true,
 
       jsEnv := {
-        val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
-        new NodeJSEnv(config)
+        if (scalaJSLinkerConfig.value.moduleKind == ModuleKind.WasmComponent) {
+          new WasmtimeEnv(
+            WasmtimeEnv.Config()
+              .withArgs(List(
+                "run",
+                "-W", "gc,function-references,exceptions",
+                "-S", "cli,inherit-env,inherit-network,tcp,http"))
+              .withEnv(envVars.value)
+          )
+        } else {
+          val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
+          new NodeJSEnv(config)
+        }
       },
 
       Compile / jsEnvInput :=
@@ -1501,7 +1513,6 @@ object Build {
       libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.6.0",
       libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0",
       libraryDependencies += "io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2",
-
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
       scriptedLaunchOpts ++= {
@@ -2193,6 +2204,7 @@ object Build {
       moduleName := "helloworld-wasi",
       // scalaJSUseMainModuleInitializer := true,
       scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
+      scalaJSWitWorld := Some("helloworld"),
       scalaJSWitPackage := Some("helloworld"),
       scalaJSLinkerConfig := {
         val witDir = scalaJSWitDirectory.value

@@ -84,24 +84,49 @@ private[sbtplugin] object ScalaJSPluginInternal {
   private[sbtplugin] def closeAllTestAdapters(): Unit =
     createdTestAdapters.getAndSet(Nil).foreach(_.close())
 
+  /** Embedded public WIT contract between the Scala.js test bridge and a
+   *  scala-js-env-wasmtime.
+   *
+   *  {{{
+   *  package scalajs:test-rpc;
+   *
+   *  interface rpc {
+   *    init: func();
+   *    send: func(msg: string);
+   *    poll: func() -> option<string>;
+   *  }
+   *  }}}
+   *
+   *  Also, a test bridge WIT world definition that imports the RPC interface.
+   *  For WasmComponent, the linker synthesizes the `wasi:cli/run` WIT export
+   *  when module initializers exist.
+   *
+   *  {{{
+   *  package scalajs:testbridge;
+   *
+   *  world test-bridge {
+   *    import scalajs:test-rpc/rpc;
+   *  }
+   *  }}}
+   */
   private object EmbeddedTestBridgeWit {
     private final val ResourceMappings = List(
         ("/org/scalajs/sbtplugin/internal/testbridge-wit/world.wit",
-            "world.wit"),
+            "deps/scalajs-testbridge/world.wit"),
         ("/org/scalajs/sbtplugin/internal/testbridge-wit/deps/scalajs-test-rpc/package.wit",
-            "deps/scalajs-test-rpc/package.wit"),
-        ("/org/scalajs/sbtplugin/internal/testbridge-wit/deps/wasi-cli-0.2.0/package.wit",
-            "deps/wasi-cli-0.2.0/package.wit")
+            "deps/scalajs-test-rpc/package.wit")
     )
 
-    private final val World = "test-bridge"
+    private final val SyntheticTestWorld = "scalajs-test"
+    private final val SyntheticTestWorldFile = "scalajs-test.wit"
 
-    private lazy val syntheticWitDirectory: File = {
-      val base = new File(
-          System.getProperty("java.io.tmpdir"),
-          s"scalajs-sbtplugin-testbridge-wit-$scalaJSVersion")
-      IO.delete(base)
-
+    private def syntheticWitDirectory(appWit: Option[(File, String)]): File = {
+      val base = Files
+        .createTempDirectory(s"scalajs-sbtplugin-testbridge-wit-$scalaJSVersion-")
+        .toFile
+      appWit.foreach { case (appWitDirectory, _) =>
+        IO.copyDirectory(appWitDirectory, base, overwrite = true)
+      }
       ResourceMappings.foreach { case (resourcePath, targetRelPath) =>
         val target = new File(base, targetRelPath)
         IO.createDirectory(target.getParentFile)
@@ -118,20 +143,29 @@ private[sbtplugin] object ScalaJSPluginInternal {
         }
       }
 
+      // If there exists an app WIT, include it and the test bridge WIT
+      val includes = appWit.toList.map { case (_, appWitWorld) =>
+        s"include $appWitWorld;"
+      } :+ "include scalajs:testbridge/test-bridge;"
+
+      IO.write(
+          base / SyntheticTestWorldFile,
+          s"world $SyntheticTestWorld {\n${includes.mkString("\n")}\n}\n")
       base
     }
 
     def withTestBridgeWitConfig(config: StandardConfig): StandardConfig = {
       val wasmFeatures = config.wasmFeatures
-      if (config.moduleKind == ModuleKind.WasmComponent &&
-          wasmFeatures.witDirectory.isEmpty) {
-        config.withWasmFeatures { prev =>
-          prev
-            .withWitDirectory(Some(syntheticWitDirectory.getAbsolutePath))
-            .withWitWorld(prev.witWorld.orElse(Some(World)))
-        }
-      } else {
-        config
+      val appWit = for {
+        dir <- wasmFeatures.witDirectory.map(new File(_)).filter(_.exists())
+        world <- wasmFeatures.witWorld
+      } yield (dir, world)
+
+      val witDirectory = syntheticWitDirectory(appWit)
+      config.withWasmFeatures { prev =>
+        prev
+          .withWitDirectory(Some(witDirectory.getAbsolutePath))
+          .withWitWorld(Some(SyntheticTestWorld))
       }
     }
   }
@@ -250,13 +284,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
       key / scalaJSLinkerBox := new CacheBox,
 
       legacyKey / scalaJSLinker := Def.uncached {
-        val config = {
-          val baseConfig = (key / scalaJSLinkerConfig).value
-          if (configuration.value == Test)
-            EmbeddedTestBridgeWit.withTestBridgeWitConfig(baseConfig)
-          else
-            baseConfig
-        }
+        val config = (key / scalaJSLinkerConfig).value
         val box = (key / scalaJSLinkerBox).value
         val linkerImpl = (key / scalaJSLinkerImpl).value
 
@@ -297,19 +325,52 @@ private[sbtplugin] object ScalaJSPluginInternal {
       },
 
       key / scalaJSLinkerConfigFingerprint := Def.uncached {
-        val config = {
-          val baseConfig = (key / scalaJSLinkerConfig).value
-          if (configuration.value == Test)
-            EmbeddedTestBridgeWit.withTestBridgeWitConfig(baseConfig)
-          else
-            baseConfig
-        }
-        StandardConfig.fingerprint(config)
+        StandardConfig.fingerprint((key / scalaJSLinkerConfig).value)
       },
 
       key / moduleName := (legacyKey / moduleName).value,
 
-      key / scalaJSLinkerConfig := (legacyKey / scalaJSLinkerConfig).value,
+      key / scalaJSLinkerConfig := {
+        val baseConfig = (legacyKey / scalaJSLinkerConfig).value
+        val config = {
+          if (baseConfig.moduleKind != ModuleKind.WasmComponent) {
+            baseConfig
+          } else {
+            // If we're building a WasmComponent, validate and copy
+            // `scalaJSWitDirectory` and `scalaJSWitWorld` into the linker config.
+            val witDirectory = scalaJSWitDirectory.value
+            val witWorld = scalaJSWitWorld.value
+            val hasWitDirectory = witDirectory.exists()
+            val witDirectoryOpt =
+              if (hasWitDirectory) Some(witDirectory.getAbsolutePath)
+              else None
+
+            if (!hasWitDirectory) {
+              throw new MessageOnlyException(
+                  "`scalaJSWitDirectory` must exist when building a WasmComponent.")
+            }
+            if (witWorld.isEmpty) {
+              throw new MessageOnlyException(
+                  "`scalaJSWitWorld` must be configured when building a WasmComponent.")
+            }
+
+            baseConfig.withWasmFeatures { prev =>
+              prev
+                .withWitDirectory(prev.witDirectory.orElse(witDirectoryOpt))
+                .withWitWorld(prev.witWorld.orElse(witWorld))
+            }
+          }
+        }
+
+        // If we're building a WasmComponent in test scope, use the test bridge wit config.
+        if (configuration.value == Test &&
+            config.moduleKind == ModuleKind.WasmComponent &&
+            scalaJSUseTestModuleInitializer.?.value.getOrElse(false)) {
+          EmbeddedTestBridgeWit.withTestBridgeWitConfig(config)
+        } else {
+          config
+        }
+      },
 
       key := Def.uncached(Def.taskDyn {
         /* It is very important that we evaluate all of those `.value`s from
@@ -658,7 +719,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
             // Pretend that we are an ES module for now
             Input.ESModule(path)
           case ModuleKind.WasmComponent =>
-            WasmtimeInput.WasmComponent((linkerOutputDir / s"${mainModule.moduleID}.wasm").toPath)
+            WasmtimeInput.WasmComponent(
+                (linkerOutputDir / s"${mainModule.moduleID}.wasm").toPath)
         }
       },
 
@@ -704,19 +766,14 @@ private[sbtplugin] object ScalaJSPluginInternal {
       run := Def.uncached {
         val linkerConfig = scalaJSLinkerConfig.value
         val isWasmComponent = linkerConfig.moduleKind == ModuleKind.WasmComponent
-        // Currently, `run` is supported for Wasm Component when it implements `wasi:cli/run`.
-        // We might want to automatiacally implement `wasi:cli/run` that invokes
-        // `scalaJSMainModuleInitializer.value` in future?
+        // For WasmComponent, the linker emits module initializers through
+        // `wasi:cli/run`, so `run` can use that export directly.
         if (!scalaJSUseMainModuleInitializer.value && !isWasmComponent) {
           throw new MessageOnlyException("`run` is only supported with " +
             "scalaJSUseMainModuleInitializer := true")
         }
         val log = streams.value.log
-        val env = if (isWasmComponent) {
-          wasmEnv.value
-        } else {
-          jsEnv.value
-        }
+        val env = jsEnv.value
 
         val className =
           if (isWasmComponent) "wasi:cli/run"
@@ -849,11 +906,6 @@ private[sbtplugin] object ScalaJSPluginInternal {
        */
       scalaJSUseMainModuleInitializer := false,
 
-      // Embed synthetic WIT files for test-bridge when moduleKind == WasmComponent
-      scalaJSLinkerConfig ~= { prev =>
-        EmbeddedTestBridgeWit.withTestBridgeWitConfig(prev)
-      },
-
       // Use test module initializer by default.
       scalaJSUseTestModuleInitializer := true,
 
@@ -909,11 +961,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val config = TestAdapter.Config()
           .withLogger(scalaJSLoggerFactory.value(log))
           .withEnv(envVars.value)
-        val jsEnvironment = jsEnv.value
-        val wasmEnvironment = wasmEnv.value
-        val env =
-          if (scalaJSLinkerConfig.value.moduleKind == ModuleKind.WasmComponent) wasmEnvironment
-          else jsEnvironment
+        val env = jsEnv.value
 
         val adapter = newTestAdapter(env, input, config)
         val frameworkAdapters = enhanceNotInstalledException(resolvedScoped.value, log) {

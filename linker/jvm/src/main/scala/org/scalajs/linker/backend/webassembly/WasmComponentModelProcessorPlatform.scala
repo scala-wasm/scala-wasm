@@ -32,6 +32,7 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
       wasmFileName: String,
       witDirectory: Path,
       worldName: Option[String],
+      exportWasiCliRun: Boolean,
       autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -43,6 +44,11 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
         val wasiWitDir = if (autoIncludeWasiImports) {
           Some(WasiWitExtractor.extractWasiWitToTempDir())
+        } else {
+          None
+        }
+        val wasiCliRunWitDir = if (exportWasiCliRun) {
+          Some(WasiWitExtractor.extractWasiCliRunWitToTempDir())
         } else {
           None
         }
@@ -74,9 +80,30 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           runCommand(embedCmd1, "wasm-tools component embed")
 
-          // Step 2: wasm-tools component embed (WASI WIT) - if enabled
-          wasiWitDir.foreach { wasiDir =>
+          // Step 2: wasm-tools component embed (synthetic wasi:cli/run export)
+          wasiCliRunWitDir.foreach { cliRunWitDir =>
             val embedCmd2 = Seq(
+              "wasm-tools",
+              "component",
+              "embed",
+              cliRunWitDir.toString,
+              wasmFilePath,
+              "-o",
+              wasmFilePath,
+              "-w",
+              "cli-run",
+              "--encoding",
+              "utf16"
+            )
+
+            logger.info(s"Embedding synthetic wasi:cli/run WIT for $wasmFileName")
+
+            runCommand(embedCmd2, "wasm-tools component embed (wasi:cli/run)")
+          }
+
+          // Step 3: wasm-tools component embed (WASI WIT) - if enabled
+          wasiWitDir.foreach { wasiDir =>
+            val embedCmd3 = Seq(
               "wasm-tools",
               "component",
               "embed",
@@ -92,10 +119,10 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
             logger.info(s"Embedding WASI WIT for $wasmFileName")
 
-            runCommand(embedCmd2, "wasm-tools component embed (WASI)")
+            runCommand(embedCmd3, "wasm-tools component embed (WASI)")
           }
 
-          /** Step 3: wasm-tools component new.
+          /** Step 4: wasm-tools component new.
            *  Reads all component-type custom sections which is embedded by component embed,
            *  filter by core module requirements (unused WASI imports would be dropped), and merges them.
            */
@@ -117,6 +144,7 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
           ByteBuffer.wrap(modifiedWasm)
         } finally {
           wasiWitDir.foreach(WasiWitExtractor.deleteDirectory)
+          wasiCliRunWitDir.foreach(WasiWitExtractor.deleteDirectory)
           Files.deleteIfExists(tempFile)
         }
       }.flatMap { modifiedWasmBuffer =>

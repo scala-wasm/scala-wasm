@@ -13,11 +13,21 @@
 package org.scalajs.linker.backend.webassembly
 
 import java.nio.file.{Files, Path}
+import java.nio.charset.StandardCharsets
 import java.io.{InputStream, OutputStream}
 import java.util.Comparator
 
 private[webassembly] object WasiWitExtractor {
   private val ResourceBase = "/org/scalajs/linker/backend/webassembly/wasi-wit/"
+  private val WasiPackages = Seq(
+      "wasi-cli-0.2.0",
+      "wasi-clocks-0.2.0",
+      "wasi-filesystem-0.2.0",
+      "wasi-http-0.2.0",
+      "wasi-io-0.2.0",
+      "wasi-random-0.2.0",
+      "wasi-sockets-0.2.0"
+  )
 
   /** Extracts the WASI WIT bundle to a temporary directory. */
   def extractWasiWitToTempDir(): Path = {
@@ -25,34 +35,48 @@ private[webassembly] object WasiWitExtractor {
 
     try {
       extractResource(ResourceBase + "world.wit", tempDir.resolve("world.wit"))
-
-      val depsDir = tempDir.resolve("deps")
-      Files.createDirectories(depsDir)
-
-      // List of WASI packages to extract
-      val wasiPackages = Seq(
-          "wasi-cli-0.2.0",
-          "wasi-clocks-0.2.0",
-          "wasi-filesystem-0.2.0",
-          "wasi-http-0.2.0",
-          "wasi-io-0.2.0",
-          "wasi-random-0.2.0",
-          "wasi-sockets-0.2.0"
-      )
-
-      for (pkg <- wasiPackages) {
-        val pkgDir = depsDir.resolve(pkg)
-        Files.createDirectories(pkgDir)
-        extractResource(
-          ResourceBase + s"deps/$pkg/package.wit",
-          pkgDir.resolve("package.wit")
-        )
-      }
+      extractWasiPackages(tempDir)
       tempDir
     } catch {
       case e: Exception =>
         deleteDirectory(tempDir)
         throw new Exception(s"Failed to extract WASI WIT bundle: ${e.getMessage}", e)
+    }
+  }
+
+  /** Extracts the WIT needed to export the synthetic `wasi:cli/run`. */
+  def extractWasiCliRunWitToTempDir(): Path = {
+    val tempDir = Files.createTempDirectory("scala-wasm-wasi-cli-run-wit-")
+
+    try {
+      Files.write(
+          tempDir.resolve("world.wit"),
+          """package scala-wasm:cli-run;
+            |
+            |world cli-run {
+            |  export wasi:cli/run@0.2.0;
+            |}
+            |""".stripMargin.getBytes(StandardCharsets.UTF_8))
+
+      extractWasiPackages(tempDir)
+      tempDir
+    } catch {
+      case e: Exception =>
+        deleteDirectory(tempDir)
+        throw new Exception(s"Failed to extract WASI CLI run WIT: ${e.getMessage}", e)
+    }
+  }
+
+  private def extractWasiPackages(targetDir: Path): Unit = {
+    val depsDir = targetDir.resolve("deps")
+    Files.createDirectories(depsDir)
+
+    for (pkg <- WasiPackages) {
+      val pkgDir = depsDir.resolve(pkg)
+      Files.createDirectories(pkgDir)
+      extractResource(
+          ResourceBase + s"deps/$pkg/package.wit",
+          pkgDir.resolve("package.wit"))
     }
   }
 

@@ -1,0 +1,5 @@
+package example:runtime-test;
+
+world app {
+  import wasi:random/random@0.2.0;
+}

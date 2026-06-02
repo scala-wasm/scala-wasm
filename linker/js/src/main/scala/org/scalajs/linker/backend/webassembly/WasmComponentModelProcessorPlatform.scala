@@ -29,6 +29,7 @@ private final class WasmComponentModelProcessorStub extends WasmComponentModelPr
       wasmFileName: String,
       witDirectory: Path,
       worldName: Option[String],
+      exportWasiCliRun: Boolean,
       autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
