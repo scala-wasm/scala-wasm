@@ -2426,12 +2426,14 @@ object Build {
 
               ) ||
               contains(f, "/js/src/test/scala/org/scalajs/testsuite/") && (
-                // compiler
                 // endsWith(f, "/ModuleInitializersTest.scala") ||
-                endsWith(f, "/EqJSTest.scala") ||
-                // library
-                endsWith(f, "/LinkTimeIfTest.scala") ||
-                endsWith(f, "/ReflectTest.scala")
+                endsWith(f, "/compiler/EqJSTest.scala") ||
+                endsWith(f, "/jsinterop/AsyncTest.scala") ||
+                endsWith(f, "/jsinterop/PromiseMock.scala") ||
+                endsWith(f, "/jsinterop/TimeoutMock.scala") ||
+                endsWith(f, "/library/LinkTimeIfTest.scala") ||
+                endsWith(f, "/library/ReflectTest.scala") ||
+                endsWith(f, "/utils/JSUtils.scala")
               )
             )
         }
