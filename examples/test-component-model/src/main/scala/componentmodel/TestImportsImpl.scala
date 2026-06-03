@@ -10,7 +10,7 @@ import componentmodel.component.testing.countable._
 import componentmodel.root._
 import componentmodel.exports.component.testing.TestImports
 
-import scala.scalajs.WitUtils.toEither
+import scala.scalajs.WitConversions._
 
 import java.util.Optional
 
@@ -99,6 +99,10 @@ object TestImportsImpl extends TestImports {
 
     assert(Optional.of("ok") == roundtripOption(Optional.of("ok")))
     assert(Optional.empty == roundtripOption(Optional.empty[String]))
+    val scalaOption: Option[String] = roundtripOption(Some("ok"))
+    assert(scalaOption == Some("ok"))
+    val witOptional: Optional[String] = None
+    assert(Optional.empty[String] == roundtripOption(witOptional))
     assert(Optional.of(Optional.of("foo")) == roundtripDoubleOption(Optional.of(Optional.of("foo"))))
     assert(Optional.of(Optional.empty) == roundtripDoubleOption(Optional.of(Optional.empty[String])))
     assert(Optional.empty == roundtripDoubleOption(Optional.empty[Optional[String]]))
@@ -108,6 +112,10 @@ object TestImportsImpl extends TestImports {
     assert(new wit.Err(()) == roundtripResult(new wit.Err(())))
     assert(new wit.Ok(3.0f) == roundtripStringError(new wit.Ok(3.0f)))
     assert(new wit.Err("err") == roundtripStringError(new wit.Err("err")))
+    val scalaEither: Either[String, Float] = roundtripStringError(Right(3.0f))
+    assert(scalaEither == Right(3.0f))
+    val witResult: wit.Result[Float, String] = Left("err")
+    assert(new wit.Err("err") == roundtripStringError(witResult))
     assert(new wit.Ok(C1.A(432)) == roundtripEnumError(new wit.Ok(C1.A(432))))
     assert(new wit.Ok(C1.B(0.0f)) == roundtripEnumError(new wit.Ok(C1.B(0.0f))))
     assert(new wit.Err(E1.A) == roundtripEnumError(new wit.Err(E1.A)))
@@ -131,18 +139,17 @@ object TestImportsImpl extends TestImports {
 
     // Test resource wrappers
     locally {
-      val successResult = toEither(tryCreateCounter(10))
+      val successResult: Either[String, Counter] = tryCreateCounter(10)
       successResult match {
         case Right(counter) => assert(10 == counter.valueOf())
         case Left(_)        => throw new AssertionError("Expected Right but got Left")
       }
 
-      val errorResult = toEither(tryCreateCounter(-5))
-      assert(errorResult.isLeft)
+      assert(tryCreateCounter(-5).isLeft)
 
-      val maybeCounter = maybeGetCounter()
-      assert(maybeCounter.isPresent)
-      assert(42 == maybeCounter.get().valueOf())
+      val maybeCounter: Option[Counter] = maybeGetCounter()
+      assert(maybeCounter.isDefined)
+      assert(42 == maybeCounter.get.valueOf())
     }
 
     locally {

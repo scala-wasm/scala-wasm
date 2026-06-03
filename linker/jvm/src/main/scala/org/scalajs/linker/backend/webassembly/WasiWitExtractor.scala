@@ -19,6 +19,7 @@ import java.util.Comparator
 
 private[webassembly] object WasiWitExtractor {
   private val ResourceBase = "/org/scalajs/linker/backend/webassembly/wasi-wit/"
+
   private val WasiPackages = Seq(
       "wasi-cli-0.2.0",
       "wasi-clocks-0.2.0",

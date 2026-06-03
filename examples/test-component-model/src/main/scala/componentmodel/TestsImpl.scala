@@ -7,8 +7,6 @@ import scala.scalajs.wit.unsigned._
 import componentmodel.exports.component.testing.Tests
 import componentmodel.exports.component.testing.tests._
 
-import scala.scalajs.WitUtils.toEither
-
 import java.util.Optional
 
 @WitImplementation

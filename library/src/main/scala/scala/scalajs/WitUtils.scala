@@ -13,15 +13,13 @@
 package scala.scalajs
 
 import scala.scalajs.{wit => wm}
+import scala.scalajs.WitConversions._
 
+@deprecated("Use scala.scalajs.WitConversions instead.", "1.21.1-wasm.5")
 object WitUtils {
-  def toEither[A, B](res: wm.Result[A, B]): Either[B, A] = res match {
-    case err: wm.Err[B] => Left(err.value)
-    case ok: wm.Ok[A]   => Right(ok.value)
-  }
+  def toEither[A, B](res: wm.Result[A, B]): Either[B, A] =
+    res.toEither
 
-  def toOption[A, B](opt: java.util.Optional[A]): Option[A] = {
-    if (opt.isPresent()) Some(opt.get())
-    else None
-  }
+  def toOption[A, B](opt: java.util.Optional[A]): Option[A] =
+    opt.toOption
 }

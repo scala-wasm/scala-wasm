@@ -8,7 +8,7 @@ package echo
 import scala.scalajs.wit.annotation._
 import scala.scalajs.wit
 
-import scala.scalajs.WitUtils._
+import scala.scalajs.WitConversions._
 import scala.collection.mutable
 
 import echo.exports.wasi.http.IncomingHandler
@@ -18,14 +18,16 @@ import scala.scalajs.wasi.http.types._
 object Server extends IncomingHandler {
   override def handle(request: IncomingRequest, outParam: ResponseOutparam): Unit = {
     val inputBody = (for {
-      body <- toEither(request.consume())
-      inputStream <- toEither(body.stream())
+      body <- request.consume()
+      inputStream <- body.stream()
     } yield {
       var eof = false
 
       val in = mutable.ArrayBuffer.empty[Byte]
       while (!eof) {
-        toEither(inputStream.blockingRead(1024L)) match {
+        val readResult: Either[Any, Array[scala.scalajs.wit.unsigned.UByte]] =
+          inputStream.blockingRead(1024L)
+        readResult match {
           case Right(bytes) =>
             if (bytes.length == 0)
               eof = true
@@ -41,16 +43,16 @@ object Server extends IncomingHandler {
     val headers: Headers = Fields()
     val resp = OutgoingResponse(headers)
     val body: OutgoingBody =
-      toEither(resp.body()).getOrElse(throw new Error("failed to obtain outgoing response"))
+      resp.body().getOrElse(throw new Error("failed to obtain outgoing response"))
 
     ResponseOutparam.set(outParam, new wit.Ok(resp))
 
-    val out = toEither(body.write()).getOrElse(throw new Error("failed to get outgoing stream"))
+    val out = body.write().getOrElse(throw new Error("failed to get outgoing stream"))
     out.blockingWriteAndFlush(inputBody)
 
     out.close()
 
-    toEither(OutgoingBody.finish(body, java.util.Optional.empty[Trailers]())).getOrElse(
+    OutgoingBody.finish(body, java.util.Optional.empty[Trailers]()).getOrElse(
         throw new Error("failed to finish outgoing body"))
   }
 }
