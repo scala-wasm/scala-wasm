@@ -141,7 +141,7 @@ object Infos {
        * ReachabilityInfoInClass, so the overhead of having a field per type
        * becomes significant in terms of memory usage.
        */
-      val memberInfos: Array[MemberReachabilityInfo], // nullable!
+      val memberInfos: Array[MemberReachabilityInfo],
       val flags: ReachabilityInfoInClass.Flags
   )
 
@@ -161,6 +161,10 @@ object Infos {
   }
 
   sealed trait MemberReachabilityInfo
+
+  private object MemberReachabilityInfo {
+    val EmptyArray: Array[MemberReachabilityInfo] = new Array(0)
+  }
 
   final case class FieldReachable private[Infos] (
       val fieldName: FieldName,
@@ -560,11 +564,11 @@ object Infos {
           wasmwitNativeMembersUsed.iterator.map(WasmWitNativeMemberReachable(_))
       ).toArray
 
-      val memberInfosOrNull =
-        if (memberInfos.isEmpty) null
+      val memberInfosOpt =
+        if (memberInfos.isEmpty) MemberReachabilityInfo.EmptyArray
         else memberInfos
 
-      new ReachabilityInfoInClass(className, memberInfosOrNull, flags)
+      new ReachabilityInfoInClass(className, memberInfosOpt, flags)
     }
   }
 
@@ -1022,8 +1026,10 @@ object Infos {
               builder.addUsedExponentOperator()
 
             case JSAwait(_) =>
-              if (!inAsync)
+              if (!inAsync) {
+                builder.addUsedAsync()
                 builder.addUsedOrphanAwait()
+              }
 
             case LoadJSConstructor(className) =>
               builder.addInstantiatedClass(className)

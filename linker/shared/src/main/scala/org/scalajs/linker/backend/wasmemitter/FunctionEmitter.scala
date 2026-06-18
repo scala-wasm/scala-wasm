@@ -23,6 +23,7 @@ import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 
+import org.scalajs.linker.Nullables._
 import org.scalajs.linker.interface.CheckedBehavior
 import org.scalajs.linker.backend.emitter.Transients
 
@@ -329,8 +330,8 @@ private class FunctionEmitter private (
   private val coreSpec = ctx.coreSpec
   import coreSpec.semantics
 
-  private var currentExceptionHandler: Option[wanme.LabelID] = null
-  private var currentNPELabel: Option[wanme.LabelID] = null
+  private var currentExceptionHandler: Nullable[Option[wanme.LabelID]] = null
+  private var currentNPELabel: Option[wanme.LabelID] = None
   private var closureIdx: Int = 0
   private var currentEnv: Env = paramsEnv
 
@@ -342,7 +343,7 @@ private class FunctionEmitter private (
    *  After this codegen, the stack is in a stack-polymorphic context.
    */
   private def genForwardThrowAlways(): Unit = {
-    currentExceptionHandler match {
+    currentExceptionHandler.nn match {
       case None =>
         fb += wa.Unreachable
       case Some(handler) =>
@@ -355,7 +356,7 @@ private class FunctionEmitter private (
    *  The stack is not altered by this codegen.
    */
   private def genForwardThrow(): Unit = {
-    currentExceptionHandler match {
+    currentExceptionHandler.nn match {
       case None =>
         ()
       case Some(handler) =>
@@ -733,9 +734,6 @@ private class FunctionEmitter private (
       case _:JSSuperConstructorCall | _:LinkTimeProperty | _:LinkTimeIf |
           _:NewLambda =>
         throw new AssertionError(s"Invalid tree: $tree")
-
-      case _ =>
-        throw new AssertionError(s"Invalid tree: $tree at ${tree.pos}")
     }
 
     if (generatedType != expectedType) {
@@ -950,9 +948,6 @@ private class FunctionEmitter private (
         genTree(rhs, lhs.tpe)
         markPosition(tree)
         genWriteToStorage(lookupRecordSelect(lhs))
-
-      case _ =>
-        throw new AssertionError(s"Invalid lhs tree: $tree at ${tree.pos}")
     }
 
     VoidType
@@ -1868,7 +1863,7 @@ private class FunctionEmitter private (
       fb += wa.GlobalSet(genGlobalID.thrownException)
       fb += wa.I32Const(1)
       fb += wa.GlobalSet(genGlobalID.isThrowing)
-      fb += wa.Br(currentExceptionHandler.get)
+      fb += wa.Br(currentExceptionHandler.nn.get)
     }
   }
 
@@ -3107,7 +3102,7 @@ private class FunctionEmitter private (
     implicit val pos = tree.pos
 
     genThroughCustomJSHelper(ctor :: args, AnyType) { allJSArgs =>
-      val jsCtor :: jsArgs = allJSArgs
+      val jsCtor :: jsArgs = allJSArgs: @unchecked
       js.Return(js.New(jsCtor, jsArgs))
     }
   }
@@ -3118,7 +3113,7 @@ private class FunctionEmitter private (
     implicit val pos = tree.pos
 
     genThroughCustomJSHelper(List(qualifier, item), castTo) { allJSArgs =>
-      val List(jsQualifier, jsItem) = allJSArgs
+      val List(jsQualifier, jsItem) = allJSArgs: @unchecked
       js.Return(js.BracketSelect.makeOptimized(jsQualifier, jsItem))
     }
   }
@@ -3129,7 +3124,7 @@ private class FunctionEmitter private (
     implicit val pos = tree.pos
 
     genThroughCustomJSHelper(fun :: args, castTo) { allJSArgs =>
-      val jsFun :: jsArgs = allJSArgs
+      val jsFun :: jsArgs = allJSArgs: @unchecked
       js.Return(js.Apply.makeProtected(jsFun, jsArgs))
     }
   }
@@ -3140,7 +3135,7 @@ private class FunctionEmitter private (
     implicit val pos = tree.pos
 
     genThroughCustomJSHelper(receiver :: method :: args, castTo) { allJSArgs =>
-      val jsReceiver :: jsMethod :: jsArgs = allJSArgs
+      val jsReceiver :: jsMethod :: jsArgs = allJSArgs: @unchecked
       js.Return(js.Apply(js.BracketSelect.makeOptimized(jsReceiver, jsMethod), jsArgs))
     }
   }
@@ -3779,7 +3774,7 @@ private class FunctionEmitter private (
     implicit val pos = tree.pos
 
     genThroughCustomJSHelper(superClass :: receiver :: method :: args, castTo) { allJSArgs =>
-      val jsSuperClass :: jsReceiver :: jsMethod :: jsArgs = allJSArgs
+      val jsSuperClass :: jsReceiver :: jsMethod :: jsArgs = allJSArgs: @unchecked
 
       // return superClass.prototype[method].call(receiver, ...args);
       js.Return(
@@ -4593,7 +4588,7 @@ private class FunctionEmitter private (
             fb += wa.GlobalSet(genGlobalID.thrownException)
             fb += wa.I32Const(1)
             fb += wa.GlobalSet(genGlobalID.isThrowing)
-            fb += wa.Br(currentExceptionHandler.get)
+            fb += wa.Br(currentExceptionHandler.nn.get)
           }
 
           // Otherwise, leave the exception globals unset and continue

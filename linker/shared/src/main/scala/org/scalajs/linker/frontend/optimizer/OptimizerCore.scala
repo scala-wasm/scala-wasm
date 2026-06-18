@@ -253,7 +253,7 @@ private[optimizer] abstract class OptimizerCore(
   private def isSubclass(lhs: ClassName, rhs: ClassName): Boolean =
     getAncestorsOf(lhs).contains(rhs)
 
-  private val isSubclassFun = isSubclass _
+  private val isSubclassFun: (ClassName, ClassName) => Boolean = isSubclass(_, _)
 
   private def isSubtype(lhs: Type, rhs: Type): Boolean = {
     assert(lhs != VoidType)
@@ -376,7 +376,8 @@ private[optimizer] abstract class OptimizerCore(
   private def transform(tree: Tree, isStat: Boolean)(
       implicit scope: Scope): Tree = {
 
-    @inline implicit def pos = tree.pos
+    @inline implicit def pos: Position = tree.pos
+
     val result: Tree = tree match {
       // Definitions
 
@@ -1032,7 +1033,7 @@ private[optimizer] abstract class OptimizerCore(
    */
   private def pretransformExpr(tree: Tree)(cont: PreTransCont)(
       implicit scope: Scope): TailRec[Tree] = tailcall {
-    @inline implicit def pos = tree.pos
+    @inline implicit def pos: Position = tree.pos
 
     tree match {
       case tree: Block =>
@@ -1403,11 +1404,21 @@ private[optimizer] abstract class OptimizerCore(
           cancelFun()
         }
 
-      case PreTransLocalDef(LocalDef(_, _,
-              InlineClassInstanceReplacement(_, fieldLocalDefs, cancelFun))) =>
+      case PreTransMaybeBlock(bindingsAndStats,
+              PreTransLocalDef(
+                  LocalDef(_, _, InlineClassInstanceReplacement(_, fieldLocalDefs, cancelFun)))) =>
         val fieldLocalDef = fieldLocalDefs(field.name)
         assert(!isLhsOfAssign || fieldLocalDef.mutable, s"assign to immutable field at $pos")
-        cont(fieldLocalDef.toPreTransform)
+        val fullResult = fieldLocalDef.toPreTransform match {
+          case result if bindingsAndStats.isEmpty =>
+            result
+          case result: PreTransResult =>
+            PreTransBlock(bindingsAndStats, result)
+          case result =>
+            Block(finishTransformBindings(bindingsAndStats, finishTransformExpr(result)))
+              .toPreTransform
+        }
+        cont(fullResult)
 
       case _ =>
         def default: TailRec[Tree] = {
@@ -1757,10 +1768,16 @@ private[optimizer] abstract class OptimizerCore(
             case _ =>
               Block(newLhs, BinaryOp(op, LongLiteral(0L), finishTransformExpr(rhs)))
           }
-        case String_charAt if semantics.stringIndexOutOfBounds != CheckedBehavior.Unchecked =>
-          finishWithSideEffects
-        case Class_cast if semantics.asInstanceOfs != CheckedBehavior.Unchecked =>
-          finishWithSideEffects
+        case String_charAt =>
+          if (semantics.stringIndexOutOfBounds != CheckedBehavior.Unchecked)
+            finishWithSideEffects
+          else
+            finishNoSideEffects
+        case Class_cast =>
+          if (semantics.asInstanceOfs != CheckedBehavior.Unchecked)
+            finishWithSideEffects
+          else
+            finishNoSideEffects
         case Class_newArray =>
           finishWithSideEffects
         case _ =>
@@ -2864,7 +2881,7 @@ private[optimizer] abstract class OptimizerCore(
     }
   }
 
-  private def inline(allocationSites: List[AllocationSite],
+  private def inlineTarget(allocationSites: List[AllocationSite],
       optReceiver: Option[(Type, PreTransform)],
       args: List[PreTransform], target: MethodID, isStat: Boolean,
       usePreTransform: Boolean)(
@@ -3002,7 +3019,7 @@ private[optimizer] abstract class OptimizerCore(
       val beingInlined = scope.implsBeingInlined((allocationSites, target))
       if (shouldInline && !beingInlined) {
         val optReceiver = optTReceiver.map((receiverTypeFor(target), _))
-        inline(allocationSites, optReceiver, targs, target, isStat, usePreTransform)(cont)
+        inlineTarget(allocationSites, optReceiver, targs, target, isStat, usePreTransform)(cont)
       } else {
         treeNotInlined
       }
@@ -3954,13 +3971,21 @@ private[optimizer] abstract class OptimizerCore(
           case LongToFloat =>
             expandLongOpSplit1(LongImpl.toFloat, arg)
 
-          case Double_toBits if config.coreSpec.esFeatures.esVersion >= ESVersion.ES2015 =>
-            expandLongOp(LongImpl.fromDoubleBits,
-                arg, PreTransTree(Transient(GetFPBitsDataView)))(cont)
+          case Double_toBits =>
+            if (config.coreSpec.esFeatures.esVersion >= ESVersion.ES2015) {
+              expandLongOp(LongImpl.fromDoubleBits,
+                  arg, PreTransTree(Transient(GetFPBitsDataView)))(cont)
+            } else {
+              cont(pretrans)
+            }
 
-          case Double_fromBits if config.coreSpec.esFeatures.esVersion >= ESVersion.ES2015 =>
-            expandLongOpSplitLeft(LongImpl.bitsToDouble,
-                arg, PreTransTree(Transient(GetFPBitsDataView)))
+          case Double_fromBits =>
+            if (config.coreSpec.esFeatures.esVersion >= ESVersion.ES2015) {
+              expandLongOpSplitLeft(LongImpl.bitsToDouble,
+                  arg, PreTransTree(Transient(GetFPBitsDataView)))
+            } else {
+              cont(pretrans)
+            }
 
           case Long_clz =>
             expandLongOpSplit1(LongImpl.clz, arg)
@@ -4585,9 +4610,9 @@ private[optimizer] abstract class OptimizerCore(
           case (PreTransLit(_), _) =>
             foldBinaryOp(op, rhs, lhs)
 
-          case (PreTransLit(BooleanLiteral(l)), _) =>
-            if (l == positive) rhs
-            else foldNot(rhs)
+          case (_, PreTransLit(BooleanLiteral(r))) =>
+            if (r == positive) lhs
+            else foldNot(lhs)
 
           case _ =>
             default

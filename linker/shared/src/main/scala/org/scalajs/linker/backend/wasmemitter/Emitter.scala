@@ -54,6 +54,8 @@ final class Emitter(config: Emitter.Config) {
 
   private val WasiCliRunExportName = "wasi:cli/run@0.2.0#run"
 
+  private val loaderContent = LoaderContent.makeBytesContent(coreSpec)
+
   private val classEmitter = new ClassEmitter(coreSpec)
 
   val symbolRequirements: SymbolRequirement =
@@ -63,12 +65,14 @@ final class Emitter(config: Emitter.Config) {
 
   def emit(module: ModuleSet.Module, globalInfo: LinkedGlobalInfo, logger: Logger): Result = {
     val (wasmModule, jsFileContentInfo) = emitWasmModule(module, globalInfo)
-    val loaderContent =
-      if (coreSpec.moduleKind == ModuleKind.ESModule) LoaderContent.bytesContent
+
+    val loaderContent0 =
+      if (coreSpec.moduleKind == ModuleKind.ESModule) loaderContent
       else LoaderContent.noJSInteropBytesContent
+
     val jsFileContent = buildJSFileContent(module, jsFileContentInfo)
 
-    new Result(wasmModule, loaderContent, jsFileContent)
+    new Result(wasmModule, loaderContent0, jsFileContent)
   }
 
   private def emitWasmModule(module: ModuleSet.Module,
@@ -343,7 +347,7 @@ final class Emitter(config: Emitter.Config) {
     for {
       clazz <- sortedClasses
       if clazz.kind.isJSClass
-      FieldDef(flags, FieldIdent(fieldName), origName, _) <- clazz.fields
+      FieldDef(flags, FieldIdent(fieldName), origName, _) <- ClassEmitter.scalaFieldsOf(clazz)
       if !flags.namespace.isStatic
     } yield {
       val varName = ctx.privateJSFields(fieldName)

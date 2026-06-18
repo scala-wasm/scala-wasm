@@ -16,6 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import java.nio.file.Path
 
+import org.scalajs.linker.Nullables._
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
 
@@ -48,5 +49,5 @@ private[backend] object WasmComponentModelProcessor {
 
 class WasmToolsNotFoundException(message: String) extends Exception(message)
 
-class WasmToolsExecutionException(message: String, cause: Throwable = null)
+class WasmToolsExecutionException(message: String, cause: Nullable[Throwable] = null)
     extends Exception(message, cause)

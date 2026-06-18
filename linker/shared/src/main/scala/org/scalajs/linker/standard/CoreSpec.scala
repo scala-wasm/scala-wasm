@@ -82,7 +82,7 @@ final class CoreSpec private (
     acc = mix(acc, esFeatures.##)
     acc = mix(acc, wasmFeatures.##)
     acc = mixLast(acc, targetIsWebAssembly.##)
-    finalizeHash(acc, 4)
+    finalizeHash(acc, 5)
   }
 
   override def toString(): String = {

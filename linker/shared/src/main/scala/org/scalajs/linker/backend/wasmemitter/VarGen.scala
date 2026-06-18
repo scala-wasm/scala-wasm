@@ -130,24 +130,24 @@ object VarGen {
         name: WitFunctionName)
         extends FunctionID
 
-    final case object f32Fmod extends FunctionID
-    final case object f64Fmod extends FunctionID
-    final case object itoa extends FunctionID
-    final case object ltoa extends FunctionID
-    final case object hijackedValueToString extends FunctionID
-    final case object stringLiteral extends FunctionID
+    case object f32Fmod extends FunctionID
+    case object f64Fmod extends FunctionID
+    case object itoa extends FunctionID
+    case object ltoa extends FunctionID
+    case object hijackedValueToString extends FunctionID
+    case object stringLiteral extends FunctionID
 
-    final case object malloc extends FunctionID
-    final case object realloc extends FunctionID
+    case object malloc extends FunctionID
+    case object realloc extends FunctionID
     // CanonicalABI
-    final case object cabiLoadString extends FunctionID
-    final case object cabiStoreString extends FunctionID
+    case object cabiLoadString extends FunctionID
+    case object cabiStoreString extends FunctionID
     // print
-    final case object wasiCliGetStdout extends FunctionID
-    final case object blockingWriteAndFlush extends FunctionID
-    final case object dropOutputStream extends FunctionID
-    final case object printlnInt extends FunctionID
-    final case object dumpMemory extends FunctionID
+    case object wasiCliGetStdout extends FunctionID
+    case object blockingWriteAndFlush extends FunctionID
+    case object dropOutputStream extends FunctionID
+    case object printlnInt extends FunctionID
+    case object dumpMemory extends FunctionID
 
     // JS helpers
 
@@ -302,7 +302,7 @@ object VarGen {
         case object init extends JSHelperFunctionID
       }
 
-      final case object handleMessage extends FunctionID
+      case object handleMessage extends FunctionID
     }
   }
 
@@ -490,7 +490,7 @@ object VarGen {
     }
 
     /** Resource handle for Component Model resource type. */
-    final case object handle extends FieldID
+    case object handle extends FieldID
   }
 
   object genTypeID {

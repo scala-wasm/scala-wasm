@@ -459,7 +459,7 @@ object ScalaJSToCABI {
             genStoreMemory(fb, tpe)
           }
         })
-      }: _*
+      }
     } { () =>
       fb += wa.Unreachable
     }
@@ -507,7 +507,7 @@ object ScalaJSToCABI {
               genCoerceValues(fb, Nil, flattened)
           }
         })
-      }: _*
+      }
     } { () =>
       fb += wa.Unreachable
     }
