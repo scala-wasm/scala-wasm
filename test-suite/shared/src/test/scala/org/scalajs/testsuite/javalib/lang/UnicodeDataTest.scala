@@ -77,6 +77,9 @@ object UnicodeDataTest {
 
   @BeforeClass
   def beforeClass(): Unit = {
+    assumeFalse("too slow on MinimalWasmModule or WasmComponent",
+        isMinimalWasmModule || isWasmComponent)
+
     assumeTrue(
         s"requires exactly the reference JDK version $ReferenceJDKVersion",
         !executingInJVM || executingInJVMWithJDKIn(ReferenceJDKVersion to ReferenceJDKVersion))

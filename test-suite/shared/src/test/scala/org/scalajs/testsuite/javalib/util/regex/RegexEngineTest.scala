@@ -15,12 +15,20 @@ package org.scalajs.testsuite.javalib.util.regex
 import java.util.regex._
 import java.util.regex.Pattern.compile
 
-import org.junit.Test
+import org.junit.{BeforeClass, Test}
 import org.junit.Assert._
 import org.junit.Assume._
 
 import org.scalajs.testsuite.utils.Platform._
 import org.scalajs.testsuite.utils.AssertThrows.assertThrows
+
+object RegexEngineTest {
+  @BeforeClass
+  def beforeClass(): Unit = {
+    assumeFalse("too slow on MinimalWasmModule or WasmComponent",
+        isMinimalWasmModule || isWasmComponent)
+  }
+}
 
 class RegexEngineTest {
 
