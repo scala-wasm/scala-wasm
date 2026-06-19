@@ -14,7 +14,7 @@ package org.scalajs.testsuite.javalib.lang
 
 import java.lang.Character._
 
-import org.junit.{BeforeClass, Test}
+import org.junit.Test
 import org.junit.Assert._
 import org.junit.Assume._
 
@@ -74,16 +74,6 @@ object UnicodeDataTest {
   // BEGIN GENERATED: [constants]
   private final val ReferenceJDKVersion = 21
   // END GENERATED: [constants]
-
-  @BeforeClass
-  def beforeClass(): Unit = {
-    assumeFalse("too slow on MinimalWasmModule or WasmComponent",
-        isMinimalWasmModule || isWasmComponent)
-
-    assumeTrue(
-        s"requires exactly the reference JDK version $ReferenceJDKVersion",
-        !executingInJVM || executingInJVMWithJDKIn(ReferenceJDKVersion to ReferenceJDKVersion))
-  }
 
   /* The following 3 arrays are logically one, but if we don't split them,
    * that causes a "Method too large error". That is also why they are in defs.
