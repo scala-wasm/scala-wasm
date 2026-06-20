@@ -34,6 +34,9 @@ object Platform {
 
   final val executingInWebAssembly = false
 
+  final val isMinimalWasmModule = false
+  final val isWasmComponent = false
+
   final val executingInPureWebAssembly = false
 
   def usesClosureCompiler: Boolean = false

@@ -49,9 +49,10 @@ jobs:
       fail-fast: false
       matrix:
         suffix: [2_12, 2_13]
-        esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
+        esVersion: [ES2022] # Minimum version for Wasm.
+        jspi: [false, true]
     env:
-      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))))'
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withWasmFeatures(_.withUseJSPI(${{ matrix.jspi }}))))'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -78,10 +79,10 @@ jobs:
       fail-fast: false
       matrix:
         suffix: [2_12, 2_13]
-        esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
+        esVersion: [ES2022] # Minimum version for Wasm.
         eh-support: [true, false]
     env:
-      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withModuleKind(ModuleKind.MinimalWasmModule).withWasmFeatures(_.withExceptionHandling(${{ matrix.eh-support }}))))'
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withModuleKind(ModuleKind.MinimalWasmModule).withWasmFeatures(_.withExceptionHandling(${{ matrix.eh-support }}).withUseJSPI(false))))'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -115,6 +116,8 @@ jobs:
             scalaVersion: "2.12"
           - suffix: 2_13
             scalaVersion: "2.13"
+    env:
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.ES2022)).withModuleKind(ModuleKind.WasmComponent).withWasmFeatures(_.withUseJSPI(false))))'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -143,22 +146,22 @@ jobs:
         run: cargo component build --target wasm32-wasip2 -r
         working-directory: examples/test-component-model/rust-run
       - name: testSuite${{ matrix.suffix }}/test with WasmComponent
-        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" testSuite${{ matrix.suffix }}/test
       - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
-        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
+        run: sbt "$SBT_SET_COMMAND" testComponentModel${{ matrix.suffix }}/fastLinkJS
       - name: testComponentModel${{ matrix.suffix }}/fullLinkJS
-        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fullLinkJS
+        run: sbt "$SBT_SET_COMMAND" testComponentModel${{ matrix.suffix }}/fullLinkJS
       - name: Compose and run tests
         run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
         working-directory: examples/test-component-model
 
       # echoserver test, check at least it links
       - name: echoserver${{ matrix.suffix }}/fastLinkJS
-        run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fastLinkJS
+        run: sbt "$SBT_SET_COMMAND" echoserver${{ matrix.suffix }}/fastLinkJS
       - name: echoserver${{ matrix.suffix }}/fullLinkJS
-        run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fullLinkJS
+        run: sbt "$SBT_SET_COMMAND" echoserver${{ matrix.suffix }}/fullLinkJS
       - name: testSuite${{ matrix.suffix }}/test with WasmComponent
-        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" testSuite${{ matrix.suffix }}/test
 
   test-suite-jvm:
     runs-on: ubuntu-latest

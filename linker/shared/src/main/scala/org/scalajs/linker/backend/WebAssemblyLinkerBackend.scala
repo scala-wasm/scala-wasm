@@ -38,8 +38,8 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     s"The WebAssembly backend does not support the module kind ${coreSpec.moduleKind}."
   )
   require(
-    coreSpec.esFeatures.useECMAScript2015Semantics,
-    s"The WebAssembly backend only supports the ECMAScript 2015 semantics."
+    coreSpec.esFeatures.esVersion >= ESVersion.ES2022,
+    s"The WebAssembly backend requires ECMAScript 2022 or later."
   )
 
   require(coreSpec.targetIsWebAssembly,

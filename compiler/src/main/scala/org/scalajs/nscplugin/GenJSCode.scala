@@ -2160,8 +2160,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
           val optimizerHints = {
             OptimizerHints.empty.
-            withInline(shouldMarkInline).
-            withNoinline(shouldMarkNoinline)
+              withInline(shouldMarkInline).
+              withNoinline(shouldMarkNoinline)
           }
 
           val methodDef = {

@@ -16,17 +16,21 @@ import java.nio.charset.StandardCharsets
 
 import scala.collection.mutable
 
+import org.scalajs.linker.standard.CoreSpec
+
 import EmbeddedConstants._
 
 /** Contents of the `__loader.js` file that we emit in every output. */
 object LoaderContent {
-  val bytesContent: Array[Byte] =
-    stringContent.getBytes(StandardCharsets.UTF_8)
+  def makeBytesContent(coreSpec: CoreSpec): Array[Byte] =
+    makeStringContent(coreSpec).getBytes(StandardCharsets.UTF_8)
 
   val noJSInteropBytesContent: Array[Byte] =
     noJSInteropStringContent.getBytes(StandardCharsets.UTF_8)
 
-  private def stringContent: String = {
+  private def makeStringContent(coreSpec: CoreSpec): String = {
+    import coreSpec.wasmFeatures.useJSPI
+
     raw"""
 // This implementation follows no particular specification, but is the same as the JS backend.
 // It happens to coincide with java.lang.Long.hashCode() for common values.
@@ -155,14 +159,7 @@ const scalaJSHelpers = {
   jsNewObject: () => ({}),
   jsNewNoArg: (constr) => new constr(),
   jsImportMeta: () => import.meta,
-  jsAwait: (WebAssembly.Suspending ? new WebAssembly.Suspending((x) => x) : ((x) => {
-    /* This should not happen. We cannot get here without going through a
-     * `WebAssembly.promising()` function. If that one succeeded,
-     * `WebAssembly.Suspending` should also exist.
-     * TODO Remove this fallback when JSPI support is widespread.
-     */
-    throw new Error("Unexpected js.await() without JSPI support.");
-  })),
+  ${if (useJSPI) "jsAwait: new WebAssembly.Suspending((x) => x)," else ""}
   jsDelete: (o, p) => { delete o[p]; },
   jsForInStart: function*(o) { for (var k in o) yield k; },
   jsForInNext: (g) => { var r = g.next(); return [r.value, r.done]; },
@@ -172,24 +169,6 @@ const scalaJSHelpers = {
   jsSuperSelect: superSelect,
   jsSuperSelectSet: superSelectSet,
 }
-
-const stringBuiltinPolyfills = {
-  test: (x) => typeof x === 'string',
-  fromCharCode: (c) => String.fromCharCode(c),
-  fromCodePoint: (cp) => String.fromCodePoint(cp),
-  charCodeAt: (s, i) => s.charCodeAt(i),
-  codePointAt: (s, i) => s.codePointAt(i),
-  length: (s) => s.length,
-  concat: (a, b) => "" + a + b, // "" tells the JIT that this is *always* a string concat operation
-  substring: (str, start, end) => str.substring(start >>> 0, end >>> 0),
-  equals: (a, b) => a === b,
-};
-
-const stringConstantsPolyfills = new Proxy({}, {
-  get(target, property, receiver) {
-    return property;
-  },
-});
 
 export async function load(wasmFileURL, exportSetters, privateJSFieldGetters,
     privateJSFieldSetters, customJSHelpers, wtf16Strings) {
@@ -204,8 +183,6 @@ export async function load(wasmFileURL, exportSetters, privateJSFieldGetters,
     "$PrivateJSFieldSetters": privateJSFieldSetters,
     "$CustomHelpersModule": customJSHelpers,
     "$WTF16StringConstantsModule": wtf16Strings,
-    "$JSStringBuiltinsModule": stringBuiltinPolyfills,
-    "$UTF8StringConstantsModule": stringConstantsPolyfills,
   };
   const options = {
     builtins: ["js-string"],

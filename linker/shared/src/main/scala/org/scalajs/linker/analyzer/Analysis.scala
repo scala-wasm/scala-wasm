@@ -125,7 +125,7 @@ object Analysis {
   object MethodSyntheticKind {
 
     /** Not a synthetic method. */
-    final case object None extends MethodSyntheticKind
+    case object None extends MethodSyntheticKind
 
     /** A reflective proxy bridge to the appropriate target method.
      *
@@ -231,6 +231,8 @@ object Analysis {
 
   final case class AsyncWithoutES2017Support(from: From) extends Error
 
+  final case class AsyncWithoutJSPI(from: From) extends Error
+
   final case class OrphanAwaitWithoutWebAssembly(from: From) extends Error
 
   final case class InvalidLinkTimeProperty(
@@ -304,6 +306,8 @@ object Analysis {
         "Uses the ** operator with an ECMAScript version older than ES 2016"
       case AsyncWithoutES2017Support(_) =>
         "Uses an async block with an ECMAScript version older than ES 2017"
+      case AsyncWithoutJSPI(_) =>
+        "Uses an async block without JSPI support in WebAssembly"
       case OrphanAwaitWithoutWebAssembly(_) =>
         "Uses an orphan await (outside of an async block) without targeting WebAssembly"
       case InvalidLinkTimeProperty(name, tpe, _) =>

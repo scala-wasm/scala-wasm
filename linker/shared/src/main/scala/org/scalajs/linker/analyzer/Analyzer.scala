@@ -30,6 +30,7 @@ import org.scalajs.ir.Types.ClassRef
 import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker._
+import org.scalajs.linker.Nullables._
 import org.scalajs.linker.checker.CheckingPhase
 import org.scalajs.linker.frontend.{
   IRLoader,
@@ -518,7 +519,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
   }
 
   private sealed trait LoadingResult
-  private final case object InheritanceCycle extends LoadingResult
+  private case object InheritanceCycle extends LoadingResult
 
   private final class LoadingClass(
       val className: ClassName,
@@ -526,7 +527,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       val result: Future[LoadingResult]
   )
 
-  private case class CycleInfo(cycle: List[ClassName], root: ClassName)
+  private case class CycleInfo(cycle: List[ClassName], root: Nullable[ClassName])
 
   private sealed trait ModuleUnit {
     def addStaticDependency(clazz: ClassName): Unit
@@ -571,11 +572,12 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
      *  This always includes this class and `java.lang.Object`.
      */
     val ancestors: List[ClassInfo] = {
+      // @unchecked for the init checker
       if (className == ObjectClass) {
-        this :: Nil
+        (this: @unchecked) :: Nil
       } else {
         val parents = superClass.getOrElse(objectClassInfo) :: interfaces
-        this +: parents.flatMap(_.ancestors).distinct
+        (this: @unchecked) +: parents.flatMap(_.ancestors).distinct
       }
     }
 
@@ -772,8 +774,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
       val m = emptyThreadSafeMap[MethodName, MethodInfo]
 
+      // @unchecked for the init checker
       for ((name, data) <- data.methods(nsOrdinal))
-        m.put(name, new MethodInfo(this, namespace, name, data))
+        m.put(name, new MethodInfo(this: @unchecked, namespace, name, data))
 
       m
     }
@@ -1512,10 +1515,6 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     val moduleID: ModuleID = data.moduleID
     val exportName: String = data.exportName
 
-    if (isNoModule && !ir.Trees.JSGlobalRef.isValidJSGlobalRefName(exportName)) {
-      _errors ::= InvalidTopLevelExportInScript(this)
-    }
-
     private[this] val _staticDependencies: mutable.Map[ClassName, Unit] = emptyThreadSafeMap
     private[this] val _externalDependencies: mutable.Map[String, Unit] = emptyThreadSafeMap
 
@@ -1533,7 +1532,13 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     def needsDesugaring: Boolean =
       (data.reachability.globalFlags & ReachabilityInfo.FlagNeedsDesugaring) != 0
 
-    def reach(): Unit = followReachabilityInfo(data.reachability, this)(FromExports)
+    def reach(): Unit = {
+      if (isNoModule && !ir.Trees.JSGlobalRef.isValidJSGlobalRefName(exportName)) {
+        _errors ::= InvalidTopLevelExportInScript(this)
+      }
+
+      followReachabilityInfo(data.reachability, this)(FromExports)
+    }
   }
 
   private def followReachabilityInfo(data: ReachabilityInfo, moduleUnit: ModuleUnit)(
@@ -1583,8 +1588,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
           }
         }
 
-        if (dataInClass.memberInfos != null) {
-          dataInClass.memberInfos.foreach {
+        val memberInfos = dataInClass.memberInfos
+        if (memberInfos.length != 0) {
+          memberInfos.foreach {
             case field: Infos.FieldReachable =>
               clazz.reachField(field)
 
@@ -1655,9 +1661,14 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
         _errors ::= ExponentOperatorWithoutES2016Support(from)
       }
 
-      if ((globalFlags & ReachabilityInfo.FlagUsedAsync) != 0 &&
-          config.coreSpec.esFeatures.esVersion < ESVersion.ES2017) {
-        _errors ::= AsyncWithoutES2017Support(from)
+      if ((globalFlags & ReachabilityInfo.FlagUsedAsync) != 0) {
+        if (config.coreSpec.targetIsWebAssembly) {
+          if (!config.coreSpec.wasmFeatures.useJSPI)
+            _errors ::= AsyncWithoutJSPI(from)
+        } else {
+          if (config.coreSpec.esFeatures.esVersion < ESVersion.ES2017)
+            _errors ::= AsyncWithoutES2017Support(from)
+        }
       }
 
       if ((globalFlags & ReachabilityInfo.FlagUsedOrphanAwait) != 0 &&

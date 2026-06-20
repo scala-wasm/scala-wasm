@@ -187,6 +187,7 @@ object MyScalaJSPlugin extends AutoPlugin {
           config = config
             .withExperimentalUseWebAssembly(true)
             .withModuleKind(ModuleKind.ESModule)
+            .withESFeatures(_.withESVersion(ESVersion.ES2022))
         }
 
         config
@@ -530,6 +531,12 @@ object Build {
           "-feature",
           "-encoding", "utf8"
       ),
+      scalacOptions ++= {
+        if (scalaVersion.value.startsWith("3."))
+          List("-Wsafe-init", "-Yexplicit-nulls")
+        else
+          Nil
+      },
 
       /* Ignore the deprecation of mutable.AnyRefMap in Scala 2.13.16+.
        * It was deprecated because mutable.HashMap is just as fast, starting
@@ -746,6 +753,8 @@ object Build {
             "`= _`",
             "`_` is deprecated for wildcard arguments",
             "private[this]",
+            "with as a type operator has been deprecated",
+            "is not declared infix",
             "_*"
           )
           val regex = messageKeywordsToSilence.map(java.util.regex.Pattern.quote(_)).mkString("|")
@@ -825,10 +834,10 @@ object Build {
   private def parallelCollectionsDependencies(
       scalaVersion: String): Seq[ModuleID] = {
     CrossVersion.partialVersion(scalaVersion) match {
-      case Some((2, n)) if n >= 13 =>
-        Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0")
-
-      case _ => Nil
+      case Some((2, n)) if n < 13 =>
+        Nil
+      case _ =>
+        Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.2.0")
     }
   }
 
@@ -999,6 +1008,7 @@ object Build {
         "2.13.15",
         "2.13.16",
         "2.13.17",
+        "2.13.18",
       ),
       cross3ScalaVersions := Seq("3.8.3"),
 
@@ -1085,17 +1095,6 @@ object Build {
         baseDirectory.value.getParentFile.getParentFile / s"shared/src/main/scala-${scalaVersion.value.take(1)}",
       Test / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/test/scala",
-
-      /* The Scala 3 compiler includes this project by source. Therefore, we
-       * test that we can compile it using Scala 3, with the compiler options
-       * that are used when building the Scala 3 compiler.
-       */
-      scalacOptions ++= {
-        if (scalaVersion.value.startsWith("3."))
-          List("-Wsafe-init", "-Yexplicit-nulls")
-        else
-          Nil
-      },
   )
 
   lazy val irProject: MultiScalaProject = MultiScalaProject(
@@ -1178,6 +1177,8 @@ object Build {
 
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/main/scala",
+      Compile / unmanagedSourceDirectories +=
+        baseDirectory.value.getParentFile.getParentFile / s"shared/src/main/scala-${scalaVersion.value.take(1)}",
       Test / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/test/scala",
 
@@ -1285,6 +1286,8 @@ object Build {
 
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/main/scala",
+      Compile / unmanagedSourceDirectories +=
+        baseDirectory.value.getParentFile.getParentFile / s"shared/src/main/scala-${scalaVersion.value.take(1)}",
       Test / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/test/scala",
 
@@ -1354,7 +1357,7 @@ object Build {
   )
 
   lazy val linker: MultiScalaProject = MultiScalaProject(
-      id = "linker", base = file("linker/jvm")
+      id = "linker", base = file("linker/jvm"), List("2.12", "2.13", "3")
   ).settings(
       commonLinkerSettings,
 
@@ -1458,14 +1461,14 @@ object Build {
       pluginCrossBuild / sbtVersion := {
         scalaBinaryVersion.value match {
           case "2.12" => "1.9.0"
-          case _      => "2.0.0-RC12"
+          case _      => "2.0.0"
         }
       },
 
       scriptedSbt := {
         scalaBinaryVersion.value match {
           case "2.12" => "1.9.0"
-          case _      => "2.0.0-RC12"
+          case _      => "2.0.0"
         }
       },
 
@@ -1498,9 +1501,9 @@ object Build {
         }
       },
 
-      libraryDependencies += "org.scala-js" %% "scalajs-js-envs" % "1.6.0",
-      libraryDependencies += "org.scala-js" %% "scalajs-env-nodejs" % "1.6.0",
-      libraryDependencies += "io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2",
+      libraryDependencies += ("org.scala-js" %% "scalajs-js-envs" % "1.6.0"),
+      libraryDependencies += ("org.scala-js" %% "scalajs-env-nodejs" % "1.6.0"),
+      libraryDependencies += ("io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2"),
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
@@ -1549,10 +1552,7 @@ object Build {
                 irProject.v3 / publishLocal,
                 linkerInterface.v3 / publishLocal,
                 testAdapter.v3 / publishLocal,
-                // sbt 2.x plugin resolves the linker impl from _2.13 artifacts
-                irProject.v2_13 / publishLocal,
-                linkerInterface.v2_13 / publishLocal,
-                linker.v2_13 / publishLocal,
+                linker.v3 / publishLocal,
               )
             } else {
               commonDeps ++ Seq(
@@ -2289,32 +2289,32 @@ object Build {
           case `default212Version` =>
             if (!useMinifySizes) {
               Some(ExpectedSizes(
-                  fastLink = 619000 to 620000,
-                  fullLink = 282000 to 283000,
+                  fastLink = 621000 to 622000,
+                  fullLink = 284000 to 285000,
                   fastLinkGz = 75000 to 76000,
-                  fullLinkGz = 43000 to 44000,
+                  fullLinkGz = 44000 to 45000,
               ))
             } else {
               Some(ExpectedSizes(
-                  fastLink = 425000 to 426000,
-                  fullLink = 282000 to 283000,
+                  fastLink = 427000 to 428000,
+                  fullLink = 284000 to 285000,
                   fastLinkGz = 61000 to 62000,
-                  fullLinkGz = 43000 to 44000,
+                  fullLinkGz = 44000 to 45000,
               ))
             }
 
           case `default213Version` =>
             if (!useMinifySizes) {
               Some(ExpectedSizes(
-                  fastLink = 438000 to 439000,
-                  fullLink = 262000 to 263000,
-                  fastLinkGz = 57000 to 58000,
+                  fastLink = 440000 to 441000,
+                  fullLink = 263000 to 264000,
+                  fastLinkGz = 58000 to 59000,
                   fullLinkGz = 43000 to 44000,
               ))
             } else {
               Some(ExpectedSizes(
-                  fastLink = 304000 to 305000,
-                  fullLink = 262000 to 263000,
+                  fastLink = 306000 to 307000,
+                  fullLink = 263000 to 264000,
                   fastLinkGz = 48000 to 49000,
                   fullLinkGz = 43000 to 44000,
               ))
@@ -2558,6 +2558,10 @@ object Build {
         val hasModules = moduleKind != ModuleKind.NoModule
         val isWebAssembly = linkerConfig.experimentalUseWebAssembly
 
+        val hasAsyncAwait =
+          if (isWebAssembly) linkerConfig.wasmFeatures.useJSPI
+          else esVersion >= ESVersion.ES2017
+
         val isWasmNoJS = linkerConfig.moduleKind match {
           case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
           case _                                                       => false
@@ -2565,23 +2569,23 @@ object Build {
 
         if (isWasmNoJS) Nil
         else {
-        collectionsEraDependentDirectory(scalaV, testDir) ::
-        includeIf(testDir / "require-new-target",
-            esVersion >= ESVersion.ES2015) :::
-        includeIf(testDir / "require-exponent-op",
-            esVersion >= ESVersion.ES2016) :::
-        includeIf(testDir / "require-async-await",
-            esVersion >= ESVersion.ES2017) :::
-        includeIf(testDir / "require-orphan-await",
-            esVersion >= ESVersion.ES2017 && isWebAssembly) :::
-        includeIf(testDir / "require-modules",
-            hasModules) :::
-        includeIf(testDir / "require-multi-modules",
-            hasModules && !linkerConfig.closureCompiler && !isWebAssembly) :::
-        includeIf(testDir / "require-dynamic-import",
-            moduleKind == ModuleKind.ESModule) :::
-        includeIf(testDir / "require-esmodule",
-            moduleKind == ModuleKind.ESModule)
+          collectionsEraDependentDirectory(scalaV, testDir) ::
+          includeIf(testDir / "require-new-target",
+              esVersion >= ESVersion.ES2015) :::
+          includeIf(testDir / "require-exponent-op",
+              esVersion >= ESVersion.ES2016) :::
+          includeIf(testDir / "require-async-await",
+              hasAsyncAwait) :::
+          includeIf(testDir / "require-orphan-await",
+              hasAsyncAwait && isWebAssembly) :::
+          includeIf(testDir / "require-modules",
+              hasModules) :::
+          includeIf(testDir / "require-multi-modules",
+              hasModules && !linkerConfig.closureCompiler && !isWebAssembly) :::
+          includeIf(testDir / "require-dynamic-import",
+              moduleKind == ModuleKind.ESModule) :::
+          includeIf(testDir / "require-esmodule",
+              moduleKind == ModuleKind.ESModule)
         }
       },
 

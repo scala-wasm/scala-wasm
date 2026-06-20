@@ -29,6 +29,7 @@ import org.scalajs.ir.Position.NoPosition
 import org.scalajs.logging._
 
 import org.scalajs.linker._
+import org.scalajs.linker.Nullables._
 import org.scalajs.linker.backend.emitter.LongImpl
 import org.scalajs.linker.frontend.LinkingUnit
 import org.scalajs.linker.interface.{CheckedBehavior, ModuleKind}
@@ -440,7 +441,7 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
     def updateWith(linkedClass: LinkedClass): (Set[MethodName], Set[MethodName],
         Set[MethodName]) = {
 
-      val applicableNamespaceOrdinal = this match {
+      val applicableNamespaceOrdinal = (this: @unchecked) match { // init checker
         case _: StaticLikeNamespace
             if namespace == MemberNamespace.Public &&
               (linkedClass.kind.isClass || linkedClass.kind == ClassKind.HijackedClass) =>
@@ -479,7 +480,7 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
 
           val method = methods.get(methodName).fold {
             addedMethods += methodName
-            val method = new MethodImpl(this, methodName)
+            val method = new MethodImpl((this: @unchecked), methodName) // init checker
             method.updateWith(linkedMethodDef)
             method
           } { method =>
@@ -533,8 +534,10 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
     }
 
     /** Parent chain from this to Object. */
-    val parentChain: List[Class] =
-      this :: superClass.fold[List[Class]](Nil)(_.parentChain)
+    val parentChain: List[Class] = {
+      // @unchecked for the init checker
+      (this: @unchecked) :: superClass.fold[List[Class]](Nil)(_.parentChain)
+    }
 
     /** Reverse parent chain from Object to this. */
     val reverseParentChain: List[Class] =
@@ -1323,12 +1326,14 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
     private val _instantiatedSubclasses = new ConcurrentHashMap[Class, Unit]
 
     private val staticLikes: Array[StaticLikeNamespace] = {
+      // @unchecked for the init checker
       Array.tabulate(MemberNamespace.Count) { ord =>
-        new StaticLikeNamespace(linkedClass, this, MemberNamespace.fromOrdinal(ord))
+        new StaticLikeNamespace(linkedClass, (this: @unchecked), MemberNamespace.fromOrdinal(ord))
       }
     }
 
-    private val jsMethodContainer = new JSClassMethodContainer(linkedClass, this)
+    private val jsMethodContainer =
+      new JSClassMethodContainer(linkedClass, (this: @unchecked)) // init checker
 
     /* For now, we track all JS native imports together (the class itself and native members).
      *
@@ -1572,7 +1577,7 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
 
   /** A thing that can be tagged for reprocessing and then reprocessed. */
   private abstract class Processable {
-    type Def >: scala.Null <: VersionedMemberDef
+    type Def >: NullableLowerBound <: VersionedMemberDef
 
     private[this] val registeredTo = new ConcurrentHashMap[Unregisterable, Unit]
     private[this] val tagged = new AtomicBoolean(false)
@@ -1581,15 +1586,15 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
     private[this] var lastInVersion: Version = Version.Unversioned
     private[this] var lastOutVersion: Int = 0
 
-    private[this] var _originalDef: Def = _
-    private[this] var _optimizedDef: Def = _
+    private[this] var _originalDef: Nullable[Def] = null
+    private[this] var _optimizedDef: Nullable[Def] = null
 
     protected def doProcess(newVersion: Version): Def
 
     final def deleted: Boolean = _deleted
 
-    final def originalDef: Def = _originalDef
-    final def optimizedDef: Def = _optimizedDef
+    final def originalDef: Def = _originalDef.nn
+    final def optimizedDef: Def = _optimizedDef.nn
 
     /** PROCESS PASS ONLY. */
     final def process(): Unit = {
@@ -1808,7 +1813,7 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
       }
 
       val (beforeSuper, superCall :: afterSuper) =
-        bodyStats.span(!_.isInstanceOf[JSSuperConstructorCall])
+        bodyStats.span(!_.isInstanceOf[JSSuperConstructorCall]): @unchecked
 
       val newBody = JSConstructorBody(beforeSuper,
           superCall.asInstanceOf[JSSuperConstructorCall], afterSuper)(body.pos)

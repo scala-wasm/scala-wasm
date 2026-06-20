@@ -1367,6 +1367,8 @@ class RegexEngineTest {
    */
   @Test def unicodeCharClassesAreConsistentWithTheirDefinitions(): Unit = {
     assumeTrue("requires \\p{} support", regexSupportsUnicodeCharacterClasses)
+    // Takes about 20 minutes with WasmComponent on Wasmtime.
+    assumeFalse("too slow on WasmComponent", isWasmComponent)
 
     @noinline
     def checkConsistency(name: String, definition: String): Unit = {

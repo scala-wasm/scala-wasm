@@ -204,7 +204,7 @@ final class StandardConfig private (
    *  When using this setting, the following properties must also hold:
    *
    *  - `moduleKind == ModuleKind.ESModule || moduleKind == ModuleKind.MinimalWasmModule || moduleKind == ModuleKind.WasmComponent`
-   *  - `esFeatures.useECMAScript2015Semantics == true` (true by default)
+   *  - `esFeatures.esVersion >= ESVersion.ES2022`
    *
    *  We may lift these restrictions in the future, although we do not expect
    *  to do so.
@@ -338,6 +338,7 @@ object StandardConfig {
    *  - `moduleKind`: [[ModuleKind.NoModule]]
    *  - `moduleSplitStyle`: [[ModuleSplitStyle.FewestModules]]
    *  - `esFeatures`: [[ESFeatures.Defaults]]
+   *  - `wasmFeatures`: [[WasmFeatures.Defaults]]
    *  - `checkIR`: `false`
    *  - `optimizer`: `true`
    *  - `jsHeader`: `""`

@@ -330,7 +330,7 @@ final class FunctionBuilder(
 
   def switchByType(resultTypes: List[Type])(
       scrutinee: () => Unit)(
-      clauses: (ClassName, () => Unit)*)(
+      clauses: List[(ClassName, () => Unit)])(
       default: () => Unit): Unit = {
 
     // Allocate all the labels we will use
