@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - scala-wasm
+      - '*-wasm.[0-9]*'
   pull_request:
     branches:
       - main

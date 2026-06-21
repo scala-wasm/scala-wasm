@@ -2,7 +2,7 @@ name: Scalafmt CI
 
 on:
   push:
-    branches: [ main, scala-wasm ]
+    branches: [ main, scala-wasm, '*-wasm.[0-9]*' ]
   pull_request:
     branches: [ main, scala-wasm ]
 
