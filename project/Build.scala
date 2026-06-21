@@ -11,6 +11,7 @@ import com.typesafe.tools.mima.plugin.MimaPlugin.autoImport._
 import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport._
 import sbtbuildinfo.BuildInfoPlugin
 import sbtbuildinfo.BuildInfoPlugin.autoImport._
+import sbtbuildinfo.ScalaCaseClassRenderer
 import ScriptedPlugin.autoImport._
 
 import java.util.Arrays
@@ -243,7 +244,28 @@ object MyScalaJSPlugin extends AutoPlugin {
       wantSourceMaps := true,
 
       jsEnv := {
-        val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
+        val baseConfig = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
+        val config = if (enableWasmEverywhere.value) {
+          val linkerConfig = scalaJSLinkerConfig.value
+          val additionWasmArgs = if (linkerConfig.moduleKind == ModuleKind.ESModule) {
+            List(
+              "--experimental-wasm-exnref",
+              "--experimental-wasm-imported-strings", // for JS string builtins
+              "--experimental-wasm-jspi", // for JSPI, used by async/await
+            )
+          } else if (linkerConfig.wasmFeatures.exceptionHandling) {
+            List(
+              "--experimental-wasm-exnref",
+            )
+          } else {
+            List(
+              "--no-experimental-wasm-exnref",
+            )
+          }
+          baseConfig.withArgs(additionWasmArgs)
+        } else {
+          baseConfig
+        }
         new NodeJSEnv(config)
       },
 
@@ -258,6 +280,10 @@ object MyScalaJSPlugin extends AutoPlugin {
           case ModuleKind.NoModule       => "commonjs"
           case ModuleKind.CommonJSModule => "commonjs"
           case ModuleKind.ESModule       => "module"
+
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+            // Nonsensical, but we need to emit something
+            "module"
         }
 
         val path = target.value / "package.json"
@@ -483,16 +509,16 @@ object Build {
   }
 
   val publishConfigSettings = Seq(
-      organization := "org.scala-js",
+      organization := ir.ScalaJSVersions.organization,
       version := scalaJSVersion,
 
       homepage := Some(url("https://www.scala-js.org/")),
       startYear := Some(2013),
       licenses += (("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0"))),
       scmInfo := Some(ScmInfo(
-          url("https://github.com/scala-js/scala-js"),
-          "scm:git:git@github.com:scala-js/scala-js.git",
-          Some("scm:git:git@github.com:scala-js/scala-js.git"))),
+          url("https://github.com/scala-wasm/scala-wasm"),
+          "scm:git:git@github.com:scala-wasm/scala-wasm.git",
+          Some("scm:git:git@github.com:scala-wasm/scala-wasm.git"))),
 
       publishTo := {
         val centralSnapshots = "https://central.sonatype.com/repository/maven-snapshots/"
@@ -981,15 +1007,6 @@ object Build {
 
   val thisBuildSettings = Def.settings(
       cross212ScalaVersions := Seq(
-        "2.12.6",
-        "2.12.7",
-        "2.12.8",
-        "2.12.9",
-        "2.12.10",
-        "2.12.11",
-        "2.12.12",
-        "2.12.13",
-        "2.12.14",
         "2.12.15",
         "2.12.16",
         "2.12.17",
@@ -999,9 +1016,6 @@ object Build {
         "2.12.21",
       ),
       cross213ScalaVersions := Seq(
-        "2.13.3",
-        "2.13.4",
-        "2.13.5",
         "2.13.6",
         "2.13.7",
         "2.13.8",
@@ -1053,7 +1067,9 @@ object Build {
             javalibInternal, javalib, scalalibInternal, libraryAux, scalalib, library,
             testInterface, jUnitRuntime, testBridge, jUnitPlugin, jUnitAsyncJS,
             jUnitAsyncJVM, jUnitTestOutputsJS, jUnitTestOutputsJVM,
-            helloworld, reversi, testingExample, testSuite, testSuiteJVM,
+            helloworld, helloworldWasm, helloworldWASI, helloworldComponentModel,
+            echoserver, testComponentModel,
+            reversi, testingExample, testSuite, testSuiteJVM,
             javalibExtDummies, testSuiteEx, testSuiteExJVM, testSuiteLinker,
             partest, partestSuite,
             scalaTestSuite
@@ -1280,6 +1296,14 @@ object Build {
       fatalWarningsSettings,
       name := "Scala.js linker",
 
+      // Temporarily publish an empty scaladoc jar for linker artifacts.
+      // https://github.com/scala-js/scala-js/issues/5272
+      Compile / doc := {
+        val dir = (Compile / doc / target).value
+        IO.createDirectory(dir)
+        dir
+      },
+
       Compile / unmanagedSourceDirectories +=
         baseDirectory.value.getParentFile.getParentFile / "shared/src/main/scala",
       Compile / unmanagedSourceDirectories +=
@@ -1499,6 +1523,7 @@ object Build {
 
       libraryDependencies += ("org.scala-js" %% "scalajs-js-envs" % "1.6.0"),
       libraryDependencies += ("org.scala-js" %% "scalajs-env-nodejs" % "1.6.0"),
+      libraryDependencies += ("io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2"),
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
@@ -2122,7 +2147,138 @@ object Build {
       exampleSettings,
       name := "Hello World - Scala.js example",
       moduleName := "helloworld",
-      scalaJSUseMainModuleInitializer := true
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true)
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val echoserver: MultiScalaProject = MultiScalaProject(
+      id = "echoserver", base = file("examples") / "echo-server"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "Echo Server - Scala.js WASI example",
+      moduleName := "echo",
+      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
+      scalaJSWitWorld := Some("sample"),
+      scalaJSWitPackage := Some("echo"),
+      scalaJSLinkerConfig := {
+        val witDir = scalaJSWitDirectory.value
+        val witWorld = scalaJSWitWorld.value
+        scalaJSLinkerConfig.value
+         .withPrettyPrint(true)
+         .withExperimentalUseWebAssembly(true)
+         .withModuleKind(ModuleKind.WasmComponent)
+         .withWasmFeatures { prevFeatures =>
+           prevFeatures
+             .withWitDirectory(Some(witDir.getAbsolutePath))
+             .withWitWorld(witWorld)
+         }
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val helloworldWasm: MultiScalaProject = MultiScalaProject(
+      id = "helloworldWasm", base = file("examples") / "helloworld-wasm"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "HelloWorld Wasm",
+      moduleName := "helloworld-wasm",
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig ~= {
+        _.withPrettyPrint(true)
+         .withExperimentalUseWebAssembly(true)
+         .withModuleKind(ModuleKind.MinimalWasmModule)
+      },
+      jsEnv := {
+        val config = NodeJSEnv.Config().withArgs(List(
+          "--experimental-wasm-exnref",
+        ))
+        new NodeJSEnv(config)
+      }
+  ).withScalaJSCompiler.withScalaJSJUnitPlugin.dependsOnLibrary.dependsOn(
+      jUnitRuntime % "test", testBridge % "test"
+  )
+
+  lazy val helloworldWASI: MultiScalaProject = MultiScalaProject(
+      id = "helloworldWASI", base = file("examples") / "helloworld-wasi"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "HelloWorld WASI",
+      moduleName := "helloworld-wasi",
+      // scalaJSUseMainModuleInitializer := true,
+      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
+      scalaJSWitPackage := Some("helloworld"),
+      scalaJSLinkerConfig := {
+        val witDir = scalaJSWitDirectory.value
+        val witWorld = scalaJSWitWorld.value
+        scalaJSLinkerConfig.value
+         .withPrettyPrint(true)
+         .withExperimentalUseWebAssembly(true)
+         .withModuleKind(ModuleKind.WasmComponent)
+         .withWasmFeatures { prevFeatures =>
+           prevFeatures
+             .withWitDirectory(Some(witDir.getAbsolutePath))
+             .withWitWorld(witWorld)
+          }
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val helloworldComponentModel: MultiScalaProject = MultiScalaProject(
+      id = "helloworldComponentModel", base = file("examples") / "helloworld-component-model"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "HelloWorld Component Model",
+      moduleName := "helloworld-component-model",
+      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
+      scalaJSWitWorld := Some("scala"),
+      scalaJSWitPackage := Some("helloworld"),
+      scalaJSLinkerConfig := {
+        val witDir = scalaJSWitDirectory.value
+        val witWorld = scalaJSWitWorld.value
+        scalaJSLinkerConfig.value
+         .withPrettyPrint(true)
+         .withExperimentalUseWebAssembly(true)
+         .withModuleKind(ModuleKind.WasmComponent)
+         .withWasmFeatures { prevFeatures =>
+           prevFeatures
+             .withWitDirectory(Some(witDir.getAbsolutePath))
+             .withWitWorld(witWorld)
+          }
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  lazy val testComponentModel: MultiScalaProject = MultiScalaProject(
+      id = "testComponentModel", base = file("examples") / "test-component-model"
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      exampleSettings,
+      name := "Testing module for component model",
+      // MultiScalaProject creates subprojects with base directories at .2.12 and .2.13
+      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
+      scalaJSWitWorld := Some("scala"),
+      scalaJSWitPackage := Some("componentmodel"),
+      scalaJSLinkerConfig := {
+        val witDir = scalaJSWitDirectory.value
+        val witWorld = scalaJSWitWorld.value
+        scalaJSLinkerConfig.value
+         .withPrettyPrint(true)
+         .withModuleKind(ModuleKind.WasmComponent)
+         .withExperimentalUseWebAssembly(true)
+         .withWasmFeatures { prevFeatures =>
+           prevFeatures
+             .withWitDirectory(Some(witDir.getAbsolutePath))
+             .withWitWorld(witWorld)
+         }
+      },
   ).withScalaJSCompiler.dependsOnLibrary
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(
@@ -2228,20 +2384,79 @@ object Build {
       },
 
       Test / unmanagedSourceDirectories ++= {
+        val config = (Test / scalaJSLinkerConfig).value
+
+        val isWasmNoJS = config.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
+
         val testDir = (Test / sourceDirectory).value
         val sharedTestDir =
           testDir.getParentFile.getParentFile.getParentFile / "shared/src/test"
+        val jsTestDir =
+          testDir.getParentFile.getParentFile.getParentFile / "js/src/test"
 
         val javaV = javaVersion.value
         val scalaV = scalaVersion.value
 
-        List(sharedTestDir / "scala", sharedTestDir / "require-scala2") :::
-        collectionsEraDependentDirectory(scalaV, sharedTestDir) ::
-        includeIf(sharedTestDir / "require-jdk11", javaV >= 11) :::
-        includeIf(sharedTestDir / "require-jdk17", javaV >= 17) :::
-        includeIf(sharedTestDir / "require-jdk21", javaV >= 21) :::
-        includeIf(testDir / "require-scala2", isJSTest)
+        if (isWasmNoJS) {
+          List(
+            sharedTestDir / "scala",
+            jsTestDir, // run only a few tests (filtered out in sources)
+            sharedTestDir / "require-scala2",
+            collectionsEraDependentDirectory(scalaV, sharedTestDir)
+          )
+        } else {
+          List(sharedTestDir / "scala", sharedTestDir / "require-scala2") :::
+          collectionsEraDependentDirectory(scalaV, sharedTestDir) ::
+          includeIf(sharedTestDir / "require-jdk11", javaV >= 11) :::
+          includeIf(sharedTestDir / "require-jdk17", javaV >= 17) :::
+          includeIf(sharedTestDir / "require-jdk21", javaV >= 21) :::
+          includeIf(testDir / "require-scala2", isJSTest)
+        }
       },
+
+      Test / sources := {
+        val config = (Test / scalaJSLinkerConfig).value
+
+        val isWasmNoJS = config.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
+
+        def endsWith(f: File, suffix: String): Boolean =
+          f.getPath().replace('\\', '/').endsWith(suffix)
+
+        def contains(f: File, substr: String): Boolean =
+          f.getPath().replace('\\', '/').contains(substr)
+
+        val originalSources = (Test / sources).value
+        if (!isWasmNoJS) {
+          originalSources
+        } else {
+          originalSources
+            .filter(f =>
+              contains(f, "/shared/src/test/scala-old-collections/") ||
+              contains(f, "/shared/src/test/require-scala2/") ||
+              contains(f, "/shared/src/test/scala/org/scalajs/testsuite/") && (
+                // javalib/util
+                !endsWith(f, "/DateTest.scala") && // js.Date
+                !endsWith(f, "/PropertiesTest.scala") // Date.toString
+
+              ) ||
+              contains(f, "/js/src/test/scala/org/scalajs/testsuite/") && (
+                // compiler
+                // endsWith(f, "/ModuleInitializersTest.scala") ||
+                endsWith(f, "/EqJSTest.scala") ||
+                // library
+                endsWith(f, "/LinkTimeIfTest.scala") ||
+                endsWith(f, "/ReflectTest.scala")
+              )
+            )
+        }
+      },
+
   )
 
   def testSuiteBootstrapSetting(testSuiteLinker: Project) = Def.settings(
@@ -2322,9 +2537,15 @@ object Build {
 
   def testSuiteJSExecutionFilesSetting: Setting[_] = {
     jsEnvInput := {
-      val resourceDir = (Test / resourceDirectory).value
-      val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
-      Input.Script(f) +: jsEnvInput.value
+      val baseInputs = jsEnvInput.value
+      val linkerConfig = scalaJSLinkerConfig.value
+      if (linkerConfig.moduleKind == ModuleKind.WasmComponent) {
+        baseInputs
+      } else {
+        val resourceDir = (Test / resourceDirectory).value
+        val f = (resourceDir / "NonNativeJSTypeTestNatives.js").toPath
+        Input.Script(f) +: baseInputs
+      }
     }
   }
 
@@ -2359,6 +2580,13 @@ object Build {
           if (isWebAssembly) linkerConfig.wasmFeatures.useJSPI
           else esVersion >= ESVersion.ES2017
 
+        val isWasmNoJS = linkerConfig.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent => true
+          case _                                                       => false
+        }
+
+        if (isWasmNoJS) Nil
+        else {
         collectionsEraDependentDirectory(scalaV, testDir) ::
         includeIf(testDir / "require-new-target",
             esVersion >= ESVersion.ES2015) :::
@@ -2376,15 +2604,18 @@ object Build {
             moduleKind == ModuleKind.ESModule) :::
         includeIf(testDir / "require-esmodule",
             moduleKind == ModuleKind.ESModule)
+        }
       },
 
       Test / unmanagedResourceDirectories ++= {
         val testDir = (Test / sourceDirectory).value
 
         scalaJSLinkerConfig.value.moduleKind match {
-          case ModuleKind.NoModule       => Nil
-          case ModuleKind.CommonJSModule => Seq(testDir / "resources-commonjs")
-          case ModuleKind.ESModule       => Seq(testDir / "resources-esmodule")
+          case ModuleKind.NoModule          => Nil
+          case ModuleKind.CommonJSModule    => Seq(testDir / "resources-commonjs")
+          case ModuleKind.ESModule          => Seq(testDir / "resources-esmodule")
+          case ModuleKind.MinimalWasmModule => Nil
+          case ModuleKind.WasmComponent     => Nil
         }
       },
 
@@ -2392,7 +2623,16 @@ object Build {
       Test / scalacOptions ++= scalaJSCompilerOption("nowarnGlobalExecutionContext"),
 
       scalaJSLinkerConfig ~= { _.withSemantics(TestSuiteLinkerOptions.semantics _) },
-      Test / scalaJSModuleInitializers ++= TestSuiteLinkerOptions.moduleInitializers,
+
+      // For ModuleInitializers tests, currently excluding from pure Wasm tests
+      Test / scalaJSModuleInitializers ++= {
+        (Test / scalaJSLinkerConfig).value.moduleKind match {
+          case ModuleKind.MinimalWasmModule | ModuleKind.WasmComponent =>
+            Nil
+          case _ =>
+            TestSuiteLinkerOptions.moduleInitializers
+        }
+      },
 
       scalaJSLinkerConfig ~= {
         _.withJSHeader(
@@ -2402,10 +2642,12 @@ object Build {
             | */
           """.stripMargin.trim() + "\n"
         )
+        .withPrettyPrint(true)
       },
 
       buildInfoOrStubs(Compile, Def.setting(baseDirectory.value / "src/main")),
 
+      buildInfoRenderFactory := ScalaCaseClassRenderer.apply,
       Compile / buildInfoPackage := "org.scalajs.testsuite.utils",
       Compile / buildInfoOptions += BuildInfoOption.PackagePrivate,
       Compile / buildInfoKeys := {
@@ -2425,6 +2667,8 @@ object Build {
           "isNoModule" -> (moduleKind == ModuleKind.NoModule),
           "isESModule" -> (moduleKind == ModuleKind.ESModule),
           "isCommonJSModule" -> (moduleKind == ModuleKind.CommonJSModule),
+          "isMinimalWasmModule" -> (moduleKind == ModuleKind.MinimalWasmModule),
+          "isWasmComponent" -> (moduleKind == ModuleKind.WasmComponent),
           "usesClosureCompiler" -> linkerConfig.closureCompiler,
           "hasMinifiedNames" -> (linkerConfig.closureCompiler || linkerConfig.minify),
           "compliantAsInstanceOfs" -> (sems.asInstanceOfs == CheckedBehavior.Compliant),

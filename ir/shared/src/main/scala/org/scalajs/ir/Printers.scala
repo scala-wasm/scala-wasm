@@ -969,6 +969,16 @@ object Printers {
           print(name)
           print(")")
 
+        case WitFunctionApply(receiver, className, method, args) =>
+          print("<component-function-apply>")
+          receiver match {
+            case Some(receiver) => print(receiver)
+            case None           => print(className)
+          }
+          print(".")
+          print(method)
+          printArgs(args)
+
         // Transient
 
         case Transient(value) =>
@@ -992,15 +1002,16 @@ object Printers {
       }
       print(classDef.optimizerHints)
       kind match {
-        case ClassKind.Class               => print("class ")
-        case ClassKind.ModuleClass         => print("module class ")
-        case ClassKind.Interface           => print("interface ")
-        case ClassKind.AbstractJSType      => print("abstract js type ")
-        case ClassKind.HijackedClass       => print("hijacked class ")
-        case ClassKind.JSClass             => print("js class ")
-        case ClassKind.JSModuleClass       => print("js module class ")
-        case ClassKind.NativeJSClass       => print("native js class ")
-        case ClassKind.NativeJSModuleClass => print("native js module class ")
+        case ClassKind.Class                            => print("class ")
+        case ClassKind.ModuleClass                      => print("module class ")
+        case ClassKind.Interface                        => print("interface ")
+        case ClassKind.AbstractJSType                   => print("abstract js type ")
+        case ClassKind.HijackedClass                    => print("hijacked class ")
+        case ClassKind.JSClass                          => print("js class ")
+        case ClassKind.JSModuleClass                    => print("js module class ")
+        case ClassKind.NativeJSClass                    => print("native js class ")
+        case ClassKind.NativeJSModuleClass              => print("native js module class ")
+        case ClassKind.NativeWasmComponentResourceClass => print("native wasm resource class ")
       }
       print(name)
       print(originalName)
@@ -1030,7 +1041,7 @@ object Printers {
       print(" ")
       printColumn(
           fields ::: methods ::: jsConstructor.toList :::
-          jsMethodProps ::: jsNativeMembers ::: topLevelExportDefs,
+          jsMethodProps ::: jsNativeMembers ::: witNativeMembers ::: topLevelExportDefs,
           "{", "", "}")
     }
 
@@ -1115,6 +1126,10 @@ object Printers {
           print(name)
           print(" loadfrom ")
           print(jsNativeLoadSpec)
+
+        case WitNativeMemberDef(flags, module, name,
+                method, tpe) =>
+          // TODO
       }
     }
 
@@ -1143,6 +1158,19 @@ object Printers {
           print(" as \"")
           printEscapeJS(exportName, out)
           print("\"")
+
+        case WitExportDef(moduleName, name, methodDef, signature) =>
+          // TODO
+          // var first = true
+          // for (ty <- paramTypes) {
+          //   if (first) first = false
+          //   else print(", ")
+          //   print(ty)
+          // }
+          // print("-> ")
+          // print(resultType)
+          // print(" = ")
+          // print(methodDef)
       }
     }
 
@@ -1151,6 +1179,10 @@ object Printers {
         print(tpe)
       case ClassRef(className) =>
         print(className)
+      case WitResourceTypeRef(className) =>
+        print("resource<")
+        print(className)
+        print(">")
       case ArrayTypeRef(base, dims) =>
         print(base)
         for (i <- 1 to dims)
@@ -1182,6 +1214,11 @@ object Printers {
         print(className)
         if (!nullable)
           print("!")
+
+      case WitResourceType(className) =>
+        print("resource<")
+        print(className)
+        print(">")
 
       case ArrayType(arrayTypeRef, nullable, exact) =>
         if (exact)

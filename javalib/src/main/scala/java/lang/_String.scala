@@ -17,7 +17,8 @@ import scala.annotation.{switch, tailrec}
 import scala.scalajs.js
 import scala.scalajs.js.JSStringOps.enableJSStringOps
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import java.lang.constant.{Constable, ConstantDesc}
 import java.nio.ByteBuffer
@@ -26,6 +27,8 @@ import java.util.{Comparator, Locale}
 import java.util.Objects.requireNonNull
 import java.util.function._
 import java.util.regex._
+
+import java.util.ScalaOps._
 
 /* This is the implementation of java.lang.String, which is a hijacked class.
  * Its instances are primitive strings. Constructors are not emitted.
@@ -55,11 +58,15 @@ final class _String private () // scalastyle:ignore
 
   // Wasm intrinsic
   def codePointAt(index: Int): Int = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      charAt(index) // bounds check
-      this.asInstanceOf[js.Dynamic].codePointAt(index).asInstanceOf[Int]
-    } else {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
       Character.codePointAtImpl(this, index)
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        charAt(index) // bounds check
+        this.asInstanceOf[js.Dynamic].codePointAt(index).asInstanceOf[Int]
+      } else {
+        Character.codePointAtImpl(this, index)
+      }
     }
   }
 
@@ -195,12 +202,16 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def endsWith(suffix: String): scala.Boolean = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      thisString.asInstanceOf[js.Dynamic]
-        .endsWith(requireNonNull(suffix))
-        .asInstanceOf[scala.Boolean]
-    } else {
-      thisString.jsSubstring(this.length() - suffix.length()) == suffix
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      regionMatches(thisString.length() - suffix.length, suffix, 0, suffix.length)
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        thisString.asInstanceOf[js.Dynamic]
+          .endsWith(requireNonNull(suffix))
+          .asInstanceOf[scala.Boolean]
+      } else {
+        thisString.jsSubstring(this.length() - suffix.length()) == suffix
+      }
     }
   }
 
@@ -253,13 +264,44 @@ final class _String private () // scalastyle:ignore
   def indexOf(ch: Int, fromIndex: Int): Int =
     indexOf(Character.toString(ch), fromIndex)
 
-  @inline
-  def indexOf(str: String): Int =
-    thisString.jsIndexOf(str)
+  def indexOf(str: String): Int = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      indexOf(str, 0)
+    } {
+      thisString.jsIndexOf(str)
+    }
+  }
 
-  @inline
-  def indexOf(str: String, fromIndex: Int): Int =
-    thisString.jsIndexOf(str, fromIndex)
+  def indexOf(str: String, fromIndex: Int): Int = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      val thisLen = thisString.length()
+      val strLen = str.length()
+
+      if (fromIndex >= thisLen) {
+        if (strLen == 0) thisLen else -1
+      } else {
+        val start = if (fromIndex < 0) 0 else fromIndex
+        if (strLen == 0) start
+        else {
+          var i = start
+          var found = -1
+          while (i <= thisLen - strLen && found == -1) {
+            var j = 0
+            var matches = true
+            while (j < strLen && matches) {
+              if (this.charAt(i + j) != str.charAt(j)) matches = false
+              j += 1
+            }
+            if (matches) found = i
+            i += 1
+          }
+          found
+        }
+      }
+    } {
+      thisString.jsIndexOf(str, fromIndex)
+    }
+  }
 
   /* Just returning this string is a valid implementation for `intern` in
    * JavaScript, since strings are primitive values. Therefore, value equality
@@ -279,13 +321,59 @@ final class _String private () // scalastyle:ignore
     else lastIndexOf(Character.toString(ch), fromIndex)
 
   @inline
-  def lastIndexOf(str: String): Int =
-    thisString.jsLastIndexOf(str)
+  def lastIndexOf(str: String): Int = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      val thisLen = thisString.length()
+      lastIndexOf(str, thisLen)
+    } {
+      thisString.jsLastIndexOf(str)
+    }
+
+  }
 
   @inline
-  def lastIndexOf(str: String, fromIndex: Int): Int =
+  def lastIndexOf(str: String, fromIndex: Int): Int = {
     if (fromIndex < 0) -1
-    else thisString.jsLastIndexOf(str, fromIndex)
+    else {
+      LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+        val thisLen = thisString.length()
+        val strLen = str.length()
+
+        if (fromIndex < 0) {
+          -1
+        } else if (strLen == 0) {
+          Math.min(fromIndex, thisLen)
+        } else {
+          val maxStartIndex = Math.min(fromIndex, thisLen - strLen)
+          var i = maxStartIndex
+          var found = -1
+
+          while (i >= 0) {
+            var j = 0
+            var matches = true
+
+            while (j < strLen && matches) {
+              if (thisString.charAt(i + j) != str.charAt(j)) {
+                matches = false
+              }
+              j += 1
+            }
+
+            if (matches) {
+              found = i
+              i = -1 // exit the loop
+            } else {
+              i -= 1
+            }
+          }
+
+          found
+        }
+      } {
+        thisString.jsLastIndexOf(str, fromIndex)
+      }
+    }
+  }
 
   @inline
   def matches(regex: String): scala.Boolean =
@@ -320,26 +408,36 @@ final class _String private () // scalastyle:ignore
   def repeat(count: Int): String = {
     if (count < 0) {
       throw new IllegalArgumentException
-    } else if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      /* This will throw a `js.RangeError` if `count` is too large, instead of
-       * an `OutOfMemoryError`. That's fine because the behavior of `repeat` is
-       * not specified for `count` too large.
-       */
-      this.asInstanceOf[js.Dynamic].repeat(count).asInstanceOf[String]
-    } else if (thisString == "" || count == 0) {
-      ""
-    } else if (thisString.length > (Int.MaxValue / count)) {
-      throw new OutOfMemoryError
     } else {
-      var str = thisString
-      val resultLength = thisString.length * count
-      var remainingIters = 31 - Integer.numberOfLeadingZeros(count)
-      while (remainingIters > 0) {
-        str += str
-        remainingIters -= 1
+      LinkingInfo.linkTimeIf(
+          LinkingInfo.esVersion >= ESVersion.ES2015 &&
+          moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+        /* This will throw a `js.RangeError` if `count` is too large, instead of
+         * an `OutOfMemoryError`. That's fine because the behavior of `repeat` is
+         * not specified for `count` too large.
+         */
+        this.asInstanceOf[js.Dynamic].repeat(count).asInstanceOf[String]
+      } {
+        if (thisString == "" || count == 0) {
+          ""
+        } else if (thisString.length > (Int.MaxValue / count)) {
+          throw new OutOfMemoryError
+        } else {
+          var str = thisString
+          val resultLength = thisString.length * count
+          var remainingIters = 31 - Integer.numberOfLeadingZeros(count)
+          while (remainingIters > 0) {
+            str += str
+            remainingIters -= 1
+          }
+          LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+            str += str.substring(0, resultLength - str.length)
+          } {
+            str += str.jsSubstring(0, resultLength - str.length)
+          }
+          str
+        }
       }
-      str += str.jsSubstring(0, resultLength - str.length)
-      str
     }
   }
 
@@ -348,8 +446,41 @@ final class _String private () // scalastyle:ignore
     replace(oldChar.toString, newChar.toString)
 
   @inline
-  def replace(target: CharSequence, replacement: CharSequence): String =
-    thisString.jsSplit(target.toString).join(replacement.toString)
+  def replace(target: CharSequence, replacement: CharSequence): String = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      replaceInternal(target, replacement)
+    } {
+      thisString.jsSplit(target.toString).join(replacement.toString)
+    }
+  }
+
+  private def replaceInternal(target: CharSequence, replacement: CharSequence): String = {
+    val index = indexOf(target.toString, 0)
+    if (index == -1) {
+      thisString
+    } else if (target.toString.isEmpty()) {
+      val buffer = new StringBuilder(length + (replacement.length * (length + 1)))
+      buffer.append(replacement)
+      for (i <- 0 until length) {
+        buffer.append(charAt(i))
+        buffer.append(replacement)
+      }
+      buffer.toString()
+    } else {
+      val buffer = new StringBuilder()
+      val targetLength = target.length()
+      var curIdx = index
+      var tail = 0
+      while (curIdx != -1) {
+        buffer.append(thisString, tail, curIdx)
+        buffer.append(replacement)
+        tail = curIdx + targetLength
+        curIdx = indexOf(target.toString, tail)
+      }
+      buffer.append(thisString, tail, length)
+      buffer.toString
+    }
+  }
 
   def replaceAll(regex: String, replacement: String): String =
     Pattern.compile(regex).matcher(thisString).replaceAll(replacement)
@@ -366,12 +497,16 @@ final class _String private () // scalastyle:ignore
 
   @inline
   def startsWith(prefix: String): scala.Boolean = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      thisString.asInstanceOf[js.Dynamic]
-        .startsWith(requireNonNull(prefix))
-        .asInstanceOf[scala.Boolean]
-    } else {
-      thisString.jsSubstring(0, prefix.length()) == prefix
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      regionMatches(0, prefix, 0, prefix.length())
+    } {
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        thisString.asInstanceOf[js.Dynamic]
+          .startsWith(requireNonNull(prefix))
+          .asInstanceOf[scala.Boolean]
+      } else {
+        thisString.jsSubstring(0, prefix.length()) == prefix
+      }
     }
   }
 
@@ -389,13 +524,19 @@ final class _String private () // scalastyle:ignore
      * *only if* the JVM throws an NPE (but not always).
      */
 
-    !BoundsChecks.isIndexInclusiveInvalid(toffset, length()) && {
-      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-        thisString.asInstanceOf[js.Dynamic]
-          .startsWith(requireNonNull(prefix), toffset)
-          .asInstanceOf[scala.Boolean]
-      } else {
-        thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix
+    toffset <= length() && toffset >= 0 && {
+      LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+        regionMatches(toffset, prefix, 0, prefix.length())
+      } {
+        !BoundsChecks.isIndexInclusiveInvalid(toffset, length()) && {
+          if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+            thisString.asInstanceOf[js.Dynamic]
+              .startsWith(requireNonNull(prefix), toffset)
+              .asInstanceOf[scala.Boolean]
+          } else {
+            thisString.jsSubstring(toffset, toffset + prefix.length()) == prefix
+          }
+        }
       }
     }
   }
@@ -410,7 +551,11 @@ final class _String private () // scalastyle:ignore
     if (BoundsChecks.isIndexInclusiveInvalid(beginIndex, length()))
       charAt(beginIndex)
 
-    thisString.jsSubstring(beginIndex)
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      this.substring(beginIndex, thisString.length)
+    } {
+      thisString.jsSubstring(beginIndex)
+    }
   }
 
   // Wasm intrinsic
@@ -425,7 +570,18 @@ final class _String private () // scalastyle:ignore
       charAt(endIndex)
     }
 
-    thisString.jsSubstring(beginIndex, endIndex)
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      val length = thisString.length
+      val builder = new StringBuilder(endIndex - beginIndex)
+      var i = beginIndex
+      while (i < endIndex) {
+        builder.append(thisString.charAt(i))
+        i += 1
+      }
+      builder.toString
+    } {
+      thisString.jsSubstring(beginIndex, endIndex)
+    }
   }
 
   def toCharArray(): Array[Char] = {
@@ -605,8 +761,25 @@ final class _String private () // scalastyle:ignore
   }
 
   @inline
-  def toLowerCase(): String =
-    this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
+  def toLowerCase(): String = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      this.asInstanceOf[_String].toLowerCaseImpl()
+    } {
+      this.asInstanceOf[js.Dynamic].toLowerCase().asInstanceOf[String]
+    }
+  }
+
+  private def toLowerCaseImpl(): String = {
+    replaceCharsAtIndex { i =>
+      (charAt(i): @switch) match {
+        // TODO: final sigma
+        case '\u03A3' => "\u03C2"
+        case '\u0130' => "\u0069\u0307"
+        case _        => null
+      }
+    }.asInstanceOf[_String]
+      .toCase(false)
+  }
 
   def toUpperCase(locale: Locale): String = {
     locale.getLanguage() match {
@@ -688,8 +861,53 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
   }
 
   @inline
-  def toUpperCase(): String =
-    this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
+  def toUpperCase(): String = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      replaceCharsAtIndex { i =>
+        val c = this.charAt(i)
+        if (c < 0x80) null // fast-forward ASCII characters
+        else StringSpecialCasing.toUpperCase.get(c)
+      }.asInstanceOf[_String].toCase(true)
+    } {
+      this.asInstanceOf[js.Dynamic].toUpperCase().asInstanceOf[String]
+    }
+  }
+
+  private def toCase(toUpper: scala.Boolean): String = {
+    def convert(ch: scala.Char): scala.Char =
+      if (toUpper) Character.toUpperCase(ch)
+      else Character.toLowerCase(ch)
+
+    val length = this.length()
+    if (length == 0) return this.thisString
+    val buf = new StringBuilder(length)
+    var i = 0
+    while (i < length) {
+      val high = charAt(i)
+      i += 1
+      if (Character.isHighSurrogate(high)) {
+        if (i < length) {
+          val low = charAt(i)
+          i += 1
+          if (Character.isLowSurrogate(low)) {
+            val cp = Character.toCodePoint(high, low)
+            val cased = convert(cp.toChar)
+            buf.append(Character.toChars(cased))
+          } else {
+            buf.append(convert(high))
+            buf.append(convert(low))
+          }
+        } else {
+          // one high surrogate
+          buf.append(convert(high))
+        }
+      } else {
+        // normal case
+        buf.append(convert(high))
+      }
+    }
+    buf.toString
+  }
 
   /** Replaces special characters in this string (possibly in special contexts)
    *  by dedicated strings.
@@ -817,52 +1035,45 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
     start == len
   }
 
-  private def splitLines(): js.Array[String] = {
-    val xs = js.Array[String]()
+  // (line, isLastLine) -> ()
+  @inline private def foreachLine(f: BiFunction[String, scala.Boolean, Unit]): Unit = {
     val len = length()
     var idx = 0
     var last = 0
     while (idx < len) {
       val c = charAt(idx)
       if (c == '\n' || c == '\r') {
-        xs.push(substring(last, idx))
+        val line = substring(last, idx)
         if (c == '\r' && idx + 1 < len && charAt(idx + 1) == '\n')
           idx += 1
         last = idx + 1
+        f(line, last == len)
       }
       idx += 1
     }
     // make sure we add the last segment, but not the last new line
     if (last != len)
-      xs.push(substring(last))
-    xs
+      f(substring(last), true)
   }
 
   def indent(n: Int): String = {
-
-    def forEachLn(f: Function[String, String]): String = {
-      var out = ""
-      var i = 0
-      val xs = splitLines()
-      while (i < xs.length) {
-        out += f(xs(i)) + "\n"
-        i += 1
-      }
-      out
-    }
-
+    val out = new StringBuilder()
     if (n < 0) {
-      forEachLn { l =>
+      foreachLine { (l, isLastLine) =>
         // n is negative here
         var idx = 0
         val lim = if (l.length() <= -n) l.length() else -n
         while (idx < lim && Character.isWhitespace(l.charAt(idx)))
           idx += 1
-        l.substring(idx)
+        out.append(l.substring(idx) + "\n")
       }
+      out.toString()
     } else {
       val padding = " ".asInstanceOf[_String].repeat(n)
-      forEachLn(padding + _)
+      foreachLine { (l, _) =>
+        out.append(padding + l + "\n")
+      }
+      out.toString()
     }
   }
 
@@ -878,38 +1089,32 @@ for (cp <- 0 to Character.MAX_CODE_POINT) {
         case _           => false
       }
 
-      val xs = splitLines()
       var i = 0
       var minLeading = Int.MaxValue
 
-      while (i < xs.length) {
-        val l = xs(i)
+      foreachLine { (l, isLastLine) =>
         // count the last line even if blank
-        if (i == xs.length - 1 || !l.asInstanceOf[_String].isBlank()) {
+        if (isLastLine || !l.asInstanceOf[_String].isBlank()) {
           var idx = 0
           while (idx < l.length() && isWS(l.charAt(idx)))
             idx += 1
           if (idx < minLeading)
             minLeading = idx
         }
-        i += 1
       }
       // if trailingNL, then the last line is zero width
       if (trailingNL || minLeading == Int.MaxValue)
         minLeading = 0
 
       var out = ""
-      var j = 0
-      while (j < xs.length) {
-        val line = xs(j)
+      foreachLine { (line, isLastLine) =>
         if (!line.asInstanceOf[_String].isBlank()) {
           // we strip the computed leading WS and also any *trailing* WS
           out += line.substring(minLeading).asInstanceOf[_String].stripTrailing()
         }
         // different from indent, we don't add an LF at the end unless there's already one
-        if (j != xs.length - 1)
+        if (!isLastLine)
           out += "\n"
-        j += 1
       }
       if (trailingNL)
         out += "\n"
@@ -1093,5 +1298,4 @@ object _String { // scalastyle:ignore
 
   def format(l: Locale, format: String, args: Array[AnyRef]): String =
     new java.util.Formatter(l).format(format, args).toString()
-
 }

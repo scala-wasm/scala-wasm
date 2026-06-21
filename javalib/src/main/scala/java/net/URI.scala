@@ -12,14 +12,13 @@
 
 package java.net
 
-import scala.scalajs.js.RegExp
-import scala.scalajs.js
-
 import scala.annotation.tailrec
 
-import java.lang.Utils._
 import java.nio._
 import java.nio.charset.{CodingErrorAction, StandardCharsets}
+import java.{util => ju}
+import java.util.ScalaOps._
+import java.util.regex.RegExpImpl
 
 final class URI(origStr: String) extends Serializable with Comparable[URI] {
 
@@ -32,14 +31,14 @@ final class URI(origStr: String) extends Serializable with Comparable[URI] {
    *  This is a local val for the primary constructor. It is a val,
    *  since we'll set it to null after initializing all fields.
    */
-  private[this] var _fld: RegExp.ExecResult = URI.uriRe.exec(origStr)
-  if (_fld == null)
+  private[this] var _fld = RegExpImpl.impl.exec(URI.uriRe, origStr)
+  if (!RegExpImpl.impl.matches(_fld))
     throw new URISyntaxException(origStr, "Malformed URI")
 
-  private val _isAbsolute = undefOrIsDefined(_fld(AbsScheme))
-  private val _isOpaque = undefOrIsDefined(_fld(AbsOpaquePart))
+  private val _isAbsolute = RegExpImpl.impl.exists(_fld, AbsScheme)
+  private val _isOpaque = RegExpImpl.impl.exists(_fld, AbsOpaquePart)
 
-  @inline private def fld(idx: Int): String = undefOrGetOrNull(_fld(idx))
+  @inline private def fld(idx: Int): String = RegExpImpl.impl.getOrElse(_fld, idx, null)
 
   @inline private def fld(absIdx: Int, relIdx: Int): String =
     if (_isAbsolute) fld(absIdx) else fld(relIdx)
@@ -93,7 +92,7 @@ final class URI(origStr: String) extends Serializable with Comparable[URI] {
   private val _fragment = fld(Fragment)
 
   // End of default ctor. Unset helper field
-  _fld = null
+  _fld = null.asInstanceOf[RegExpImpl.impl.Repr]
 
   def this(scheme: String, ssp: String, fragment: String) =
     this(URI.uriStr(scheme, ssp, fragment))
@@ -217,11 +216,9 @@ final class URI(origStr: String) extends Serializable with Comparable[URI] {
 
   def normalize(): URI = if (_isOpaque || _path == null) this
   else {
-    import js.JSStringOps._
-
     val origPath = _path
 
-    val segments = origPath.jsSplit("/")
+    val segments = origPath.split("/", -1)
 
     // Step 1: Remove all "." segments
     // Step 2: Remove ".." segments preceded by non ".." segment until no
@@ -279,17 +276,13 @@ final class URI(origStr: String) extends Serializable with Comparable[URI] {
       }
     }
 
-    // Truncate `segments` at `outIdx`
-    segments.length = outIdx
-
     // Step 3: If path is relative and first segment contains ":", prepend "."
     // segment (according to JavaDoc). If the path is absolute, the first
     // segment is "" so the `contains(':')` returns false.
-    if (outIdx != 0 && segments(0).contains(":"))
-      segments.unshift(".")
-
-    // Now add all the segments from step 1, 2 and 3
-    val newPath = segments.join("/")
+    val prependDot = outIdx != 0 && segments(0).contains(":")
+    val normalized =
+      ju.Arrays.asList(segments).subList(0, outIdx).scalaOps.mkString("", "/", "")
+    val newPath = if (prependDot) "./" + normalized else normalized
 
     // Only create new instance if anything changed
     if (newPath == origPath)
@@ -437,7 +430,8 @@ object URI {
     // (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])           # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
   }
 
-  private val ipv6Re = new RegExp("^" + ipv6address + "$", "i")
+  private val ipv6Re =
+    RegExpImpl.impl.compile("^" + ipv6address + "$", RegExpImpl.Flags.CaseInsensitive)
 
   // URI syntax parser. Based on RFC2396, RFC2732 and adaptations according to
   // JavaDoc.
@@ -586,7 +580,7 @@ object URI {
     // URI-reference = [ absoluteURI | relativeURI ] [ "#" fragment ]
     val uriRef = "^(?:" + absoluteURI + "|" + relativeURI + ")(?:#" + fragment + ")?$"
 
-    new RegExp(uriRef, "i")
+    RegExpImpl.impl.compile(uriRef, RegExpImpl.Flags.CaseInsensitive)
   }
 
   private object Fields {
@@ -643,7 +637,7 @@ object URI {
       resStr += quoteUserInfo(userInfo) + "@"
 
     if (host != null) {
-      if (URI.ipv6Re.test(host))
+      if (RegExpImpl.impl.matches(RegExpImpl.impl.exec(URI.ipv6Re, host)))
         resStr += "[" + host + "]"
       else
         resStr += host
@@ -753,7 +747,8 @@ object URI {
     }
   }
 
-  private val quoteStr: js.Function1[String, String] = { (str: String) =>
+  /** Encode a matched string as percent-encoded UTF-8 bytes. */
+  private def quoteStrFn(str: String): String = {
     val buf = StandardCharsets.UTF_8.encode(str)
 
     var res = ""
@@ -765,39 +760,41 @@ object URI {
     res
   }
 
+  private object QuoteStrMapper extends ju.function.Function[String, String] {
+    def apply(t: String): String = quoteStrFn(t)
+  }
+
   /** matches any character not in unreserved, punct, escaped or other */
-  private val userInfoQuoteRe = new RegExp(
-      // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
-      // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%]
-      "[\u0000- \"#/<>?@\\[-\\^`{-}" +
-      "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
-      "%(?![0-9a-f]{2})",
-      "ig")
+  private val userInfoQuoteRe = RegExpImpl.impl.compile(
+    // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
+    // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%]
+    "[\u0000- \"#/<>?@\\[-\\^`{-}" +
+    "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
+    "%(?![0-9a-f]{2})",
+    RegExpImpl.Flags.Global | RegExpImpl.Flags.CaseInsensitive
+  )
 
   /** Quote any character not in unreserved, punct, escaped or other */
-  private def quoteUserInfo(str: String) = {
-    import js.JSStringOps._
-    str.jsReplace(userInfoQuoteRe, quoteStr)
-  }
+  private def quoteUserInfo(str: String): String =
+    RegExpImpl.impl.replaceAll(userInfoQuoteRe, str, QuoteStrMapper)
 
   /** matches any character not in unreserved, punct, escaped, other or equal
    *  to '/' or '@'
    */
-  private val pathQuoteRe = new RegExp(
-      // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
-      // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%@/]
-      "[\u0000- \"#<>?\\[-\\^`{-}" +
-      "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
-      "%(?![0-9a-f]{2})",
-      "ig")
+  private val pathQuoteRe = RegExpImpl.impl.compile(
+    // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
+    // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%@/]
+    "[\u0000- \"#<>?\\[-\\^`{-}" +
+    "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
+    "%(?![0-9a-f]{2})",
+    RegExpImpl.Flags.Global | RegExpImpl.Flags.CaseInsensitive
+  )
 
   /** Quote any character not in unreserved, punct, escaped, other or equal
    *  to '/' or '@'
    */
-  private def quotePath(str: String) = {
-    import js.JSStringOps._
-    str.jsReplace(pathQuoteRe, quoteStr)
-  }
+  private def quotePath(str: String): String =
+    RegExpImpl.impl.replaceAll(pathQuoteRe, str, QuoteStrMapper)
 
   /** matches any character not in unreserved, punct, escaped, other or equal
    *  to '@', '[' or ']'
@@ -806,48 +803,45 @@ object URI {
    *  in IPv6 addresses, but technically speaking they are in reserved
    *  due to RFC2732).
    */
-  private val authorityQuoteRe = new RegExp(
-      // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
-      // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%@\[\]]
-      "[\u0000- \"#/<>?\\^`{-}" +
-      "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
-      "%(?![0-9a-f]{2})",
-      "ig")
+  private[this] lazy val authorityQuoteRe = RegExpImpl.impl.compile(
+    // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
+    // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=%@\[\]]
+    "[\u0000- \"#/<>?\\^`{-}" +
+    "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
+    "%(?![0-9a-f]{2})",
+    RegExpImpl.Flags.Global | RegExpImpl.Flags.CaseInsensitive
+  )
 
   /** Quote any character not in unreserved, punct, escaped, other or equal
    *  to '@'
    */
-  private def quoteAuthority(str: String) = {
-    import js.JSStringOps._
-    str.jsReplace(authorityQuoteRe, quoteStr)
-  }
+  private def quoteAuthority(str: String): String =
+    RegExpImpl.impl.replaceAll(authorityQuoteRe, str, QuoteStrMapper)
 
   /** matches any character not in unreserved, reserved, escaped or other */
-  private val illegalQuoteRe = new RegExp(
-      // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
-      // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=?/\\[\\]%]
-      "[\u0000- \"#<>@\\^`{-}" +
-      "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
-      "%(?![0-9a-f]{2})",
-      "ig")
+  private val illegalQuoteRe = RegExpImpl.impl.compile(
+    // !other = [\u0000-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]
+    // Char class is: [:!other:^a-z0-9-_.!~*'(),;:$&+=?/\\[\\]%]
+    "[\u0000- \"#<>@\\^`{-}" +
+    "\u007f-\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000\u2028\u2029]|" +
+    "%(?![0-9a-f]{2})",
+    RegExpImpl.Flags.Global | RegExpImpl.Flags.CaseInsensitive
+  )
 
   /** Quote any character not in unreserved, reserved, escaped or other */
-  private def quoteIllegal(str: String) = {
-    import js.JSStringOps._
-    str.jsReplace(illegalQuoteRe, quoteStr)
-  }
+  private def quoteIllegal(str: String): String =
+    RegExpImpl.impl.replaceAll(illegalQuoteRe, str, QuoteStrMapper)
 
   /** matches characters not in ASCII
    *
    *  Note: It is important that the match is maximal, since we might encounter
    *  surrogates that need to be encoded in one shot.
    */
-  private val nonASCIIQuoteRe = new RegExp("[^\u0000-\u007F]+", "g")
+  private val nonASCIIQuoteRe =
+    RegExpImpl.impl.compile("[^\u0000-\u007F]+", RegExpImpl.Flags.Global)
 
-  private def quoteNonASCII(str: String) = {
-    import js.JSStringOps._
-    str.jsReplace(nonASCIIQuoteRe, quoteStr)
-  }
+  private def quoteNonASCII(str: String): String =
+    RegExpImpl.impl.replaceAll(nonASCIIQuoteRe, str, QuoteStrMapper)
 
   /** Case-insensitive comparison that accepts `null` values.
    *

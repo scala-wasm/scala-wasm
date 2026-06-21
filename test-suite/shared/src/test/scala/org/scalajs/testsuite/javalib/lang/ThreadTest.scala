@@ -14,8 +14,9 @@ package org.scalajs.testsuite.javalib.lang
 
 import org.junit.Test
 import org.junit.Assert._
+import org.junit.Assume._
 
-import org.scalajs.testsuite.utils.Platform.executingInJVM
+import org.scalajs.testsuite.utils.Platform.{executingInJVM, executingInPureWebAssembly}
 
 class ThreadTest {
 
@@ -33,8 +34,9 @@ class ThreadTest {
     }
   }
 
-  @Test def currentThreadGetStackTrace(): Unit =
-    Thread.currentThread().getStackTrace()
+  @Test def currentThreadGetStackTrace(): Unit = {
+    val _ = Thread.currentThread().getStackTrace()
+  }
 
   @Test def getId(): Unit =
     assertTrue(Thread.currentThread().getId > 0)

@@ -448,6 +448,12 @@ object LinkingInfo {
      *  module-global variable.
      */
     final val CommonJSModule = 3
+
+    /** A minimal Wasm module. */
+    final val MinimalWasmModule = 4
+
+    /** A Wasm Component in the Component Model. */
+    final val WasmComponent = 5
   }
 
   private[scalajs] def linkTimePropertyInt(name: String): Int =

@@ -14,10 +14,11 @@ package java.util.regex
 
 import scala.annotation.tailrec
 
-import java.lang.Utils._
 import java.util.ScalaOps._
 
-import scala.scalajs.js
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import PatternCompiler.Support._
 
@@ -28,11 +29,12 @@ final class Pattern private[regex] (
     jsFlags: String,
     sticky: Boolean,
     private[regex] val groupCount: Int,
-    groupNumberMap: js.Array[Int],
-    namedGroups: js.Dictionary[Int]
+    groupNumberMap: Array[Int],
+    namedGroups: Engine.engine.Dictionary[Int]
 ) extends Serializable {
 
   import Pattern._
+  import Engine.engine
 
   @inline private def jsFlagsForFind: String =
     jsFlags + (if (sticky && supportsSticky) "gy" else "g")
@@ -51,8 +53,8 @@ final class Pattern private[regex] (
    *  Since that RegExp is only used locally within `execFind()`, we can
    *  always reuse the same instance.
    */
-  private[this] var jsRegExpForFind =
-    new js.RegExp(jsPattern, jsFlagsForFind)
+  private[this] var jsRegExpForFind: engine.RegExp =
+    engine.compile(jsPattern, jsFlagsForFind)
 
   /** Another version of the RegExp that is used by `Matcher.matches()`.
    *
@@ -63,35 +65,35 @@ final class Pattern private[regex] (
    *  Since that RegExp is only used locally within `execMatches()`, we can
    *  always reuse the same instance.
    */
-  private[this] var jsRegExpForMatches: js.RegExp =
-    new js.RegExp(wrapJSPatternForMatches(jsPattern), jsFlags)
+  private[this] var jsRegExpForMatches: engine.RegExp =
+    engine.compile(wrapJSPatternForMatches(jsPattern), jsFlags)
 
   private lazy val indicesBuilder: IndicesBuilder =
     IndicesBuilder(jsPattern, jsFlags)
 
-  private[regex] def execMatches(input: String): js.RegExp.ExecResult =
-    jsRegExpForMatches.exec(input)
+  private[regex] def execMatches(input: String): engine.ExecResult =
+    engine.exec(jsRegExpForMatches, input)
 
   @inline // to stack-allocate the tuple
-  private[regex] def execFind(input: String, start: Int): (js.RegExp.ExecResult, Int) = {
+  private[regex] def execFind(input: String, start: Int): (engine.ExecResult, Int) = {
     val mtch = execFindInternal(input, start)
-    val end = jsRegExpForFind.lastIndex
+    val end = engine.getLastIndex(jsRegExpForFind)
     (mtch, end)
   }
 
-  private def execFindInternal(input: String, start: Int): js.RegExp.ExecResult = {
+  private def execFindInternal(input: String, start: Int): engine.ExecResult = {
     val regexp = jsRegExpForFind
 
     if (!supportsSticky && sticky) {
-      regexp.lastIndex = start
-      val mtch = regexp.exec(input)
-      if (mtch == null || mtch.index > start)
+      engine.setLastIndex(regexp, start)
+      val mtch = engine.exec(regexp, input)
+      if (mtch == null || engine.getIndex(mtch) > start)
         null
       else
         mtch
     } else if (supportsUnicode) {
-      regexp.lastIndex = start
-      regexp.exec(input)
+      engine.setLastIndex(regexp, start)
+      engine.exec(regexp, input)
     } else {
       /* When the native RegExp does not support the 'u' flag (introduced in
        * ECMAScript 2015), it can find a match starting in the middle of a
@@ -106,13 +108,13 @@ final class Pattern private[regex] (
        * matches that start in the middle of a surrogate pair.
        */
       @tailrec
-      def loop(start: Int): js.RegExp.ExecResult = {
-        regexp.lastIndex = start
-        val mtch = regexp.exec(input)
+      def loop(start: Int): engine.ExecResult = {
+        engine.setLastIndex(regexp, start)
+        val mtch = engine.exec(regexp, input)
         if (mtch == null) {
           null
         } else {
-          val index = mtch.index
+          val index = engine.getIndex(mtch)
           if (index > start && index < input.length() &&
               Character.isLowSurrogate(input.charAt(index)) &&
               Character.isHighSurrogate(input.charAt(index - 1))) {
@@ -132,29 +134,39 @@ final class Pattern private[regex] (
   }
 
   private[regex] def namedGroup(name: String): Int = {
-    groupNumberMap(dictGetOrElse(namedGroups, name) { () =>
+    groupNumberMap(engine.dictGetOrElse(namedGroups, name) { () =>
       throw new IllegalArgumentException(s"No group with name <$name>")
     })
   }
 
-  private[regex] def getIndices(lastMatch: js.RegExp.ExecResult,
-      forMatches: Boolean): IndicesArray = {
-    val lastMatchDyn = lastMatch.asInstanceOf[js.Dynamic]
-    if (isUndefined(lastMatchDyn.indices)) {
-      if (supportsIndices) {
-        if (!enabledNativeIndices) {
-          jsRegExpForFind = new js.RegExp(jsPattern, jsFlagsForFind + "d")
-          jsRegExpForMatches = new js.RegExp(wrapJSPatternForMatches(jsPattern), jsFlags + "d")
-          enabledNativeIndices = true
+  private[regex] def getIndices(lastMatch: engine.ExecResult,
+      forMatches: Boolean): engine.IndicesArray = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      val indices = engine.getIndices(lastMatch)
+      if (indices == null)
+        throw new AssertionError("Unreachable; WasmEngine always supports and produces indices")
+      indices
+    } {
+      // This 'else' branch only links on a JS host, and assumes that `engine eq JSEngine`
+      if (engine.getIndices(lastMatch) == null) {
+        if (supportsIndices) {
+          if (!enabledNativeIndices) {
+            jsRegExpForFind = engine.compile(jsPattern, jsFlagsForFind + "d")
+            jsRegExpForMatches = engine.compile(wrapJSPatternForMatches(jsPattern), jsFlags + "d")
+            enabledNativeIndices = true
+          }
+          val regexp = if (forMatches) jsRegExpForMatches else jsRegExpForFind
+          engine.setLastIndex(regexp, engine.getIndex(lastMatch))
+          engine.setIndices(
+              lastMatch, engine.getIndices(engine.exec(regexp, engine.getInput(lastMatch))))
+        } else {
+          val indices: JSEngine.IndicesArray =
+            indicesBuilder(forMatches, engine.getInput(lastMatch), engine.getIndex(lastMatch))
+          engine.setIndices(lastMatch, indices.asInstanceOf[engine.IndicesArray])
         }
-        val regexp = if (forMatches) jsRegExpForMatches else jsRegExpForFind
-        regexp.lastIndex = lastMatch.index
-        lastMatchDyn.indices = regexp.exec(lastMatch.input).asInstanceOf[js.Dynamic].indices
-      } else {
-        lastMatchDyn.indices = indicesBuilder(forMatches, lastMatch.input, lastMatch.index)
       }
+      engine.getIndices(lastMatch)
     }
-    lastMatchDyn.indices.asInstanceOf[IndicesArray]
   }
 
   // Public API ---------------------------------------------------------------
@@ -184,7 +196,7 @@ final class Pattern private[regex] (
       // Actually split original string
       val lim = if (limit > 0) limit else Int.MaxValue
       val matcher = this.matcher(inputStr)
-      val result = js.Array[String]()
+      val result = new SplitBuilder(if (limit > 0) limit else 16)
       var prevEnd = 0
       while ((result.length < lim - 1) && matcher.find()) {
         if (matcher.end() == 0) {
@@ -207,17 +219,12 @@ final class Pattern private[regex] (
       }
 
       // Build result array
-      val r = new Array[String](actualLength)
-      for (i <- 0 until actualLength)
-        r(i) = result(i)
-      r
+      result.build(actualLength)
     }
   }
 }
 
 object Pattern {
-  private[regex] type IndicesArray = js.Array[js.UndefOr[js.Tuple2[Int, Int]]]
-
   final val UNIX_LINES = 0x01
   final val CASE_INSENSITIVE = 0x02
   final val COMMENTS = 0x04
@@ -256,4 +263,25 @@ object Pattern {
   @inline
   private[regex] def wrapJSPatternForMatches(jsPattern: String): String =
     "^(?:" + jsPattern + ")$" // the group is needed if there is a top-level | in jsPattern
+
+  @inline
+  private class SplitBuilder(initialCapacity: Int) {
+    private var array: Array[String] = new Array[String](initialCapacity)
+    private var _length = 0
+
+    def length: Int = _length
+
+    def apply(index: Int): String = array(index)
+
+    def push(x: String): Unit = {
+      if (_length == array.length)
+        array = java.util.Arrays.copyOf(array, _length * 2)
+      array(_length) = x
+      _length += 1
+    }
+
+    def build(actualLength: Int): Array[String] =
+      if (actualLength == array.length) array
+      else java.util.Arrays.copyOf(array, actualLength)
+  }
 }

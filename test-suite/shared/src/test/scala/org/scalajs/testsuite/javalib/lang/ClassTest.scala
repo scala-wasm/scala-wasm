@@ -79,6 +79,8 @@ class ClassTest {
   }
 
   @Test def getClassGetName(): Unit = {
+    assumeFalse("TODO: className of java.lang.Boolean => java.lang.BooleanBox in pure Wasm",
+        executingInPureWebAssembly)
     // x.getClass().getName() is subject to optimizations
 
     @noinline

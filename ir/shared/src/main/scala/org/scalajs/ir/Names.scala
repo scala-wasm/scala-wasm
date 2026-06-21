@@ -428,6 +428,8 @@ object Names {
           }
         case ClassRef(className) =>
           builder.append('L').append(className.nameString)
+        case WitResourceTypeRef(className) =>
+          builder.append('L').append(className.nameString)
         case ArrayTypeRef(base, dimensions) =>
           var i = 0
           while (i != dimensions) {

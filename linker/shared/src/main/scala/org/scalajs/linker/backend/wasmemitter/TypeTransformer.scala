@@ -19,6 +19,7 @@ import org.scalajs.ir.WellKnownNames._
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
 
 import VarGen._
+import org.scalajs.linker.backend.webassembly.component.Flatten
 
 object TypeTransformer {
 
@@ -90,6 +91,8 @@ object TypeTransformer {
       case ClassType(className, nullable, exact) => transformClassType(className, nullable, exact)
       case tpe: PrimType                         => transformPrimType(tpe)
 
+      case WitResourceType(className) => transformWitResourceType(className)
+
       case ArrayType(arrayTypeRef, nullable, _) =>
         watpe.RefType(nullable, genTypeID.forArrayClass(arrayTypeRef))
 
@@ -106,16 +109,20 @@ object TypeTransformer {
       implicit ctx: WasmContext): watpe.RefType = {
     val heapType: watpe.HeapType = ctx.getClassInfoOption(className) match {
       case Some(info) =>
-        if (className == BoxedStringClass)
-          watpe.HeapType.Extern // for all the JS string builtin functions
-        else if (info.isAncestorOfHijackedClass && !exact)
+        if (className == BoxedStringClass) {
+          if (!ctx.hasJSInterop)
+            watpe.HeapType(genTypeID.wasmString)
+          else
+            watpe.HeapType.Extern // for all the JS string builtin functions
+        } else if (info.isAncestorOfHijackedClass && !exact) {
           watpe.HeapType.Any
-        else if (!info.hasInstances)
+        } else if (!info.hasInstances) {
           watpe.HeapType.None
-        else if (info.isInterface)
+        } else if (info.isInterface) {
           watpe.HeapType(genTypeID.ObjectStruct)
-        else
+        } else {
           watpe.HeapType(genTypeID.forClass(className))
+        }
 
       case None =>
         watpe.HeapType.None
@@ -124,7 +131,17 @@ object TypeTransformer {
     watpe.RefType(nullable, heapType)
   }
 
-  def transformPrimType(tpe: PrimType): watpe.Type = {
+  def transformWitResourceType(className: ClassName)(
+      implicit ctx: WasmContext): watpe.RefType = {
+    /* Component resources are represented as simple wrapper structs containing
+     * only an i32 handle field. They are converted to/from i32 handles at
+     * component model boundaries
+     */
+    val heapType = watpe.HeapType(genTypeID.forResourceClass(className))
+    watpe.RefType(nullable = false, heapType)
+  }
+
+  def transformPrimType(tpe: PrimType)(implicit ctx: WasmContext): watpe.Type = {
     tpe match {
       case UndefType   => watpe.RefType.any
       case BooleanType => watpe.Int32
@@ -135,8 +152,12 @@ object TypeTransformer {
       case LongType    => watpe.Int64
       case FloatType   => watpe.Float32
       case DoubleType  => watpe.Float64
-      case StringType  => watpe.RefType.extern
-      case NullType    => watpe.RefType.nullref
+      case StringType  =>
+        if (!ctx.hasJSInterop)
+          watpe.RefType(genTypeID.wasmString)
+        else
+          watpe.RefType.extern
+      case NullType => watpe.RefType.nullref
 
       case VoidType | NothingType =>
         throw new IllegalArgumentException(

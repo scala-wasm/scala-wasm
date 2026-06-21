@@ -663,19 +663,17 @@ object Arrays {
 
   def deepToString(a: Array[AnyRef]): String = {
     /* The following array represents a set of the `Array[AnyRef]` that have
-     * already been seen in the current recursion. We use a JS array instead of
-     * a full-blown `HashSet` because it will likely stay very short (its size
-     * is O(h) where h is the height of the tree of non-cyclical paths starting
-     * at `a`), so the cost of using `System.identityHashCode` will probably
+     * already been seen in the current recursion. We use ArrayList
+     * instead of a full-blown `HashSet` because it will likely
+     * stay very short (its size is O(h) where h is the height of the tree of non-cyclical
+     * paths starting at `a`), so the cost of using `System.identityHashCode` will probably
      * outweigh the benefits of the time complexity guarantees provided by a
      * hash-set.
      */
-    val seen = js.Array[Array[AnyRef]]()
+    val seen = new ArrayList[Array[AnyRef]]()
 
-    @inline def wasSeen(a: Array[AnyRef]): Boolean = {
-      // JavaScript's indexOf uses `===`
-      seen.asInstanceOf[js.Dynamic].indexOf(a.asInstanceOf[js.Any]).asInstanceOf[Int] >= 0
-    }
+    @inline def wasSeen(a: Array[AnyRef]): Boolean =
+      seen.contains(a)
 
     def rec(a: Array[AnyRef]): String = {
       var result = "["
@@ -689,9 +687,9 @@ object Arrays {
             if ((e eq a) || wasSeen(e)) {
               result += "[...]"
             } else {
-              seen.push(a)
+              seen.add(a)
               result += rec(e)
-              seen.pop()
+              seen.remove(seen.size() - 1)
             }
 
           case e: Array[Long]    => result += toString(e)

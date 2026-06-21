@@ -14,6 +14,7 @@ package org.scalajs.testsuite.javalib.util
 
 import org.junit.Test
 import org.junit.Assert._
+import org.junit.Assume._
 
 import java.{util => ju}
 

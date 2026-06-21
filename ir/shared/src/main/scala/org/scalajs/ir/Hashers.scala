@@ -114,6 +114,9 @@ object Hashers {
     case TopLevelMethodExportDef(moduleID, methodDef) =>
       TopLevelMethodExportDef(moduleID, hashJSMethodDef(methodDef))(tle.pos)
 
+    case WitExportDef(moduleName, name, methodDef, signature) =>
+      WitExportDef(moduleName, name, hashMethodDef(methodDef), signature)(tle.pos)
+
     case _:TopLevelFieldExportDef | _:TopLevelModuleExportDef |
         _:TopLevelJSClassExportDef =>
       tle
@@ -131,7 +134,7 @@ object Hashers {
     val newTopLevelExportDefs = topLevelExportDefs.map(hashTopLevelExportDef(_))
     ClassDef(name, originalName, kind, jsClassCaptures, superClass, interfaces,
         jsSuperClass, jsNativeLoadSpec, fields, newMethods, newJSConstructorDef,
-        newExportedMembers, jsNativeMembers, newTopLevelExportDefs)(
+        newExportedMembers, jsNativeMembers, witNativeMembers, newTopLevelExportDefs)(
         optimizerHints)
   }
 
@@ -564,6 +567,14 @@ object Hashers {
           mixString(name)
           mixType(tree.tpe)
 
+        case WitFunctionApply(receiver, className, method, args) =>
+          mixTag(TagWitFunctionApply)
+          mixOptTree(receiver)
+          mixName(className)
+          mixMethodIdent(method)
+          mixTrees(args)
+          mixType(tree.tpe)
+
         case Transient(value) =>
           throw new InvalidIRException(tree,
               "Cannot hash a transient IR node (its value is of class " +
@@ -608,6 +619,9 @@ object Hashers {
       case ClassRef(className) =>
         mixTag(TagClassRef)
         mixName(className)
+      case WitResourceTypeRef(className) =>
+        mixTag(TagWitResourceTypeRef)
+        mixName(className)
       case typeRef: ArrayTypeRef =>
         mixTag(TagArrayTypeRef)
         mixArrayTypeRef(typeRef)
@@ -647,6 +661,10 @@ object Hashers {
           case (false, false) => TagNonNullClassType
         }
         mixTag(tag)
+        mixName(className)
+
+      case WitResourceType(className) =>
+        mixTag(TagWitResourceType)
         mixName(className)
 
       case ArrayType(arrayTypeRef, nullable, exact) =>

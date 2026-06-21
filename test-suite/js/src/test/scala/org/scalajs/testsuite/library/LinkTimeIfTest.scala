@@ -14,6 +14,7 @@ package org.scalajs.testsuite.library
 
 import scala.scalajs.js
 import scala.scalajs.LinkingInfo._
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import org.junit.Test
 import org.junit.Assert._
@@ -85,13 +86,17 @@ class LinkTimeIfTest {
 
   @Test def exponentOp(): Unit = {
     def pow(x: Double, y: Double): Double = {
-      linkTimeIf(esVersion >= ESVersion.ES2016) {
+      linkTimeIf(
+          esVersion >= ESVersion.ES2016 &&
+          moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
         assertTrue("Took the wrong branch of linkTimeIf when linking for ES 2016+",
-            esVersion >= ESVersion.ES2016)
+            esVersion >= ESVersion.ES2016 &&
+            moduleKind != MinimalWasmModule && moduleKind != WasmComponent)
         (x.asInstanceOf[js.Dynamic] ** y.asInstanceOf[js.Dynamic]).asInstanceOf[Double]
       } {
         assertFalse("Took the wrong branch of linkTimeIf when linking for ES 2015-",
-            esVersion >= ESVersion.ES2016)
+            esVersion >= ESVersion.ES2016 &&
+            moduleKind != MinimalWasmModule && moduleKind != WasmComponent)
         Math.pow(x, y)
       }
     }

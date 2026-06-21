@@ -19,11 +19,34 @@ import org.scalajs.linker.backend.webassembly._
 import org.scalajs.linker.backend.webassembly.Instructions._
 
 import VarGen._
+import org.scalajs.linker.backend.webassembly.Types.HeapType
+import org.scalajs.linker.backend.webassembly.Identitities.LocalID
 
 /** Scala.js-specific Wasm generators that are used across the board. */
 object SWasmGen {
 
-  def genZeroOf(tpe: Type)(implicit ctx: WasmContext): Instr = {
+  def nonArrayTypeDataGlobalID(typeRef: NonArrayTypeRef) = typeRef match {
+    case WitResourceTypeRef(className) =>
+      // Resource classes currently share the class-backed typeData/vtable global.
+      genGlobalID.forVTable(className)
+    case _ =>
+      genGlobalID.forVTable(typeRef)
+  }
+
+  def genZeroOf(tpe: Type)(implicit ctx: WasmContext): List[Instr] = {
+    tpe match {
+      case WitResourceType(className) =>
+        List(
+            GlobalGet(genGlobalID.forVTable(className)), // vtable
+            I32Const(0), // idHashCode (unused, needed for subtyping)
+            I32Const(0), // handle (zero value)
+            StructNew(genTypeID.forResourceClass(className)))
+      case _ =>
+        List(genZeroOf0(tpe))
+    }
+  }
+
+  private def genZeroOf0(tpe: Type)(implicit ctx: WasmContext): Instr = {
     tpe match {
       case BooleanType | CharType | ByteType | ShortType | IntType =>
         I32Const(0)
@@ -31,20 +54,34 @@ object SWasmGen {
       case LongType   => I64Const(0L)
       case FloatType  => F32Const(0.0f)
       case DoubleType => F64Const(0.0)
-      case StringType => ctx.stringPool.getConstantStringInstr("")
+      case StringType => ctx.stringPool.getEmptyStringInstr()
       case UndefType  => GlobalGet(genGlobalID.undef)
 
       case ClassType(BoxedStringClass, true, _) =>
-        RefNull(Types.HeapType.NoExtern)
+        if (!ctx.hasJSInterop)
+          RefNull(HeapType(genTypeID.wasmString))
+        else
+          RefNull(Types.HeapType.NoExtern)
 
       case AnyType | ClassType(_, true, _) | ArrayType(_, true, _) |
           ClosureType(_, _, true) | NullType =>
         RefNull(Types.HeapType.None)
 
       case NothingType | VoidType | ClassType(_, false, _) | ArrayType(_, false, _) |
-          ClosureType(_, _, false) | AnyNotNullType | _:RecordType =>
+          ClosureType(_, _, false) | AnyNotNullType | _:WitResourceType | _:RecordType =>
         throw new AssertionError(s"Unexpected type for field: ${tpe.show()}")
     }
+  }
+
+  def genZeroOf(tpe: Types.Type): Instr = tpe match {
+    case Types.Int32                   => I32Const(0)
+    case Types.Int64                   => I64Const(0L)
+    case Types.Float32                 => F32Const(0.0f)
+    case Types.Float64                 => F64Const(0.0)
+    case Types.RefType(true, heapType) => RefNull(heapType)
+
+    case Types.RefType(false, _) =>
+      throw new AssertionError(s"Illegal Wasm type for genZeroOf: $tpe")
   }
 
   def genLoadTypeData(fb: FunctionBuilder, typeRef: TypeRef): Unit = typeRef match {
@@ -54,7 +91,7 @@ object SWasmGen {
   }
 
   def genLoadNonArrayTypeData(fb: FunctionBuilder, typeRef: NonArrayTypeRef): Unit =
-    fb += GlobalGet(genGlobalID.forVTable(typeRef))
+    fb += GlobalGet(nonArrayTypeDataGlobalID(typeRef))
 
   def genLoadArrayTypeData(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef): Unit = {
     val ArrayTypeRef(base, dimensions) = arrayTypeRef
@@ -77,7 +114,8 @@ object SWasmGen {
   }
 
   def genArrayValue(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef, length: Int)(
-      genElems: => Unit): Unit = {
+      genElems: => Unit)(
+      implicit ctx: WasmContext): Unit = {
     genArrayValueFromUnderlying(fb, arrayTypeRef) {
       // Create the underlying array
       genElems
@@ -86,10 +124,63 @@ object SWasmGen {
   }
 
   def genArrayValueFromUnderlying(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef)(
-      genUnderlying: => Unit): Unit = {
+      genUnderlying: => Unit)(
+      implicit ctx: WasmContext): Unit = {
     genLoadArrayTypeData(fb, arrayTypeRef) // vtable
+    if (!ctx.hasJSInterop)
+      fb += I32Const(0) // idHashCode
     genUnderlying
     fb += StructNew(genTypeID.forArrayClass(arrayTypeRef))
+  }
+
+  /** Generates code that forwards an exception from a function call that always throws.
+   *
+   *  After this codegen, the stack is in a stack-polymorphic context.
+   *
+   *  This method assumes that there is no enclosing exception handler in the
+   *  current function.
+   */
+  def genForwardThrowAlwaysAsReturn(fb: FunctionBuilder, fakeResult: List[Instr])(
+      implicit ctx: WasmContext): Unit = {
+    if (ctx.coreSpec.wasmFeatures.exceptionHandling) {
+      fb += Unreachable
+    } else {
+      fb ++= fakeResult
+      fb += Return
+    }
+  }
+
+  /** Generates code that possibly forwards an exception from the previous function call.
+   *
+   *  The stack is not altered by this codegen.
+   *
+   *  This method assumes that there is no enclosing exception handler in the
+   *  current function.
+   */
+  def genForwardThrowAsReturn(fb: FunctionBuilder, fakeResult: List[Instr])(
+      implicit ctx: WasmContext): Unit = {
+    if (!ctx.coreSpec.wasmFeatures.exceptionHandling) {
+      fb += GlobalGet(genGlobalID.isThrowing)
+      fb.ifThen() {
+        fb ++= fakeResult
+        fb += Return
+      }
+    }
+  }
+
+  def genWasmStringFromCharCode(fb: FunctionBuilder): Unit = {
+    fb += ArrayNewFixed(genTypeID.i16Array, 1)
+    fb += I32Const(1)
+    fb += RefNull(HeapType(genTypeID.wasmString))
+    fb += StructNew(genTypeID.wasmString)
+  }
+
+  def genWasmStringFromArray(fb: FunctionBuilder, array: LocalID): Unit = {
+    fb += LocalGet(array)
+    fb += LocalGet(array)
+    fb += ArrayLen
+    fb += RefNull(HeapType(genTypeID.wasmString))
+    fb += StructNew(genTypeID.wasmString)
   }
 
 }

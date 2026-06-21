@@ -19,9 +19,11 @@ import scala.util.matching.Regex
 import Nullables._
 
 object ScalaJSVersions extends VersionChecks(
-      current = "1.22.0",
+      current = "1.22.0-wasm.4",
       binaryEmitted = "1.22"
-    )
+    ) {
+  final val organization = "io.github.scala-wasm"
+}
 
 /** Helper class to allow for testing of logic. */
 class VersionChecks private[ir] (
@@ -104,6 +106,9 @@ private object VersionChecks {
   private def preRelease(v: Nullable[String]): Option[String] =
     Option(v).map(_.stripPrefix("-"))
 
+  private def isWasmReleaseSuffix(v: Option[String]): Boolean =
+    v.exists(_.matches("""wasm\.[0-9]+"""))
+
   private def checkConsistent(current: String, binary: String) = {
     val (binaryMajor, binaryMinor, binaryPreRelease) = parseBinary(binary)
     val (currentMajor, currentMinor, currentPatch, currentPreRelease) = parseFull(current)
@@ -116,6 +121,7 @@ private object VersionChecks {
         currentPreRelease.isEmpty ||
         currentMinor > binaryMinor ||
         currentPatch > 0 ||
+        (binaryPreRelease.isEmpty && isWasmReleaseSuffix(currentPreRelease)) ||
         binaryPreRelease == currentPreRelease,
         "current is older than binaryEmitted through pre-release")
 

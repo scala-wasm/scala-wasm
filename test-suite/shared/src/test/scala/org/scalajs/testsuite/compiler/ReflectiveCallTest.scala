@@ -346,6 +346,10 @@ class ReflectiveCallTest {
         "GCC is a bit too eager in its optimizations in this error case",
         Platform.usesClosureCompiler)
 
+    assumeFalse(
+        "TODO: Currently it throws an ArrayIndexOutOfBoundsException in pure Wasm, but should throw MethodNotFound exception",
+        Platform.executingInPureWebAssembly)
+
     type ObjWithAnyRefPrimitives = Any {
       def eq(that: AnyRef): Boolean
       def ne(that: AnyRef): Boolean

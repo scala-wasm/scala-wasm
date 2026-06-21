@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.Assert._
 import org.junit.Assume._
 
+import java.lang.{Double => JDouble}
 import java.lang.Math
 
 // Imported under different names for historical reasons
@@ -103,6 +104,58 @@ class MathTest {
     assertTrue(Math.min(0.0, Double.NaN).isNaN)
     assertEquals(0L, Math.min(Long.MaxValue, 0))
     assertEquals(Long.MinValue, Math.min(Long.MinValue, 0))
+  }
+
+  @Test def ceil(): Unit = {
+    assertSameDouble(-0.0, Math.ceil(-0.0))
+    assertSameDouble(0.0, Math.ceil(0.0))
+    assertTrue(Math.ceil(Double.NaN).isNaN)
+    assertSameDouble(Double.PositiveInfinity, Math.ceil(Double.PositiveInfinity))
+    assertSameDouble(Double.NegativeInfinity, Math.ceil(Double.NegativeInfinity))
+
+    assertSameDouble(5.0, Math.ceil(5.0))
+    assertSameDouble(6.0, Math.ceil(5.7))
+    assertSameDouble(-5.0, Math.ceil(-5.7))
+    assertSameDouble(1.0, Math.ceil(0.5))
+    assertSameDouble(-0.0, Math.ceil(-0.5))
+
+    // Exponent = 51, 2^51 = 2251799813685248
+    assertSameDouble(2251799813685248.0, Math.ceil(JDouble.longBitsToDouble(0x4320000000000000L))) // Exactly 2^51
+    assertSameDouble(2251799813685249.0, Math.ceil(JDouble.longBitsToDouble(0x4320000000000001L))) // 2^51 + 1
+    assertSameDouble(-2251799813685248.0, Math.ceil(JDouble.longBitsToDouble(0xc320000000000000L))) // -2^51
+    assertSameDouble(-2251799813685248.0, Math.ceil(JDouble.longBitsToDouble(0xc320000000000001L))) // -(2^51 + tiny fraction)
+
+    // Exponent = 52 (all integers are exact beyond this point), 2^52 = 4503599627370496
+    assertSameDouble(4503599627370496.0, Math.ceil(JDouble.longBitsToDouble(0x4330000000000000L))) // Exactly 2^52
+    assertSameDouble(4503599627370497.0, Math.ceil(JDouble.longBitsToDouble(0x4330000000000001L))) // 2^52 + 1
+    assertSameDouble(-4503599627370496.0, Math.ceil(JDouble.longBitsToDouble(0xc330000000000000L))) // -2^52
+    assertSameDouble(-4503599627370497.0, Math.ceil(JDouble.longBitsToDouble(0xc330000000000001L))) // -(2^52 + 1)
+  }
+
+  @Test def floor(): Unit = {
+    assertSameDouble(-0.0, Math.floor(-0.0))
+    assertSameDouble(0.0, Math.floor(0.0))
+    assertTrue(Math.floor(Double.NaN).isNaN)
+    assertSameDouble(Double.PositiveInfinity, Math.floor(Double.PositiveInfinity))
+    assertSameDouble(Double.NegativeInfinity, Math.floor(Double.NegativeInfinity))
+
+    assertSameDouble(5.0, Math.floor(5.0))
+    assertSameDouble(5.0, Math.floor(5.7))
+    assertSameDouble(-6.0, Math.floor(-5.7))
+    assertSameDouble(0.0, Math.floor(0.5))
+    assertSameDouble(-1.0, Math.floor(-0.5))
+
+    // Exponent = 51, 2^51 = 2251799813685248
+    assertSameDouble(2251799813685248.0, Math.floor(JDouble.longBitsToDouble(0x4320000000000000L))) // Exactly 2^51
+    assertSameDouble(2251799813685248.0, Math.floor(JDouble.longBitsToDouble(0x4320000000000001L))) // 2^51 + 1
+    assertSameDouble(-2251799813685248.0, Math.floor(JDouble.longBitsToDouble(0xc320000000000000L))) // -2^51
+    assertSameDouble(-2251799813685249.0, Math.floor(JDouble.longBitsToDouble(0xc320000000000001L))) // -(2^51 + tiny fraction)
+
+    // Exponent = 52 (all integers are exact beyond this point), 2^52 = 4503599627370496
+    assertSameDouble(4503599627370496.0, Math.floor(JDouble.longBitsToDouble(0x4330000000000000L))) // Exactly 2^52
+    assertSameDouble(4503599627370497.0, Math.floor(JDouble.longBitsToDouble(0x4330000000000001L))) // 2^52 + 1
+    assertSameDouble(-4503599627370496.0, Math.floor(JDouble.longBitsToDouble(0xc330000000000000L))) // -2^52
+    assertSameDouble(-4503599627370497.0, Math.floor(JDouble.longBitsToDouble(0xc330000000000001L))) // -(2^52 + 1)
   }
 
   @Test def cbrt(): Unit = {
@@ -626,6 +679,38 @@ class MathTest {
 
     for (x <- largeIntegers)
       assertSameDouble(-x, rint(-x))
+  }
+
+  @Test def roundFloat(): Unit = {
+    assertEquals(0, Math.round(Float.NaN))
+    assertEquals(0, Math.round(0.0f))
+    assertEquals(Int.MinValue, Math.round(Float.NegativeInfinity))
+    assertEquals(Int.MaxValue, Math.round(Float.PositiveInfinity))
+    assertEquals(Int.MinValue, Math.round(Int.MinValue.toFloat - 1.0f))
+    assertEquals(Int.MaxValue, Math.round(Int.MaxValue.toFloat + 1.0f))
+
+    assertEquals(1, Math.round(0.5f))
+    assertEquals(2, Math.round(1.5f))
+    assertEquals(0, Math.round(-0.5f))
+    assertEquals(-1, Math.round(-1.5f))
+    assertEquals(5, Math.round(4.6f))
+    assertEquals(-5, Math.round(-4.6f))
+  }
+
+  @Test def roundDouble(): Unit = {
+    assertEquals(0L, Math.round(Double.NaN))
+    assertEquals(0, Math.round(0.0))
+    assertEquals(Long.MinValue, Math.round(Double.NegativeInfinity))
+    assertEquals(Long.MaxValue, Math.round(Double.PositiveInfinity))
+    assertEquals(Long.MinValue, Math.round(Long.MinValue.toDouble - 1.0))
+    assertEquals(Long.MaxValue, Math.round(Long.MaxValue.toDouble + 1.0))
+
+    assertEquals(1L, Math.round(0.5))
+    assertEquals(2L, Math.round(1.5))
+    assertEquals(0L, Math.round(-0.5))
+    assertEquals(-1L, Math.round(-1.5))
+    assertEquals(5L, Math.round(4.6))
+    assertEquals(-5L, Math.round(-4.6))
   }
 
   @Test def addExact(): Unit = {

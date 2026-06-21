@@ -15,6 +15,8 @@ package org.scalajs.nscplugin
 import scala.tools.nsc._
 
 import org.scalajs.ir.Types
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
+import org.scalajs.ir.Names.ClassName
 
 /** Conversions from scalac `Type`s to the IR `Type`s and `TypeRef`s. */
 trait TypeConversions[G <: Global with Singleton] extends SubComponent {
@@ -71,8 +73,49 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
       makeArrayTypeRef(base, arrayDepth)
   }
 
-  private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef =
-    primitiveRefMap.getOrElse(sym, Types.ClassRef(encodeClassName(sym)))
+  private lazy val primitiveIRWIT: Map[Types.Type, wit.ValType] = Map(
+    Types.BooleanType -> wit.BoolType,
+    Types.ByteType -> wit.S8Type,
+    Types.ShortType -> wit.S16Type,
+    Types.IntType -> wit.S32Type,
+    Types.LongType -> wit.S64Type,
+    Types.FloatType -> wit.F32Type,
+    Types.DoubleType -> wit.F64Type,
+    Types.CharType -> wit.CharType,
+    Types.StringType -> wit.StringType,
+    Types.ClassType(ClassName("java.lang.String"), true, false) -> wit.StringType
+  )
+
+  private lazy val ScalaJSWitUnsignedPackageModule =
+    rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
+
+  private lazy val WitUnsigned_UByte =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
+
+  private lazy val WitUnsigned_UShort =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
+
+  private lazy val WitUnsigned_UInt =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
+
+  private lazy val WitUnsigned_ULong =
+    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
+
+  private lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
+    WitUnsigned_UByte -> wit.U8Type,
+    WitUnsigned_UShort -> wit.U16Type,
+    WitUnsigned_UInt -> wit.U32Type,
+    WitUnsigned_ULong -> wit.U64Type
+  )
+
+  private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef = {
+    primitiveRefMap.getOrElse(sym, {
+      if (isWasmWitResourceType(sym))
+        Types.WitResourceTypeRef(encodeClassName(sym))
+      else
+        Types.ClassRef(encodeClassName(sym))
+    })
+  }
 
   private def makeArrayTypeRef(base: Symbol, depth: Int): Types.ArrayTypeRef =
     Types.ArrayTypeRef(makeNonArrayTypeRef(base), depth)

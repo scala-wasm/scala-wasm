@@ -98,6 +98,34 @@ object Instructions {
       val structTypeID: TypeID, val fieldID: FieldID)
       extends Instr(mnemonic, opcode)
 
+  sealed abstract class LoadStoreInstr(mnemonic: String, opcode: Int,
+      val memoryArg: MemoryArg)
+      extends Instr(mnemonic, opcode)
+
+  /** Immediate arguments for memory related instructions.
+   *
+   *  Memory instructions receive it's arguments both from operand and it's immediate arguments.
+   *  For example, the following wasm code will load i32 value from memory offset 300( = 100 + 200).
+   *
+   *  {{{
+   *  i32.const 100
+   *  i32.load offset=200 align=0
+   *  }}}
+   */
+  case class MemoryArg private (offset: Int, align: Int)
+
+  object MemoryArg {
+
+    /** We use 0 for `memarg.align` (an expected alignment) for now. Which means we don't provide no
+     *  hint to a WebAssembly implementation regarding the memory alignment, and memory access may
+     *  be slower.
+     *
+     *  @see
+     *   https://www.w3.org/TR/wasm-core-2/#memory-instructions%E2%91%A4
+     */
+    def apply(): MemoryArg = MemoryArg(0, 0)
+  }
+
   // --- The actual instruction list -- sorted by opcode ----------------------
 
   /** Fake instruction to mark position changes. */
@@ -157,6 +185,51 @@ object Instructions {
   final case class LocalTee(i: LocalID) extends LocalInstr("local.tee", 0x22, i)
   final case class GlobalGet(i: GlobalID) extends GlobalInstr("global.get", 0x23, i)
   final case class GlobalSet(i: GlobalID) extends GlobalInstr("global.set", 0x24, i)
+
+  // load
+  case class I32Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load", 0x28, arg)
+  case class I64Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load", 0x29, arg)
+  case class F32Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f32.load", 0x2a, arg)
+  case class F64Load(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f64.load", 0x2b, arg)
+  case class I32Load8S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load8_s", 0x2c, arg)
+  case class I32Load8U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.load8_u", 0x2d, arg)
+
+  case class I32Load16S(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i32.load16_s", 0x2e, arg)
+
+  case class I32Load16U(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i32.load16_u", 0x2f, arg)
+
+  case class I64Load8S(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load8_s", 0x30, arg)
+  case class I64Load8U(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.load8_u", 0x31, arg)
+
+  case class I64Load16S(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i64.load16_s", 0x32, arg)
+
+  case class I64Load16U(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i64.load16_u", 0x33, arg)
+
+  case class I64Load32S(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i64.load32_s", 0x34, arg)
+
+  case class I64Load32U(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i64.load32_u", 0x35, arg)
+
+  // store
+  case class I32Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.store", 0x36, arg)
+  case class I64Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store", 0x37, arg)
+  case class F32Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f32.store", 0x38, arg)
+  case class F64Store(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("f64.store", 0x39, arg)
+  case class I32Store8(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i32.store8", 0x3a, arg)
+
+  case class I32Store16(arg: MemoryArg = MemoryArg())
+      extends LoadStoreInstr("i32.store16", 0x3b, arg)
+
+  case class I64tore8(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store8", 0x3c, arg)
+  case class I64tore16(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store16", 0x3d, arg)
+  case class I64tore32(arg: MemoryArg = MemoryArg()) extends LoadStoreInstr("i64.store32", 0x3e, arg)
+  final case class MemorySize(i: MemoryID) extends Instr("memory.size", 0x3f)
+  final case class MemoryGrow(i: MemoryID) extends Instr("memory.grow", 0x40)
 
   // Literals of primitive numeric types
 
@@ -356,6 +429,8 @@ object Instructions {
 
   case object I32TruncSatF64S extends SimpleInstr("i32.trunc_sat_f64_s", 0xfc02)
   case object I64TruncSatF64S extends SimpleInstr("i64.trunc_sat_f64_s", 0xfc06)
+
+  case class MemoryCopy(src: MemoryID, dst: MemoryID) extends Instr("memory.copy", 0xfc0a)
 
   // --- End of the instruction list ------------------------------------------
 

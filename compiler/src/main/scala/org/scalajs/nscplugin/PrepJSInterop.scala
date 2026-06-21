@@ -169,6 +169,19 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
       checkJSCallingConventionAnnots(sym)
 
+      if (sym.hasAnnotation(WitVariantAnnotation))
+        checkWitVariantTrait(tree.pos, sym)
+      else if (sym.hasAnnotation(WitRecordAnnotation))
+        checkWitRecord(sym)
+      else if (sym.hasAnnotation(WitFlagsAnnotation))
+        checkWitFlags(sym)
+      else if (WasmComponentResourceAnnots.exists(sym.hasAnnotation(_)))
+        checkWasmComponentResourceAnnotationContext(tree.pos, sym)
+      else if (WasmComponentFunctionAnnots.exists(sym.hasAnnotation(_)))
+        checkWasmComponentFunction(tree.pos, sym)
+      else if (sym.hasAnnotation(WitResourceImportAnnotation))
+        checkWasmWitResourceImport(tree.pos, sym)
+
       // @unchecked needed because MemberDef is not marked `sealed`
       val transformedTree: Tree = (tree: @unchecked) match {
         case tree: ImplDef =>
@@ -771,6 +784,362 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       }
       enterOwner(kind) {
         super.transform(implDef)
+      }
+    }
+
+    private def checkWasmComponentResourceAnnotationContext(pos: Position, sym: Symbol): Unit = {
+      sym.annotations.foreach { annot =>
+        if (WasmComponentResourceAnnots.contains(annot.symbol)) {
+          val isResourceMethod = annot.symbol == WitResourceMethodAnnotation
+          val isStaticMethod = annot.symbol == WitResourceStaticMethodAnnotation
+          val isConstructor = annot.symbol == WitResourceConstructorAnnotation
+          val isDrop = annot.symbol == WitResourceDropAnnotation
+
+          if ((isResourceMethod || isDrop) && (
+                !sym.owner.isTraitOrInterface ||
+                  !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
+            reporter.error(pos,
+                s"$annot is allowed in trait annotated with @WitResourceImport")
+          } else if ((isStaticMethod || isConstructor) && (
+                !sym.owner.isModuleClass ||
+                  sym.owner.companionClass == NoSymbol ||
+                  !sym.owner.companionClass.isTraitOrInterface ||
+                  !sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation))) {
+            reporter.error(pos,
+                s"$annot is allowed in companion object of trait annotated with @WitResourceImport")
+          }
+        }
+      }
+    }
+
+    private def checkWasmComponentFunction(pos: Position, sym: Symbol): Unit = {
+      checkAndGetWasmComponentFunctionAnnotOf(pos, sym).foreach { annot =>
+        if (sym.isLocalToBlock) {
+          reporter.error(pos,
+              s"$annot is not allowed on local definitions")
+        } else if (!sym.isMethod) {
+          reporter.error(pos,
+              s"$annot is allowed on static method definition")
+        } else if (sym.isConstructor) {
+          reporter.error(pos,
+              s"$annot is not allowed on constructor")
+        } else if (!sym.owner.isModuleClass || !sym.owner.isPublic) {
+          reporter.error(pos,
+              s"$annot methods must be defined in a public object")
+        } else if (!sym.isPublic) {
+          reporter.error(pos,
+              s"$annot methods must be public")
+        } else if (sym.typeParams.nonEmpty) {
+          reporter.error(pos,
+              s"$annot methods cannot have type parameters")
+        } else {
+          // Validate @WitImport-specific rules
+          for (overridden <- sym.allOverriddenSymbols.headOption) {
+            val verb = if (overridden.isDeferred) "implement" else "override"
+            reporter.error(pos,
+                s"An $annot member cannot $verb the inherited member " +
+                overridden.fullName)
+          }
+
+          // Validate parameter types and check for repeated/default parameters
+          val paramTypes = if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head
+          for (param <- paramTypes) {
+            if (isScalaRepeatedParamType(param.tpe)) {
+              reporter.error(pos,
+                  s"$annot methods may not have repeated parameters")
+            } else if (param.hasFlag(reflect.internal.Flags.DEFAULTPARAM)) {
+              reporter.error(pos,
+                  s"$annot methods may not have default parameters")
+            } else if (!isComponentModelCompatible(param.tpe)) {
+              reporter.error(pos,
+                  s"Parameter '${param.name}' has type '${param.tpe}' which is not compatible with Component Model")
+            }
+          }
+
+          // Validate return type
+          val returnType = sym.tpe.resultType
+          if (!isComponentModelCompatible(returnType)) {
+            reporter.error(pos,
+                s"Return type '${returnType}' is not compatible with Component Model")
+          }
+        }
+      }
+    }
+
+    private def checkWasmWitResourceImport(pos: Position, sym: Symbol): Unit = {
+      if (!sym.isTrait) {
+        reporter.error(pos,
+            "@WitResourceImport is allowed for traits")
+        return
+      }
+
+      // Resource imports should not be sealed
+      if (sym.isSealed) {
+        reporter.error(pos,
+            "@WitResourceImport traits cannot be sealed")
+        return
+      }
+
+      var dropMethodCount = 0
+      for (member <- sym.info.decls) {
+        if (member.isMethod && !member.isConstructor && !member.isSynthetic) {
+          val hasResourceMethod = member.hasAnnotation(WitResourceMethodAnnotation)
+          val hasResourceDrop = member.hasAnnotation(WitResourceDropAnnotation)
+          val hasResourceConstructor = member.hasAnnotation(WitResourceConstructorAnnotation)
+          val hasResourceStaticMethod = member.hasAnnotation(WitResourceStaticMethodAnnotation)
+
+          // @WitResourceConstructor and @WitResourceStaticMethod are not allowed in trait
+          if (hasResourceConstructor) {
+            reporter.error(member.pos,
+                "@WitResourceConstructor can only be used on apply method in companion object")
+          }
+          if (hasResourceStaticMethod) {
+            reporter.error(member.pos,
+                "@WitResourceStaticMethod can only be used in companion object")
+          }
+
+          val hasResourceMethodAnnotation = hasResourceMethod || hasResourceDrop
+          if (!hasResourceMethodAnnotation) {
+            reporter.error(member.pos,
+                s"Method '${member.name}' in @WitResourceImport trait must be " +
+                "annotated with @WitResourceMethod or @WitResourceDrop")
+          }
+
+          if (hasResourceDrop) {
+            dropMethodCount += 1
+            val methodType = member.tpe
+            val paramCount = if (methodType.paramss.isEmpty) 0 else methodType.paramss.head.length
+            val returnType = methodType.resultType
+
+            if (paramCount > 0) {
+              reporter.error(member.pos,
+                  "@WitResourceDrop method must take no parameters")
+            }
+            if (returnType.typeSymbol != definitions.UnitClass) {
+              reporter.error(member.pos,
+                  "@WitResourceDrop method must return Unit")
+            }
+          }
+
+          if (hasResourceMethodAnnotation) {
+            val methodType = member.tpe
+            val paramTypes =
+              if (methodType.paramss.isEmpty) Nil else methodType.paramss.head.map(_.tpe)
+            val returnType = methodType.resultType
+
+            paramTypes.foreach { paramType =>
+              if (!isComponentModelCompatible(paramType)) {
+                reporter.error(member.pos,
+                    s"Parameter type '${paramType}' in method '${member.name}' is not compatible with Component Model")
+              }
+            }
+
+            if (!isComponentModelCompatible(returnType)) {
+              reporter.error(member.pos,
+                  s"Return type '${returnType}' in method '${member.name}' is not compatible with Component Model")
+            }
+
+            // Check for overriding inherited members
+            for (overridden <- member.allOverriddenSymbols.headOption) {
+              val verb = if (overridden.isDeferred) "implement" else "override"
+              reporter.error(member.pos,
+                  s"A @WitResourceMethod or @WitResourceDrop member cannot $verb the inherited member " +
+                  overridden.fullName)
+            }
+          }
+        }
+      }
+
+      // Ensure there is at most one drop method
+      if (dropMethodCount > 1) {
+        reporter.error(pos,
+            s"@WitResourceImport trait can have at most one @WitResourceDrop method, found $dropMethodCount")
+      }
+
+      // Check companion object if it exists
+      val companion = sym.companionSymbol
+      if (companion != NoSymbol && companion.isModule) {
+        val companionClass = companion.moduleClass
+        for (member <- companionClass.info.decls) {
+          if (member.isMethod && !member.isConstructor) {
+            val hasConstructorAnnot = member.hasAnnotation(WitResourceConstructorAnnotation)
+            val hasStaticMethodAnnot = member.hasAnnotation(WitResourceStaticMethodAnnotation)
+
+            // @WitResourceConstructor must be on apply method
+            if (hasConstructorAnnot && member.name != nme.apply) {
+              reporter.error(member.pos,
+                  "@WitResourceConstructor can only be used on apply method")
+            }
+
+            // Public methods in companion must have @WitResourceConstructor or @WitResourceStaticMethod
+            if (!hasConstructorAnnot &&
+                !hasStaticMethodAnnot &&
+                !member.isSynthetic) {
+              reporter.error(member.pos,
+                  s"Public method '${member.name}' in companion object of @WitResourceImport trait must be " +
+                  "annotated with @WitResourceConstructor or @WitResourceStaticMethod")
+            }
+          }
+        }
+      }
+    }
+
+    /** Validates a @WitVariant annotated sealed trait and its cases. */
+    private def checkWitVariantTrait(pos: Position, sym: Symbol): Unit = {
+      if (!sym.isSealed) {
+        reporter.error(pos,
+            "@WitVariant can only be used on sealed traits or sealed abstract classes")
+        return
+      }
+
+      val cases = sym.sealedChildren.toList
+      if (cases.isEmpty) {
+        reporter.error(pos,
+            s"Component variant '${sym.name}' must have at least one case")
+      } else {
+        cases.foreach { caseSym =>
+          validateWitVariantCase(caseSym)
+        }
+      }
+    }
+
+    private def validateWitVariantCase(caseSym: Symbol): Unit = {
+      if (caseSym.isModuleClass) {
+        // Regular object (enum case without payload)
+      } else if (caseSym.isClass && caseSym.isFinal && !caseSym.isTrait) {
+        // Final class (variant case with payload)
+        val primaryCtor = caseSym.primaryConstructor
+        if (primaryCtor == NoSymbol) {
+          reporter.error(caseSym.pos,
+              s"Component variant case '${caseSym.name}' has no primary constructor")
+          return
+        }
+
+        val params = primaryCtor.paramss.flatten
+
+        if (params.length > 1) {
+          reporter.error(caseSym.pos,
+              s"Component variant case '${caseSym.name}' must have exactly one field, found ${params.length}.")
+        } else if (params.length == 1) {
+          val param = params.head
+          val fieldName = param.name.decoded
+          val fieldType = param.tpe
+
+          // Validate field name must be "value"
+          if (fieldName != "value") {
+            reporter.error(param.pos,
+                s"Component variant case '${caseSym.name}' field must be named 'value', found '${fieldName}'.")
+          } else if (!isComponentModelCompatible(fieldType)) {
+            reporter.error(param.pos,
+                s"Field '${param.name}' has type '${fieldType}' which is not compatible with Component Model. ")
+          }
+        } else {
+          // Zero parameters - enum case defined as a class
+        }
+      } else {
+        reporter.error(caseSym.pos,
+            s"Component variant case '${caseSym.name}' must be a final class or object")
+      }
+    }
+
+    /** Checks if a type is compatible with Component Model. */
+    private def isComponentModelCompatible(tpe: Type): Boolean = {
+      import definitions._
+
+      val dealiased = tpe.dealiasWiden
+      val sym = dealiased.typeSymbol
+      val fullName = sym.fullName
+
+      // Check primitives
+      if (sym == UnitClass || sym == ByteClass || sym == ShortClass || sym == IntClass || sym == LongClass ||
+          sym == FloatClass || sym == DoubleClass || sym == CharClass || sym == BooleanClass) {
+        true
+      } else if (sym.fullName == "java.lang.String") {
+        true
+      } else if (
+          // Check unsigned types (they're type aliases, so check by full name)
+          fullName == "scala.scalajs.wit.unsigned.UByte" ||
+          fullName == "scala.scalajs.wit.unsigned.UShort" ||
+          fullName == "scala.scalajs.wit.unsigned.UInt" ||
+          fullName == "scala.scalajs.wit.unsigned.ULong") {
+        true
+      } else if (sym.fullName == "scala.Array") {
+        dealiased.typeArgs.headOption.forall(isComponentModelCompatible)
+      } else if (sym.fullName == "java.util.Optional") {
+        dealiased.typeArgs.headOption.forall(isComponentModelCompatible)
+      } else if (sym.fullName.startsWith("scala.scalajs.wit.Tuple")) {
+        dealiased.typeArgs.forall(isComponentModelCompatible)
+      } else if (sym.fullName.startsWith("scala.scalajs.wit.Result")) {
+        dealiased.typeArgs.forall(isComponentModelCompatible)
+      } else if (sym.hasAnnotation(WitRecordAnnotation) ||
+          sym.hasAnnotation(WitVariantAnnotation) ||
+          sym.hasAnnotation(WitFlagsAnnotation) ||
+          sym.hasAnnotation(WitResourceImportAnnotation)) {
+        true
+      } else {
+        false
+      }
+    }
+
+    private def checkWitRecord(sym: Symbol): Unit = {
+      if (!sym.isClass || sym.isTrait || sym.isModuleClass) {
+        reporter.error(sym.pos,
+            "@WitRecord can only be used on classes")
+      } else if (!sym.isFinal) {
+        reporter.error(sym.pos,
+            "@WitRecord class must be final")
+      } else {
+        // Check that each field has a compatible type
+        val primaryCtor = sym.primaryConstructor
+        val params = primaryCtor.paramss.flatten
+        for (param <- params) {
+          val fieldType = param.tpe
+          if (!isComponentModelCompatible(fieldType)) {
+            reporter.error(param.pos,
+                s"Field '${param.name}' has type '${fieldType}' which is not compatible with Component Model")
+          }
+        }
+      }
+    }
+
+    private def checkWitFlags(sym: Symbol): Unit = {
+      if (!sym.isClass || sym.isTrait || sym.isModuleClass) {
+        reporter.error(sym.pos,
+            "@WitFlags can only be used on classes")
+      } else if (!sym.isFinal) {
+        reporter.error(sym.pos,
+            "@WitFlags class must be final")
+      } else if (sym.isDerivedValueClass) {
+        reporter.error(sym.pos,
+            "@WitFlags class must NOT extend AnyVal. Use a regular class instead.")
+      } else {
+        val primaryCtor = sym.primaryConstructor
+        val params = primaryCtor.paramss.flatten
+        if (params.length != 1) {
+          reporter.error(sym.pos,
+              s"@WitFlags class must have exactly one parameter, found ${params.length}")
+          return
+        }
+
+        val param = params.headOption.getOrElse(throw new Error("checkWitFlags"))
+        if (param.tpe.typeSymbol != IntClass) {
+          reporter.error(param.pos,
+              s"@WitFlags class parameter must be of type Int, found '${param.tpe}'")
+        }
+        if (param.name.decoded != "value") {
+          reporter.error(param.pos,
+              s"@WitFlags class parameter must be named 'value', found '${param.name.decoded}'")
+        }
+
+        sym.getAnnotation(WitFlagsAnnotation).flatMap(_.intArg(0)) match {
+          case Some(numFlags) if numFlags > 0 =>
+          case Some(numFlags)                 =>
+            reporter.error(sym.pos,
+                s"@WitFlags numFlags parameter must be positive, found $numFlags")
+          case None =>
+            reporter.error(sym.pos,
+                "@WitFlags annotation must specify the number of flags as a parameter")
+        }
       }
     }
 
@@ -1688,6 +2057,40 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
   private def moduleToModuleClass(sym: Symbol): Symbol =
     if (sym.isModule) sym.moduleClass
     else sym
+
+  // Wasm Component related
+
+  private def checkAndGetWasmComponentFunctionAnnotOf(
+      pos: Position, sym: Symbol): Option[Annotation] = {
+    val annots = sym.annotations.filter { annot =>
+      WasmComponentFunctionAnnots.contains(annot.symbol)
+    }
+
+    annots match {
+      case Nil         => None
+      case head :: Nil =>
+        Some(head)
+      case head :: tail =>
+        reporter.error(pos,
+            "Wasm Component function must have exactly one annotation among " +
+            "@WitImport, @WitResourceMethod, @WitResourceStaticMethod, " +
+            "@WitResourceConstructor, and @WitResourceDrop")
+        None
+    }
+
+  }
+
+  private lazy val WasmComponentFunctionAnnots: Set[Symbol] =
+    Set(WitImportAnnotation)
+
+  private lazy val WasmComponentResourceAnnots: Set[Symbol] = {
+    Set(
+      WitResourceMethodAnnotation,
+      WitResourceStaticMethodAnnotation,
+      WitResourceConstructorAnnotation,
+      WitResourceDropAnnotation
+    )
+  }
 }
 
 object PrepJSInterop {

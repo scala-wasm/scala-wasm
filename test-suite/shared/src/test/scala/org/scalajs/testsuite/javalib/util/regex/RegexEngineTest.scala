@@ -635,12 +635,14 @@ class RegexEngineTest {
 
   @Test def quotes(): Unit = {
     val str = "D($[^e" + DominoHigh + "\\R)]" + GClef + DominoLow
+    val strAltCase = "d($[^E" + DominoHigh + "\\r)]" + GClef + DominoLow
+
     val quoted = compile("a\\Q" + str + "\\Ec")
     assertMatches(quoted, "a" + str + "c")
-    assertNotFind(quoted, "A" + str.toUpperCase() + "c")
+    assertNotFind(quoted, "A" + strAltCase + "c")
 
     val caseInsensitive = compile("a\\Q" + str + "\\Ec", CaseInsensitive)
-    assertMatches(caseInsensitive, "A" + str.toUpperCase() + "c")
+    assertMatches(caseInsensitive, "A" + strAltCase + "c")
 
     // #1677
     assertMatches("^\\Qmember\\E.*\\Q\\E$", "member0")
@@ -648,12 +650,16 @@ class RegexEngineTest {
 
   @Test def literal(): Unit = {
     val str = "aD($[^e" + DominoHigh + "\\R)]" + GClef + DominoLow + "c"
+    val strAltCase = "Ad($[^E" + DominoHigh + "\\R)]" + GClef + DominoLow + "c"
+
     val quoted = compile(str, Literal)
     assertMatches(quoted, str)
-    assertNotFind(quoted, str.toUpperCase())
+    assertNotFind(quoted, strAltCase)
 
     val caseInsensitive = compile(str, Literal | CaseInsensitive)
-    assertMatches(caseInsensitive, str.toUpperCase())
+    assertMatches(caseInsensitive, str)
+    assertMatches(caseInsensitive, strAltCase)
+    assertNotMatches(caseInsensitive, "B" + strAltCase.substring(1))
   }
 
   @Test def dot(): Unit = {
@@ -1299,6 +1305,15 @@ class RegexEngineTest {
     assertMatches(javaUnicodeIdentifierPart, "0")
     assertMatches(javaUnicodeIdentifierPart, "_")
     assertNotMatches(javaUnicodeIdentifierPart, "+")
+
+    /* VERTICAL TILDE: In Lm, but excluded by Pattern_Syntax,
+     * but included anyway for `javaUnicodeIdentifier{Start,Part}`.
+     *
+     * It seems this is the only code point that would otherwise be excluded
+     * by Pattern_Syntax and Pattern_White_Space.
+     */
+    assertMatches(javaUnicodeIdentifierStart, "\u2E2F")
+    assertMatches(javaUnicodeIdentifierPart, "\u2E2F")
 
     /* Other javaX character classes are exhaustively tested in
      * unicodeCharClassesAreConsistentWithTheirDefinitions().

@@ -13,6 +13,8 @@
 package scala
 
 import scala.scalajs.js
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** This class provides a simple way to get unique objects for equal strings.
  *  Since symbols are interned, they can be compared using reference equality.
@@ -46,13 +48,32 @@ object Symbol extends JSUniquenessCache[Symbol] {
 
 private[scala] abstract class JSUniquenessCache[V]
 {
-  private val cache = js.Dictionary.empty[V]
+  private val cacheJS = {
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+      js.Dictionary.empty[V]
+    } {
+      null
+    }
+  }
+
+  private val cacheWasm = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      new java.util.HashMap[String, V]()
+    } {
+      null
+    }
+  }
 
   protected def valueFromKey(k: String): V
   protected def keyFromValue(v: V): Option[String]
 
-  def apply(name: String): V =
-    cache.getOrElseUpdate(name, valueFromKey(name))
+  def apply(name: String): V = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      cacheWasm.computeIfAbsent(name, _ => valueFromKey(name))
+    } {
+      cacheJS.getOrElseUpdate(name, valueFromKey(name))
+    }
+  }
 
   def unapply(other: V): Option[String] = keyFromValue(other)
 }

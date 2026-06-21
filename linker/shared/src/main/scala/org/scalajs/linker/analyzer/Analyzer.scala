@@ -49,14 +49,25 @@ import Platform._
 
 import Analysis._
 import Infos.{NamespacedMethodName, ReachabilityInfo, ReachabilityInfoInClass}
+import org.scalajs.ir.ClassKind.NativeWasmComponentResourceClass
 
 final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
     checkIRFor: Option[CheckingPhase], failOnError: Boolean, irLoader: IRLoader) {
 
   private val linkTimeProperties = LinkTimeProperties.fromCoreSpec(config.coreSpec)
 
-  private val infoLoader: InfoLoader =
-    new InfoLoader(irLoader, checkIRFor, linkTimeProperties)
+  private val infoLoader: InfoLoader = {
+    /* We only ask the InfoLoader to register JS interop if we actually need to
+     * report errors for them. Otherwise, it is too expensive.
+     */
+    val registerJSInterop = config.coreSpec.moduleKind match {
+      case ModuleKind.MinimalWasmModule => true
+      case ModuleKind.WasmComponent     => true
+      case _                            => false
+    }
+
+    new InfoLoader(irLoader, checkIRFor, linkTimeProperties, registerJSInterop)
+  }
 
   def computeReachability(moduleInitializers: Seq[ModuleInitializer],
       symbolRequirements: SymbolRequirement, logger: Logger)(
@@ -640,6 +651,14 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
                 None
             }
           }
+
+        case NativeWasmComponentResourceClass =>
+          superClass match {
+            case Some(superCl) =>
+              _errors ::= InvalidSuperClass(superCl, this, from)
+            case None =>
+          }
+          Some(objectClassInfo)
       }
     }
 
@@ -649,6 +668,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       val validSuperIntfKind = kind match {
         case ClassKind.Class | ClassKind.ModuleClass |
             ClassKind.HijackedClass | ClassKind.Interface =>
+          ClassKind.Interface
+        case ClassKind.NativeWasmComponentResourceClass =>
           ClassKind.Interface
         case ClassKind.JSClass | ClassKind.JSModuleClass |
             ClassKind.NativeJSClass | ClassKind.NativeJSModuleClass |
@@ -695,6 +716,12 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
     private[this] val _jsNativeMembersUsed: mutable.Map[MethodName, Unit] = emptyThreadSafeMap
     def jsNativeMembersUsed: scala.collection.Set[MethodName] = _jsNativeMembersUsed.keySet
+
+    private[this] val _wasmwitNativeMembersUsed: mutable.Map[MethodName, Unit] =
+      emptyThreadSafeMap
+
+    def wasmwitNativeMembersUsed: scala.collection.Set[MethodName] =
+      _wasmwitNativeMembersUsed.keySet
 
     val jsNativeLoadSpec: Option[JSNativeLoadSpec] = data.jsNativeLoadSpec
 
@@ -1125,6 +1152,13 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       for (tle <- data.topLevelExports) {
         val key = (tle.moduleID, tle.exportName)
         val info = new TopLevelExportInfo(className, tle)
+        // println(s"===${tle.exportName}===")
+        // tle.reachability.byClass.foreach { c =>
+        //   println(s"=${c.className}")
+        //   c.memberInfos.foreach( { m =>
+        //     println(m)
+        //   })
+        // }
         info.reach()
 
         _topLevelExportInfos.put(key, info).foreach { other =>
@@ -1202,6 +1236,10 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
           for (reachabilityInfo <- data.jsMethodProps)
             followReachabilityInfo(reachabilityInfo, this)(FromExports)
+
+          // TODO: don't reach from the unreachable component native members
+          // for (reachabilityInfo <- data.witNativeMembers)
+          //   followReachabilityInfo(reachabilityInfo, this)
         }
       }
     }
@@ -1318,6 +1356,27 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       maybeJSNativeLoadSpec
     }
 
+    def useWasmWitNativeMember(name: MethodName)(
+        implicit from: From): Unit = {
+      val maybeReachabilityInfo = data.witNativeMembers.get(name)
+      if (_wasmwitNativeMembersUsed.put(name, ()).isEmpty) {
+        maybeReachabilityInfo match {
+          case None =>
+            _errors ::= MissingWasmWitNativeMember(this, name, from)
+          case Some(reachabilityInfo) =>
+            // reachabilityInfo.byClass.foreach { c =>
+            //   println(s"===${c.className}===")
+            //   if (c.memberInfos != null) {
+            //     c.memberInfos.foreach { m =>
+            //         println(m)
+            //     }
+            //   }
+            // }
+            followReachabilityInfo(reachabilityInfo, this)
+        }
+      }
+    }
+
     private def referenceFieldClasses(fieldName: FieldName)(implicit from: From): Unit = {
       assert(isInstantiated)
 
@@ -1377,6 +1436,11 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     def needsDesugaring: Boolean =
       (data.globalFlags & ReachabilityInfo.FlagNeedsDesugaring) != 0
 
+    private val usedJSInPureWasm: Boolean =
+      (data.globalFlags & ReachabilityInfo.FlagUsedJSInPureWasm) != 0
+
+    private val jsInteropUsages: Array[(ir.Position, String)] = data.jsInteropUsages
+
     /** Throws MatchError if `!isDefaultBridge`. */
     def defaultBridgeTarget: ClassName = (syntheticKind: @unchecked) match {
       case MethodSyntheticKind.DefaultBridge(target) => target
@@ -1390,6 +1454,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
       _calledFrom ::= from
       if (!_isReachable.getAndSet(true)) {
+        if (usedJSInPureWasm)
+          _errors ::= JSInteropInPureWasm(jsInteropUsages, from)
+
         _isAbstractReachable.set(true)
         doReach()
       }
@@ -1399,6 +1466,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       assert(namespace == MemberNamespace.Public)
 
       if (!_isAbstractReachable.getAndSet(true)) {
+        if (usedJSInPureWasm)
+          _errors ::= JSInteropInPureWasm(jsInteropUsages, from)
+
         checkExistent()
         _calledFrom ::= from
       }
@@ -1418,6 +1488,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
       _instantiatedSubclasses ::= inClass
 
       if (!_isReachable.getAndSet(true)) {
+        if (usedJSInPureWasm)
+          _errors ::= JSInteropInPureWasm(jsInteropUsages, from)
+
         _isAbstractReachable.set(true)
         doReach()
       }
@@ -1535,6 +1608,9 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
 
             case Infos.JSNativeMemberReachable(methodName) =>
               clazz.useJSNativeMember(methodName).foreach(addLoadSpec(moduleUnit, _))
+
+            case Infos.WasmWitNativeMemberReachable(methodName) =>
+              clazz.useWasmWitNativeMember(methodName)
           }
         }
       }
@@ -1645,7 +1721,8 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     new Infos.ClassInfo(className, ClassKind.Class, syntheticKind = None, nonExistent = true,
         superClass = superClass, interfaces = Nil, jsNativeLoadSpec = None,
         referencedFieldClasses = Map.empty, methods = methods,
-        jsNativeMembers = Map.empty, jsMethodProps = Nil, topLevelExports = Nil)
+        jsNativeMembers = Map.empty, witNativeMembers = Map.empty,
+        jsMethodProps = Nil, topLevelExports = Nil)
   }
 
   private def makeSyntheticMethodInfo(

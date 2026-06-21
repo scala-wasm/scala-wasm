@@ -28,10 +28,11 @@ class LambdaSynthesizerTest {
 
     // Only for tests; would not work for JS class types
     def typeRefToType(typeRef: TypeRef): Type = typeRef match {
-      case typeRef: PrimRef          => typeRef.tpe
-      case ClassRef(className)       => ClassType(className, nullable = true, exact = false)
-      case typeRef: ArrayTypeRef     => ArrayType(typeRef, nullable = true, exact = false)
-      case typeRef: TransientTypeRef => typeRef.tpe
+      case typeRef: PrimRef              => typeRef.tpe
+      case ClassRef(className)           => ClassType(className, nullable = true, exact = false)
+      case WitResourceTypeRef(className) => WitResourceType(className)
+      case typeRef: ArrayTypeRef         => ArrayType(typeRef, nullable = true, exact = false)
+      case typeRef: TransientTypeRef     => typeRef.tpe
     }
 
     Descriptor(superClass, interfaces,
@@ -74,6 +75,7 @@ class LambdaSynthesizerTest {
       makeDesc(ObjectClass, List("I"), "foo", List(IClass), ArrayTypeRef(IClass, 1)),
       makeDesc(ObjectClass, List("I"), "foo", List(IClass), ArrayTypeRef(I, 3)),
       makeDesc(ObjectClass, List("I"), "foo", List(IClass), ArrayTypeRef(IClass, 3)),
+      makeDesc(ObjectClass, List("I"), "foo", List(IClass), WitResourceTypeRef("R")),
       makeDesc(ObjectClass, List("I"), "foo", List(IClass), TransientTypeRef(LabelName("I"))(IntType))
     )
 

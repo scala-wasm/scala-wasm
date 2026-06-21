@@ -189,6 +189,7 @@ final class IncOptimizer private[optimizer] (config: CommonPhaseConfig, collOps:
       interface.optimizedJSConstructorDef(),
       interface.optimizedExportedMembers(),
       linkedClass.jsNativeMembers,
+      linkedClass.witNativeMembers,
       newTopLevelExports
     )(linkedClass.optimizerHints)(linkedClass.pos)
 

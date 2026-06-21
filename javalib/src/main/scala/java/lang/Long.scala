@@ -150,9 +150,9 @@ object Long {
   // Must be called only with valid radix
   @inline
   private def toStringPlatform(i: scala.Long, radix: Int): String = {
-    if (LinkingInfo.isWebAssembly) {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
       toStringImplWasm(i, radix)
-    } else {
+    } {
       toStringImplJS(i, radix)
     }
   }
@@ -191,9 +191,9 @@ object Long {
   // Must be called only with valid radix
   @inline
   private def toUnsignedStringPlatform(i: scala.Long, radix: Int): String = {
-    if (LinkingInfo.isWebAssembly) {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
       toUnsignedStringImplWasm(i, radix)
-    } else {
+    } {
       toUnsignedStringImplJS(i, radix)
     }
   }
@@ -304,10 +304,11 @@ object Long {
 
   // Must be called only with a valid radix
   @inline def parseLongPlatform(s: String, radix: Int): scala.Long = {
-    if (LinkingInfo.isWebAssembly)
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
       parseLongImplWasm(s, radix, divideUnsigned(Int.MinValue, radix.toLong))
-    else
+    } {
       parseLongImplJS(s, radix)
+    }
   }
 
   /* Must be called only with a valid radix.
@@ -364,10 +365,11 @@ object Long {
 
   // Must be called only with a valid radix
   @inline def parseUnsignedLongPlatform(s: String, radix: Int): scala.Long = {
-    if (LinkingInfo.isWebAssembly)
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
       parseUnsignedLongImplWasm(s, radix, divideUnsigned(-1L, radix.toLong))
-    else
+    } {
       parseUnsignedLongImplJS(s, radix)
+    }
   }
 
   /* Must be called only with a valid radix.

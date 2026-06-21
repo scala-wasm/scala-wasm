@@ -12,12 +12,9 @@
 
 package java.nio.charset
 
-import java.lang.Utils._
 import java.nio.{ByteBuffer, CharBuffer}
-import java.util.{Collections, HashSet, Arrays}
+import java.util.{Collections, HashMap, HashSet, Arrays}
 import java.util.ScalaOps._
-
-import scala.scalajs.js
 
 abstract class Charset protected (canonicalName: String,
     private val _aliases: Array[String])
@@ -80,36 +77,40 @@ object Charset {
     UTF_8
 
   def forName(charsetName: String): Charset = {
-    dictGetOrElse(CharsetMap, charsetName.toLowerCase()) { () =>
+    if (CharsetMap.containsKey(charsetName.toLowerCase())) {
+      CharsetMap.get(charsetName.toLowerCase())
+    } else {
       throw new UnsupportedCharsetException(charsetName)
     }
   }
 
   def isSupported(charsetName: String): Boolean =
-    dictContains(CharsetMap, charsetName.toLowerCase())
+    CharsetMap.containsKey(charsetName.toLowerCase())
 
   def availableCharsets(): java.util.SortedMap[String, Charset] =
     availableCharsetsResult
 
   private lazy val availableCharsetsResult = {
     val m = new java.util.TreeMap[String, Charset](String.CASE_INSENSITIVE_ORDER)
-    forArrayElems(allSJSCharsets) { c =>
+    for (i <- 0 until allSJSCharsets.length) {
+      val c = allSJSCharsets(i)
       m.put(c.name(), c)
     }
     Collections.unmodifiableSortedMap(m)
   }
 
   private lazy val CharsetMap = {
-    val m = dictEmpty[Charset]()
-    forArrayElems(allSJSCharsets) { c =>
-      dictSet(m, c.name().toLowerCase(), c)
+    val m = new HashMap[String, Charset]()
+    for (i <- 0 until allSJSCharsets.length) {
+      val c = allSJSCharsets(i)
+      m.put(c.name().toLowerCase(), c)
       val aliases = c._aliases
       for (i <- 0 until aliases.length)
-        dictSet(m, aliases(i).toLowerCase(), c)
+        m.put(aliases(i).toLowerCase(), c)
     }
     m
   }
 
   private def allSJSCharsets =
-    js.Array(US_ASCII, ISO_8859_1, UTF_8, UTF_16BE, UTF_16LE, UTF_16)
+    Array(US_ASCII, ISO_8859_1, UTF_8, UTF_16BE, UTF_16LE, UTF_16)
 }

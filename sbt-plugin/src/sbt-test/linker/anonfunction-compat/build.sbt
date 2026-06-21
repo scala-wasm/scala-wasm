@@ -51,7 +51,8 @@ lazy val scala2OldCompilerNewLib = project.in(file("scala2-old-compiler-new-lib"
     replaceDependency("scalajs-compiler",
         scalaJSCompilerPlugin(ScalaJSVersionBeforeTypedClosures, scala2Version)),
     replaceDependency("scalajs-scalalib",
-        scalaJSCoreLib("scalajs-scalalib", s"$mainBuildScala2Version+$scalaJSVersion", scala2BinaryVersion)),
+        scalaJSOrganization % s"scalajs-scalalib_$scala2BinaryVersion" %
+          s"$mainBuildScala2Version+$scalaJSVersion"),
     scalaJSUseMainModuleInitializer := true
   )
 

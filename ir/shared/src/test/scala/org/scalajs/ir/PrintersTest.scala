@@ -1132,7 +1132,7 @@ class PrintersTest {
 
     def makeForKind(kind: ClassKind): ClassDef = {
       ClassDef("Test", NON, kind, None, Some(ObjectClass), Nil, None, None, Nil,
-          Nil, None, Nil, Nil, Nil)(
+          Nil, None, Nil, Nil, Nil, Nil)(
           NoOptHints)
     }
 
@@ -1204,7 +1204,7 @@ class PrintersTest {
     def makeForParents(superClass: Option[ClassIdent],
         interfaces: List[ClassIdent]): ClassDef = {
       ClassDef("Test", NON, ClassKind.Class, None, superClass, interfaces, None,
-          None, Nil, Nil, None, Nil, Nil, Nil)(
+          None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
           NoOptHints)
     }
 
@@ -1238,7 +1238,7 @@ class PrintersTest {
         """,
         ClassDef("Test", NON, ClassKind.NativeJSClass, None, Some(ObjectClass), Nil,
             None, Some(JSNativeLoadSpec.Global("Foo", List("Bar"))), Nil, Nil, None,
-            Nil, Nil, Nil)(
+            Nil, Nil, Nil, Nil)(
             NoOptHints))
 
     assertPrintEquals(
@@ -1248,7 +1248,7 @@ class PrintersTest {
         """,
         ClassDef("Test", NON, ClassKind.NativeJSClass, None, Some(ObjectClass), Nil,
             None, Some(JSNativeLoadSpec.Import("foo", List("Bar"))), Nil, Nil, None,
-            Nil, Nil, Nil)(
+            Nil, Nil, Nil, Nil)(
             NoOptHints))
 
     assertPrintEquals(
@@ -1262,7 +1262,7 @@ class PrintersTest {
                 JSNativeLoadSpec.Import("foo", List("Bar")),
                 JSNativeLoadSpec.Global("Baz", List("Foobar")))),
             Nil, Nil, None,
-            Nil, Nil, Nil)(
+            Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
 
@@ -1274,7 +1274,7 @@ class PrintersTest {
           |}
         """,
         ClassDef("Test", NON, ClassKind.JSClass, Some(Nil), Some(ObjectClass), Nil,
-            None, None, Nil, Nil, None, Nil, Nil, Nil)(
+            None, None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
             NoOptHints))
 
     assertPrintEquals(
@@ -1288,7 +1288,7 @@ class PrintersTest {
               ParamDef("x", NON, IntType, mutable = false),
               ParamDef("y", TestON, StringType, mutable = false)
             )),
-            Some(ObjectClass), Nil, None, None, Nil, Nil, None, Nil, Nil, Nil)(
+            Some(ObjectClass), Nil, None, None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
 
@@ -1302,7 +1302,7 @@ class PrintersTest {
         ClassDef("Test", NON, ClassKind.JSClass,
             Some(List(ParamDef("sup", NON, AnyType, mutable = false))),
             Some("Bar"), Nil, Some(ref("sup", AnyType)), None, Nil, Nil, None,
-            Nil, Nil, Nil)(
+            Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
 
@@ -1313,7 +1313,7 @@ class PrintersTest {
           |}
         """,
         ClassDef("Test", NON, ClassKind.Class, None, Some(ObjectClass), Nil,
-            None, None, Nil, Nil, None, Nil, Nil, Nil)(
+            None, None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
             NoOptHints.withInline(true)))
   }
 
@@ -1324,7 +1324,7 @@ class PrintersTest {
           |}
         """,
         ClassDef("Test", TestON, ClassKind.ModuleClass, None, Some(ObjectClass),
-            Nil, None, None, Nil, Nil, None, Nil, Nil, Nil)(
+            Nil, None, None, Nil, Nil, None, Nil, Nil, Nil, Nil)(
             NoOptHints))
   }
 
@@ -1341,6 +1341,7 @@ class PrintersTest {
           |    5
           |  }
           |  static native p;Ljava.lang.Object loadfrom global:foo
+          |  static component getStdout;I importfrom "wasi:io/streams" "get-stdout"
           |  export top[moduleID="main"] module "Foo"
           |}
         """,
@@ -1354,6 +1355,9 @@ class PrintersTest {
             List(JSMethodDef(MemberFlags.empty, StringLiteral("o"), Nil, None, i(5))(NoOptHints, UNV)),
             List(JSNativeMemberDef(MemberFlags.empty.withNamespace(Static), MethodName("p", Nil, O),
                 JSNativeLoadSpec.Global("foo", Nil))),
+            Nil,
+            // List(WitNativeMemberDef(MemberFlags.empty.withNamespace(Static), MethodName("getStdout", Nil, I),
+            //     "wasi:io/streams", "get-stdout")),
             List(TopLevelModuleExportDef("main", "Foo")))(
             NoOptHints))
   }

@@ -144,7 +144,7 @@ private[optimizer] abstract class OptimizerCore(
     !config.coreSpec.esFeatures.allowBigIntsForLongs && !isWasm
 
   private val intrinsics =
-    Intrinsics.buildIntrinsics(config.coreSpec.esFeatures, isWasm)
+    Intrinsics.buildIntrinsics(config.coreSpec)
 
   private val integerDivisions = new IntegerDivisions(useRuntimeLong)
 
@@ -329,7 +329,7 @@ private[optimizer] abstract class OptimizerCore(
            * of type tests.
            */
           true
-        case _:ClosureType | _:RecordType =>
+        case _:ClosureType | _:RecordType | WitResourceType(_) =>
           // These types are only subtypes of themselves, modulo nullability
           true
       }
@@ -797,6 +797,13 @@ private[optimizer] abstract class OptimizerCore(
       case Transient(PackLong(lo, hi)) =>
         Transient(PackLong(transformExpr(lo), transformExpr(hi)))
 
+      // Component Model
+
+      case tree: WitFunctionApply =>
+        trampoline {
+          pretransformWitFunctionApply(tree)(finishTransform(isStat))
+        }
+
       // Trees that need not be transformed
 
       case _:Skip | _:Debugger | _:StoreModule |
@@ -1130,6 +1137,9 @@ private[optimizer] abstract class OptimizerCore(
       case tree: JSFunctionApply =>
         pretransformJSFunctionApply(tree, isStat = false,
             usePreTransform = true)(cont)
+
+      case tree: WitFunctionApply =>
+        pretransformWitFunctionApply(tree)(cont)
 
       case JSArrayConstr(items) =>
         /* Trying to virtualize more than 64 items in a JS array is probably
@@ -2264,6 +2274,7 @@ private[optimizer] abstract class OptimizerCore(
             case ClassType(_, _, exact)   => exact
             case _:PrimType | _:ArrayType => true
             case AnyType | AnyNotNullType => false
+            case _: WitResourceType       => true
 
             case _:ClosureType | _:RecordType =>
               throw new AssertionError(s"Invalid receiver type ${treceiver.tpe} at $pos")
@@ -2447,7 +2458,7 @@ private[optimizer] abstract class OptimizerCore(
   private def boxedClassForType(tpe: Type): ClassName = (tpe: @unchecked) match {
     case ClassType(className, _, _) =>
       className
-    case AnyType | AnyNotNullType | _:ArrayType =>
+    case AnyType | AnyNotNullType | _:ArrayType | _:WitResourceType =>
       ObjectClass
     case tpe: PrimType =>
       PrimTypeToBoxedClass(tpe)
@@ -2716,6 +2727,25 @@ private[optimizer] abstract class OptimizerCore(
                 argsNoSpread.map(transformExpr)).toPreTransform)
         }
       }
+    }
+  }
+
+  private def pretransformWitFunctionApply(tree: WitFunctionApply)(
+      cont: PreTransCont)(implicit scope: Scope): TailRec[Tree] = {
+    val WitFunctionApply(optReceiver, className, methodIdent, args) = tree
+    implicit val pos = tree.pos
+
+    optReceiver match {
+      case Some(receiver) =>
+        pretransformExprs(receiver, args) { (treceiver, targs) =>
+          cont(PreTransTree(WitFunctionApply(Some(finishTransformExpr(treceiver)),
+              className, methodIdent, targs.map(finishTransformExpr))(tree.tpe)))
+        }
+      case None =>
+        pretransformExprs(args) { targs =>
+          cont(PreTransTree(WitFunctionApply(None, className,
+              methodIdent, targs.map(finishTransformExpr))(tree.tpe)))
+        }
     }
   }
 
@@ -4398,10 +4428,14 @@ private[optimizer] abstract class OptimizerCore(
         primRef.displayName
       case ClassRef(className) =>
         mappedClassName(className)
+      case WitResourceTypeRef(className) =>
+        "resource<" + mappedClassName(className) + ">"
       case ArrayTypeRef(primRef: PrimRef, dimensions) =>
         "[" * dimensions + primRef.charCode
       case ArrayTypeRef(ClassRef(className), dimensions) =>
         "[" * dimensions + "L" + mappedClassName(className) + ";"
+      case ArrayTypeRef(WitResourceTypeRef(className), dimensions) =>
+        "[" * dimensions + "W" + mappedClassName(className) + ";"
       case typeRef: TransientTypeRef =>
         throw new IllegalArgumentException(typeRef.toString())
     }
@@ -6150,6 +6184,9 @@ private[optimizer] abstract class OptimizerCore(
         case ClassRef(className) =>
           if (isJSType(className)) AnyType
           else ClassType(className, nullable = true, exact = false)
+
+        case WitResourceTypeRef(className) =>
+          WitResourceType(className)
       }
     } else {
       ArrayType(ArrayTypeRef(base, dimensions - 1), nullable = true, exact = false)
@@ -7565,6 +7602,18 @@ private[optimizer] object OptimizerCore {
       )
     )
 
+    private val wasmJSStringIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
+      ClassName("java.lang.String") -> List(
+        m("codePointAt", List(I), I) -> StringCodePointAt,
+        m("substring", List(I), StringClassRef) -> StringSubstringStart,
+        m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+      ),
+      // string.builtins.fromCodePoint
+      ClassName("java.lang.Character$") -> List(
+        m("toString", List(I), StringClassRef) -> CharacterCodePointToString
+      )
+    )
+
     private val wasmIntrinsics: List[(ClassName, List[(MethodName, Int)])] = List(
       ClassName("java.lang.Integer$") -> List(
         m("numberOfTrailingZeros", List(I), I) -> IntegerNTZ,
@@ -7577,14 +7626,6 @@ private[optimizer] object OptimizerCore {
         m("bitCount", List(J), I) -> LongBitCount,
         m("rotateLeft", List(J, I), J) -> LongRotateLeft,
         m("rotateRight", List(J, I), J) -> LongRotateRight
-      ),
-      ClassName("java.lang.Character$") -> List(
-        m("toString", List(I), StringClassRef) -> CharacterCodePointToString
-      ),
-      ClassName("java.lang.String") -> List(
-        m("codePointAt", List(I), I) -> StringCodePointAt,
-        m("substring", List(I), StringClassRef) -> StringSubstringStart,
-        m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
       ),
       ClassName("java.lang.Math$") -> List(
         m("abs", List(F), F) -> MathAbsFloat,
@@ -7600,15 +7641,25 @@ private[optimizer] object OptimizerCore {
         m("copySign", List(F, F), F) -> MathCopySignFloat,
         m("copySign", List(D, D), D) -> MathCopySignDouble
       )
+      // ?
+      // ClassName("java.lang.Character$") -> List(
+      //   m("toString", List(I), StringClassRef) -> CharacterCodePointToString
+      // ),
+      // ClassName("java.lang.String") -> List(
+      //   m("codePointAt", List(I), I) -> StringCodePointAt,
+      //   m("substring", List(I), StringClassRef) -> StringSubstringStart,
+      //   m("substring", List(I, I), StringClassRef) -> StringSubstringStartEnd
+      // ),
     )
     // scalafmt: {}
 
-    def buildIntrinsics(esFeatures: ESFeatures, isWasm: Boolean): Intrinsics = {
-      val allIntrinsics = if (isWasm) {
-        commonIntrinsics ::: wasmIntrinsics
+    def buildIntrinsics(coreSpec: CoreSpec): Intrinsics = {
+      val allIntrinsics = if (coreSpec.targetIsWebAssembly) {
+        commonIntrinsics ::: wasmIntrinsics :::
+        (if (coreSpec.moduleKind == ModuleKind.ESModule) wasmJSStringIntrinsics else Nil)
       } else {
         val baseIntrinsics = commonIntrinsics ::: baseJSIntrinsics
-        if (esFeatures.allowBigIntsForLongs) baseIntrinsics
+        if (coreSpec.esFeatures.allowBigIntsForLongs) baseIntrinsics
         else baseIntrinsics ++ runtimeLongIntrinsics
       }
 

@@ -16,6 +16,7 @@ import java.{util => ju, lang => jl}
 
 import org.junit.Test
 import org.junit.Assert._
+import org.junit.Assume._
 
 import org.scalajs.testsuite.javalib.lang.IterableFactory
 import org.scalajs.testsuite.javalib.lang.IterableTest

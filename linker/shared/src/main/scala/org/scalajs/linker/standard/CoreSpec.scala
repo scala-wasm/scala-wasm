@@ -44,7 +44,10 @@ final class CoreSpec private (
    *  way to test whether non-interop code uses Wasm, for example for
    *  performance-related decisions.
    */
-  val targetIsWebAssembly: Boolean = esFeatures.useWebAssembly
+  val targetIsWebAssembly: Boolean = {
+    esFeatures.useWebAssembly || moduleKind == ModuleKind.MinimalWasmModule ||
+      moduleKind == ModuleKind.WasmComponent
+  }
 
   def withSemantics(semantics: Semantics): CoreSpec =
     copy(semantics = semantics)
@@ -97,6 +100,7 @@ final class CoreSpec private (
        |  moduleKind = $moduleKind,
        |  esFeatures = $esFeatures,
        |  wasmFeatures = $wasmFeatures,
+       |  targetIsWebAssembly = $targetIsWebAssembly
        |)""".stripMargin
   }
 

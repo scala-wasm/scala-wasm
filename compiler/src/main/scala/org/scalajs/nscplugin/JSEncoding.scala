@@ -290,6 +290,7 @@ trait JSEncoding[G <: Global with Singleton] extends SubComponent {
   def encodeClassType(sym: Symbol): jstpe.Type = {
     if (sym == definitions.ObjectClass) jstpe.AnyType
     else if (isJSType(sym)) jstpe.AnyType
+    else if (isWasmWitResourceType(sym)) jstpe.WitResourceType(encodeClassName(sym))
     else {
       assert(sym != definitions.ArrayClass,
           "encodeClassType() cannot be called with ArrayClass")

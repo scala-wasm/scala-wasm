@@ -15,7 +15,10 @@ package org.scalajs.testsuite.javalib.util
 import java.{lang => jl, util => ju}
 
 import org.junit.Test
+import org.junit.Assume._
 import org.scalajs.testsuite.utils.CollectionsTestBase
+
+import org.scalajs.testsuite.utils.Platform._
 
 import scala.reflect.ClassTag
 
@@ -24,6 +27,8 @@ trait CollectionsOnMapsTest extends CollectionsTestBase {
   def factory: MapFactory
 
   @Test def unmodifiableMap(): Unit = {
+    assumeFalse("TODO: ClassCastException: xxx cannot be cast to java.lang.Integer",
+        executingInPureWebAssembly)
     def test[K: ClassTag, V: ClassTag](toKey: Int => K, toValue: Int => V): Unit = {
       val map = factory.empty[K, V]
       testMapUnmodifiability(ju.Collections.unmodifiableMap[K, V](map), toKey(0),

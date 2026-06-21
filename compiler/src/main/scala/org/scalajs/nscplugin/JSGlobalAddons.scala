@@ -95,6 +95,10 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
     private val staticExports =
       mutable.Map.empty[Symbol, List[StaticExportInfo]]
 
+    /** Wasm Components exports, by method */
+    private val witExports =
+      mutable.Map.empty[Symbol, WitExportInfo]
+
     /** JS native load specs of the symbols in the current compilation run. */
     private val jsNativeLoadSpecs =
       mutable.Map.empty[Symbol, JSNativeLoadSpec]
@@ -112,6 +116,10 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
      * "The outer reference in this type test cannot be checked at run time."
      */
     case class TopLevelExportInfo(moduleID: String, jsName: String)(
+        val pos: Position)
+        extends ExportInfo
+
+    case class WitExportInfo(moduleName: String, name: String)(
         val pos: Position)
         extends ExportInfo
 
@@ -273,6 +281,14 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
     def registerStaticExports(sym: Symbol, infos: List[StaticExportInfo]): Unit = {
       assert(!staticExports.contains(sym), s"symbol exported twice: $sym")
       staticExports.put(sym, infos)
+    }
+
+    def witExportOf(sym: Symbol): Option[WitExportInfo] =
+      witExports.get(sym)
+
+    def registerWitExport(sym: Symbol, info: WitExportInfo): Unit = {
+      assert(!witExports.contains(sym), s"symbol exported twice: $sym")
+      witExports.put(sym, info)
     }
 
     def topLevelExportsOf(sym: Symbol): List[TopLevelExportInfo] =

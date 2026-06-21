@@ -15,6 +15,7 @@ package java.util
 import scala.annotation.tailrec
 
 import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.linkTimeIf
 
 import java.util.random.RandomGenerator
 
@@ -46,9 +47,13 @@ class Random(seed_in: Long) extends AnyRef with RandomGenerator with java.io.Ser
   }
 
   @noinline
-  protected def next(bits: Int): Int =
-    if (LinkingInfo.isWebAssembly) nextWasm(bits)
-    else nextJS(bits)
+  protected def next(bits: Int): Int = {
+    linkTimeIf(LinkingInfo.isWebAssembly) {
+      nextWasm(bits)
+    } {
+      nextJS(bits)
+    }
+  }
 
   @inline
   private def nextWasm(bits: Int): Int = {

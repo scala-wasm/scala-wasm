@@ -26,6 +26,11 @@ object SpecialNames {
   val CharBoxClass = BoxedCharacterClass.withSuffix("Box")
   val LongBoxClass = BoxedLongClass.withSuffix("Box")
 
+  val BooleanBoxClass = BoxedBooleanClass.withSuffix("Box")
+  val IntegerBoxClass = BoxedIntegerClass.withSuffix("Box")
+  val DoubleBoxClass = BoxedDoubleClass.withSuffix("Box")
+  val BooleanBoxCtor = MethodName.constructor(List(BooleanRef))
+
   val CharBoxCtor = MethodName.constructor(List(CharRef))
   val LongBoxCtor = MethodName.constructor(List(LongRef))
 
@@ -37,8 +42,23 @@ object SpecialNames {
   val UndefinedBehaviorErrorClass =
     ClassName("org.scalajs.linker.runtime.UndefinedBehaviorError")
 
+  val WasmComponentResultClass =
+    ClassName("scala.scalajs.wit.Result")
+
   val WasmRuntimeClass =
     ClassName("org.scalajs.linker.runtime.WasmRuntime")
+
+  val WasmSystemClass =
+    ClassName("java.lang.WasmSystem$")
+
+  val JSRPCClass =
+    ClassName("org.scalajs.testing.bridge.JSRPC$")
+
+  val WasmScalajsComClass =
+    ClassName("org.scalajs.testing.bridge.ScalajsCom$")
+
+  val RyuDoubleClass: ClassName =
+    ClassName("org.scalajs.linker.runtime.RyuDouble")
 
   // Field names
 
@@ -58,6 +78,12 @@ object SpecialNames {
   val fmodfMethodName = MethodName("fmodf", List(FloatRef, FloatRef), FloatRef)
   val fmoddMethodName = MethodName("fmodd", List(DoubleRef, DoubleRef), DoubleRef)
 
+  val doubleToStringMethodName =
+    MethodName("doubleToString", List(DoubleRef), ClassRef(BoxedStringClass))
+
   /** A unique simple method name to map all method *signatures* into `MethodName`s. */
   val normalizedSimpleMethodName = SimpleMethodName("m")
+
+  val handleMessageMethodName =
+    MethodName("handleMessage0", List(ClassRef(BoxedStringClass)), VoidRef)
 }

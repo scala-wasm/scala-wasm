@@ -85,7 +85,12 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case AbstractJSType | NativeJSClass | NativeJSModuleClass =>
           // discard
 
-        case JSClass | JSModuleClass =>
+        case NativeWasmComponentResourceClass =>
+          val cleanedTree = cleanTree(tree, jsTypes, errorManager)
+          writeIRFile(output, cleanedTree)
+          resultBuilder += output
+
+        case JSClass | JSModuleClass  =>
           errorManager.reportError(
               s"found non-native JS class ${tree.className.nameString}")(tree.pos)
       }
@@ -186,7 +191,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
       val preprocessedTree = ClassDef(name, originalName, kind, jsClassCaptures,
           superClass, newInterfaces, jsSuperClass, jsNativeLoadSpec, fields,
           newMethods, jsConstructor, jsMethodProps, jsNativeMembers,
-          topLevelExportDefs)(
+          witNativeMembers, topLevelExportDefs)(
           optimizerHints)(pos)
 
       // Only validate the hierarchy; do not transform
@@ -324,6 +329,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         classDef.jsConstructor,
         classDef.jsMethodProps,
         classDef.jsNativeMembers,
+        classDef.witNativeMembers,
         classDef.topLevelExportDefs
       )(classDef.optimizerHints)(classDef.pos)
     }
@@ -461,6 +467,11 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
           ApplyStatic(t.flags, transformNonJSClassName(t.className),
               transformMethodIdent(t.method), t.args)(transformType(t.tpe))
 
+        case t: WitFunctionApply =>
+          WitFunctionApply(t.receiver,
+              transformNonJSClassName(t.className),
+              transformMethodIdent(t.method), t.args)(transformType(t.tpe))
+
         case NewArray(typeRef, lengths) =>
           NewArray(transformArrayTypeRef(typeRef), lengths)
         case ArrayValue(typeRef, elems) =>
@@ -547,15 +558,18 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
             ArrayTypeRef(ClassRef(ObjectClass), typeRef.dimensions)
           else
             ArrayTypeRef(ClassRef(transformClassName(baseClassName)), typeRef.dimensions)
+        case WitResourceTypeRef(className) =>
+          ArrayTypeRef(WitResourceTypeRef(transformClassName(className)), typeRef.dimensions)
       }
     }
 
     private def transformTypeRef(typeRef: TypeRef)(
         implicit pos: Position): TypeRef = typeRef match {
-      case typeRef: PrimRef          => typeRef
-      case typeRef: ClassRef         => transformClassRef(typeRef)
-      case typeRef: ArrayTypeRef     => transformArrayTypeRef(typeRef)
-      case typeRef: TransientTypeRef => TransientTypeRef(typeRef.name)(transformType(typeRef.tpe))
+      case typeRef: PrimRef                  => typeRef
+      case typeRef: ClassRef                 => transformClassRef(typeRef)
+      case WitResourceTypeRef(className) => WitResourceTypeRef(transformClassName(className))
+      case typeRef: ArrayTypeRef             => transformArrayTypeRef(typeRef)
+      case typeRef: TransientTypeRef         => TransientTypeRef(typeRef.name)(transformType(typeRef.tpe))
     }
 
     private def postTransformChecks(classDef: ClassDef): Unit = {
@@ -584,6 +598,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
           ArrayType(transformArrayTypeRef(arrayTypeRef), nullable, exact)
         case ClosureType(paramTypes, resultType, nullable) =>
           ClosureType(paramTypes.map(transformType(_)), transformType(resultType), nullable)
+        case WitResourceType(className) =>
+          WitResourceType(transformClassName(className))
         case AnyType | AnyNotNullType | _:PrimType | _:RecordType =>
           tpe
       }
@@ -605,8 +621,14 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         (enclosingClassName == TypedArrayBufferBridge || enclosingClassName == TypedArrayBufferBridgeMod)
       }
 
+      def isWasmComponent = {
+        cls.nameString.startsWith("scala.scalajs.wit") ||
+        cls.nameString.startsWith("scala.scalajs.wasi")
+      }
+
       def isAnException: Boolean =
-        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself
+        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself ||
+            isWasmComponent
 
       if (cls.nameString.startsWith("scala.") && !isAnException)
         reportError(s"Illegal reference to Scala class ${cls.nameString}")

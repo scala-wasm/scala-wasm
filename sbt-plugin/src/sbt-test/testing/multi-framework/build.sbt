@@ -17,7 +17,7 @@ lazy val testFrameworkJS = project.in(file("testFramework/js")).
       // Use % with explicit suffix because scalajs-test-interface is published
       // without _sjs1, but sbt 2.x's %% adds _sjs1
       libraryDependencies +=
-        "org.scala-js" % ("scalajs-test-interface_" + scalaBinaryVersion.value) % scalaJSVersion
+        scalaJSOrganization % ("scalajs-test-interface_" + scalaBinaryVersion.value) % scalaJSVersion
   )
 
 lazy val testFrameworkJVM = project.in(file("testFramework/jvm")).

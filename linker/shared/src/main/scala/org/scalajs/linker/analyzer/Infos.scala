@@ -16,14 +16,17 @@ import scala.collection.mutable
 
 import org.scalajs.ir.ClassKind
 import org.scalajs.ir.Names._
+import org.scalajs.ir.Position
 import org.scalajs.ir.Traversers._
 import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.Version
 import org.scalajs.ir.WellKnownNames._
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.frontend.{LinkTimeEvaluator, LinkTimeProperties, SyntheticClassKind}
 import org.scalajs.linker.standard.ModuleSet.ModuleID
+import _root_.org.scalajs.linker.backend.wasmemitter.SpecialNames
 
 object Infos {
 
@@ -64,6 +67,7 @@ object Infos {
       val referencedFieldClasses: Map[FieldName, ClassName],
       val methods: Array[Map[MethodName, MethodInfo]],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
+      val witNativeMembers: Map[MethodName, ReachabilityInfo],
       val jsMethodProps: List[ReachabilityInfo],
       val topLevelExports: List[TopLevelExportInfo]
   ) {
@@ -82,15 +86,16 @@ object Infos {
       byClass: Array[ReachabilityInfoInClass],
       lambdaDescriptorsUsed: Array[NewLambda.Descriptor],
       globalFlags: ReachabilityInfo.Flags,
-      referencedLinkTimeProperties: Array[(String, Type)]
+      referencedLinkTimeProperties: Array[(String, Type)],
+      jsInteropUsages: Array[(Position, String)]
   ) extends ReachabilityInfo(version, byClass, lambdaDescriptorsUsed,
-          globalFlags, referencedLinkTimeProperties)
+          globalFlags, referencedLinkTimeProperties, jsInteropUsages)
 
   object MethodInfo {
     def apply(isAbstract: Boolean, reachabilityInfo: ReachabilityInfo): MethodInfo = {
       import reachabilityInfo._
       new MethodInfo(isAbstract, version, byClass, lambdaDescriptorsUsed,
-          globalFlags, referencedLinkTimeProperties)
+          globalFlags, referencedLinkTimeProperties, jsInteropUsages)
     }
   }
 
@@ -110,7 +115,8 @@ object Infos {
       val byClass: Array[ReachabilityInfoInClass],
       val lambdaDescriptorsUsed: Array[NewLambda.Descriptor],
       val globalFlags: ReachabilityInfo.Flags,
-      val referencedLinkTimeProperties: Array[(String, Type)]
+      val referencedLinkTimeProperties: Array[(String, Type)],
+      val jsInteropUsages: Array[(Position, String)]
   )
 
   object ReachabilityInfo {
@@ -124,6 +130,7 @@ object Infos {
     final val FlagUsedOrphanAwait = 1 << 5
     final val FlagUsedClassSuperClass = 1 << 6
     final val FlagNeedsDesugaring = 1 << 7
+    final val FlagUsedJSInPureWasm = 1 << 8
   }
 
   /** Things from a given class that are reached by one method. */
@@ -189,12 +196,17 @@ object Infos {
       val methodName: MethodName
   ) extends MemberReachabilityInfo
 
+  final case class WasmWitNativeMemberReachable private[Infos] (
+      val methodName: MethodName
+  ) extends MemberReachabilityInfo
+
   final class ReachabilityInfoBuilder(version: Version) {
     import ReachabilityInfoBuilder._
     private val byClass = mutable.Map.empty[ClassName, ReachabilityInfoInClassBuilder]
     private val lambdaDescriptorsUsed = mutable.Set.empty[NewLambda.Descriptor]
     private var flags: ReachabilityInfo.Flags = 0
     private val linkTimeProperties = mutable.ListBuffer.empty[(String, Type)]
+    private val jsInteropUsages = mutable.ListBuffer.empty[(Position, String)]
 
     private def forClass(cls: ClassName): ReachabilityInfoInClassBuilder =
       byClass.getOrElseUpdate(cls, new ReachabilityInfoInClassBuilder(cls))
@@ -248,6 +260,14 @@ object Infos {
           addMethodCalledStatically(ObjectClass,
               NamespacedMethodName(MemberNamespace.Public, method))
 
+        case WitResourceType(_) =>
+          /* WIT resource types are opaque external types that do not define
+           * standard Java methods themselves. They are all inherited from
+           * j.l.Object, so we handle them the same way as Arrays.
+           */
+          addMethodCalledStatically(ObjectClass,
+              NamespacedMethodName(MemberNamespace.Public, method))
+
         case NullType | NothingType =>
           // Nothing to do
 
@@ -284,6 +304,11 @@ object Infos {
 
     def addJSNativeMemberUsed(cls: ClassName, member: MethodName): this.type = {
       forClass(cls).addJSNativeMemberUsed(member)
+      this
+    }
+
+    def addWasmWitNativeMemberUsed(cls: ClassName, member: MethodName): this.type = {
+      forClass(cls).addWasmWitNativeMemberUsed(member)
       this
     }
 
@@ -406,6 +431,11 @@ object Infos {
     def markNeedsDesugaring(): this.type =
       setFlag(ReachabilityInfo.FlagNeedsDesugaring)
 
+    def addJSInteropUsage(tree: Tree): this.type = {
+      jsInteropUsages += ((tree.pos, tree.show))
+      setFlag(ReachabilityInfo.FlagUsedJSInPureWasm)
+    }
+
     def addReferencedLinkTimeProperty(linkTimeProperty: LinkTimeProperty): this.type = {
       markNeedsDesugaring()
       linkTimeProperties.append((linkTimeProperty.name, linkTimeProperty.tpe))
@@ -421,14 +451,19 @@ object Infos {
         if (linkTimeProperties.isEmpty) emptyLinkTimePropertyArray
         else linkTimeProperties.toArray
 
+      val jsInteropUsagesArray =
+        if (jsInteropUsages.isEmpty) emptyJSInteropUsagesArray
+        else jsInteropUsages.toArray
+
       new ReachabilityInfo(version, byClass.valuesIterator.map(_.result()).toArray,
-          lambdaDescriptorsUsedArray, flags, referencedLinkTimeProperties)
+          lambdaDescriptorsUsedArray, flags, referencedLinkTimeProperties, jsInteropUsagesArray)
     }
   }
 
   object ReachabilityInfoBuilder {
     private val emptyLinkTimePropertyArray = new Array[(String, Type)](0)
     private val emptyLambdaDescriptorArray = new Array[NewLambda.Descriptor](0)
+    private val emptyJSInteropUsagesArray = new Array[(Position, String)](0)
   }
 
   final class ReachabilityInfoInClassBuilder(val className: ClassName) {
@@ -437,6 +472,7 @@ object Infos {
     private val methodsCalled = mutable.Set.empty[MethodName]
     private val methodsCalledStatically = mutable.Set.empty[NamespacedMethodName]
     private val jsNativeMembersUsed = mutable.Set.empty[MethodName]
+    private val wasmwitNativeMembersUsed = mutable.Set.empty[MethodName]
     private var flags: ReachabilityInfoInClass.Flags = 0
 
     def addFieldRead(field: FieldName): this.type = {
@@ -493,6 +529,11 @@ object Infos {
       this
     }
 
+    def addWasmWitNativeMemberUsed(member: MethodName): this.type = {
+      wasmwitNativeMembersUsed += member
+      this
+    }
+
     private def setFlag(flag: ReachabilityInfoInClass.Flags): this.type = {
       flags |= flag
       this
@@ -519,7 +560,8 @@ object Infos {
           staticFieldsUsed.valuesIterator ++
           methodsCalled.iterator.map(MethodReachable(_)) ++
           methodsCalledStatically.iterator.map(MethodStaticallyReachable(_)) ++
-          jsNativeMembersUsed.iterator.map(JSNativeMemberReachable(_))
+          jsNativeMembersUsed.iterator.map(JSNativeMemberReachable(_)) ++
+          wasmwitNativeMembersUsed.iterator.map(WasmWitNativeMemberReachable(_))
       ).toArray
 
       val memberInfosOpt =
@@ -530,7 +572,8 @@ object Infos {
     }
   }
 
-  final class InfoGenerator(linkTimeProperties: LinkTimeProperties) {
+  final class InfoGenerator(linkTimeProperties: LinkTimeProperties,
+      registerJSInterop: Boolean) {
     def genReferencedFieldClasses(fields: List[AnyFieldDef]): Map[FieldName, ClassName] = {
       val builder = Map.newBuilder[FieldName, ClassName]
 
@@ -555,27 +598,33 @@ object Infos {
     /** Generates the [[MethodInfo]] of a
      *  [[org.scalajs.ir.Trees.MethodDef Trees.MethodDef]].
      */
-    def generateMethodInfo(methodDef: MethodDef): MethodInfo =
-      new GenInfoTraverser(methodDef.version, linkTimeProperties).generateMethodInfo(methodDef)
+    def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
+      new GenInfoTraverser(methodDef.version, linkTimeProperties, registerJSInterop)
+        .generateMethodInfo(methodDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSConstructorDef Trees.JSConstructorDef]].
      */
-    def generateJSConstructorInfo(ctorDef: JSConstructorDef): ReachabilityInfo =
-      new GenInfoTraverser(ctorDef.version, linkTimeProperties).generateJSConstructorInfo(ctorDef)
+    def generateJSConstructorInfo(ctorDef: JSConstructorDef): ReachabilityInfo = {
+      new GenInfoTraverser(ctorDef.version, linkTimeProperties, registerJSInterop)
+        .generateJSConstructorInfo(ctorDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSMethodDef Trees.JSMethodDef]].
      */
-    def generateJSMethodInfo(methodDef: JSMethodDef): ReachabilityInfo =
-      new GenInfoTraverser(methodDef.version, linkTimeProperties).generateJSMethodInfo(methodDef)
+    def generateJSMethodInfo(methodDef: JSMethodDef): ReachabilityInfo = {
+      new GenInfoTraverser(methodDef.version, linkTimeProperties, registerJSInterop)
+        .generateJSMethodInfo(methodDef)
+    }
 
     /** Generates the [[ReachabilityInfo]] of a
      *  [[org.scalajs.ir.Trees.JSPropertyDef Trees.JSPropertyDef]].
      */
     def generateJSPropertyInfo(propertyDef: JSPropertyDef): ReachabilityInfo = {
-      new GenInfoTraverser(propertyDef.version, linkTimeProperties).generateJSPropertyInfo(
-          propertyDef)
+      new GenInfoTraverser(propertyDef.version, linkTimeProperties, registerJSInterop)
+        .generateJSPropertyInfo(propertyDef)
     }
 
     def generateJSMethodPropDefInfo(member: JSMethodPropDef): ReachabilityInfo = member match {
@@ -586,16 +635,21 @@ object Infos {
     /** Generates the [[MethodInfo]] for the top-level exports. */
     def generateTopLevelExportInfo(enclosingClass: ClassName,
         topLevelExportDef: TopLevelExportDef): TopLevelExportInfo = {
-      val info = new GenInfoTraverser(Version.Unversioned, linkTimeProperties)
+      val info = new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
         .generateTopLevelExportInfo(enclosingClass, topLevelExportDef)
       new TopLevelExportInfo(info,
           ModuleID(topLevelExportDef.moduleID),
           topLevelExportDef.topLevelExportName)
     }
+
+    def generateWitNativeMember(member: WitNativeMemberDef): MethodInfo = {
+      new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
+        .generateWitNativeMember(member)
+    }
   }
 
   private final class GenInfoTraverser(version: Version,
-      linkTimeProperties: LinkTimeProperties)
+      linkTimeProperties: LinkTimeProperties, registerJSInterop: Boolean)
       extends Traverser {
 
     private val builder = new ReachabilityInfoBuilder(version)
@@ -606,6 +660,25 @@ object Infos {
      *  orphan await.
      */
     private var inAsync: Boolean = false
+
+    def generateWitNativeMember(member: WitNativeMemberDef): MethodInfo = {
+      val methodName = member.method.name
+      methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+      builder.maybeAddReferencedClass(methodName.resultTypeRef)
+      generateForWIT(member.signature)
+      val reachabilityInfo = builder.result()
+      // println(s"===${member.name}===")
+      // println(member.signature)
+      // if (reachabilityInfo.byClass != null) {
+      //   reachabilityInfo.byClass.foreach { c =>
+      //     println(s"*${c.className}")
+      //     if (c.memberInfos != null) {
+      //       c.memberInfos.foreach(m => println(m))
+      //     }
+      //   }
+      // }
+      MethodInfo(true, reachabilityInfo)
+    }
 
     def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
       val methodName = methodDef.methodName
@@ -659,13 +732,115 @@ object Infos {
           val field = topLevelFieldExport.field.name
           builder.addStaticFieldRead(field)
           builder.addStaticFieldWritten(field)
+
+        case witExport: WitExportDef =>
+          // Mark the exported method as being called
+          builder.addAccessedModule(enclosingClass)
+          val namespace = witExport.methodDef.flags.namespace
+          val methodName = witExport.methodDef.name.name
+          builder.addMethodCalledStatically(enclosingClass,
+              NamespacedMethodName(namespace, methodName))
+
+          assert(witExport.methodDef.body.isDefined)
+          generateForWIT(witExport.signature)
+          builder.maybeAddReferencedClass(methodName.resultTypeRef)
+          methodName.paramTypeRefs.foreach(builder.maybeAddReferencedClass)
+          traverse(witExport.methodDef.body.get)
       }
 
-      builder.result()
+      val res = builder.result()
+      // res.byClass.toList.foreach { clazz =>
+      //   println(s"===${clazz.className}===")
+      //   if (clazz.memberInfos != null) {
+      //     clazz.memberInfos.toList.foreach { m =>
+      //       println(m)
+      //     }
+      //   }
+      // }
+      // println(s"=====end: ${topLevelExportDef.topLevelExportName}=====")
+      res
+    }
+
+    private def generateForWIT(tpe: wit.WasmInterfaceType): Unit = {
+      tpe match {
+        case wit.FuncType(paramTypes, resultType) =>
+          for (t <- paramTypes) generateForWIT(t)
+          resultType.foreach(t => generateForWIT(t))
+
+        case wit.TupleType(fields) =>
+          val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
+          val ctorID = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(className, ctorID)
+          // Add field reads for each tuple field
+          for (i <- 1 to fields.size) {
+            builder.addFieldRead(FieldName(className, SimpleFieldName(s"_$i")))
+          }
+          for (f <- fields) generateForWIT(f)
+
+        case wit.RecordType(className, fields) =>
+          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
+          builder.addInstantiatedClass(className, ctor)
+          for (f <- fields) {
+            builder.addFieldRead(f.label)
+            generateForWIT(f.tpe)
+          }
+
+        case wit.FlagsType(className, _) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          // FlagsType is a final class with a single Int parameter
+          val ctor = MethodName.constructor(List(IntRef))
+          builder.addInstantiatedClass(className, ctor)
+
+        case wit.OptionType(t) =>
+          builder.addInstantiatedClass(
+              juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          builder.addFieldRead(
+              FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+          generateForWIT(t)
+
+        case wit.ResultType(ok, err) =>
+          val cases = List(
+            wit.CaseType(ComponentResultOkClass, ok),
+            wit.CaseType(ComponentResultErrClass, err)
+          )
+          builder.maybeAddAccessedClassData(ClassRef(ComponentResultClass))
+          for (c <- cases) {
+            // ResultType uses generic Ok/Err classes, so after type erasure they take Object
+            builder.addInstantiatedClass(
+                c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
+            c.tpe.foreach { tpe =>
+              builder.addFieldRead(FieldName(c.className, WitVariantValueFieldName))
+              generateForWIT(tpe)
+            }
+          }
+
+        case wit.VariantType(className, cases) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          for (c <- cases) {
+            val ctor = wit.makeCtorName(c.tpe)
+            builder.addInstantiatedClass(c.className, ctor)
+            c.tpe.foreach { tpe =>
+              builder.addFieldRead(FieldName(c.className, WitVariantValueFieldName))
+              generateForWIT(tpe)
+            }
+          }
+
+        case wit.ListType(elemType, _) =>
+          generateForWIT(elemType)
+
+        case wit.ResourceType(className) =>
+          builder.maybeAddReferencedClass(ClassRef(className))
+
+        case _ =>
+      }
+
     }
 
     override def traverse(tree: Tree): Unit = {
       builder.maybeAddReferencedClass(tree.tpe)
+
+      if (registerJSInterop)
+        checkJSInterop(tree)
 
       tree match {
         /* Do not call super.traverse() so that fields are not also marked as
@@ -868,6 +1043,9 @@ object Infos {
             case VarDef(_, _, vtpe, _, _) =>
               builder.maybeAddReferencedClass(vtpe)
 
+            case WitFunctionApply(_, className, method, _) =>
+              builder.addWasmWitNativeMemberUsed(className, method.name)
+
             case linkTimeProperty: LinkTimeProperty =>
               builder.addReferencedLinkTimeProperty(linkTimeProperty)
 
@@ -877,6 +1055,21 @@ object Infos {
           super.traverse(tree)
       }
     }
-  }
 
+    private def checkJSInterop(tree: Tree): Unit = {
+      tree match {
+        case _:JSNew | _:JSSelect | _:JSFunctionApply | _:JSMethodApply |
+            _:JSImportCall | _:JSImportMeta | _:LoadJSConstructor |
+            _:LoadJSModule | _:SelectJSNativeMember | _:JSDelete |
+            _:JSUnaryOp | _:JSBinaryOp | _:JSArrayConstr | _:JSObjectConstr |
+            _:JSGlobalRef | _:JSTypeOfGlobalRef | _:CreateJSClass |
+            _:JSPrivateSelect | _:JSSuperSelect | _:JSSuperMethodCall |
+            _:JSNewTarget | _:JSSuperConstructorCall =>
+          builder.addJSInteropUsage(tree)
+        case closure: Closure if !closure.flags.typed =>
+          builder.addJSInteropUsage(tree)
+        case _ =>
+      }
+    }
+  }
 }

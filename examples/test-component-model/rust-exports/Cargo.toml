@@ -1,0 +1,32 @@
+[package]
+name = "rust-exports"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wit-bindgen-rt = { version = "0.39.0", features = ["bitflags"] }
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+debug = false
+strip = true
+lto = true
+
+[package.metadata.component]
+package = "component:testing"
+
+[package.metadata.component.target]
+world = "rust-exports"
+path = "../wit"
+
+[package.metadata.component.target.dependencies]
+"wasi:cli" = { path = "../wit/deps/wasi-cli-0.2.0" }
+"wasi:io" = { path = "../wit/deps/wasi-io-0.2.0" }
+"wasi:clocks" = { path = "../wit/deps/wasi-clocks-0.2.0" }
+"wasi:filesystem" = { path = "../wit/deps/wasi-filesystem-0.2.0" }
+"wasi:sockets" = { path = "../wit/deps/wasi-sockets-0.2.0" }
+"wasi:random" = { path = "../wit/deps/wasi-random-0.2.0" }

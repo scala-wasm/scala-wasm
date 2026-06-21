@@ -39,6 +39,7 @@ import Version.Unversioned
 import WellKnownNames._
 
 import Utils.JumpBackByteArrayOutputStream
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 object Serializers {
 
@@ -166,6 +167,8 @@ object Serializers {
             // nothing to do
           case ClassRef(className) =>
             encodedNameToIndex(className.encoded)
+          case WitResourceTypeRef(className) =>
+            encodedNameToIndex(className.encoded)
           case ArrayTypeRef(base, _) =>
             reserveTypeRef(base)
           case typeRef: TransientTypeRef =>
@@ -234,6 +237,9 @@ object Serializers {
           }
         case ClassRef(className) =>
           s.writeByte(TagClassRef)
+          s.writeInt(encodedNameIndexMap(new EncodedNameKey(className.encoded)))
+        case WitResourceTypeRef(className) =>
+          s.writeByte(TagWitResourceTypeRef)
           s.writeInt(encodedNameIndexMap(new EncodedNameKey(className.encoded)))
         case ArrayTypeRef(base, dimensions) =>
           s.writeByte(TagArrayTypeRef)
@@ -620,6 +626,14 @@ object Serializers {
           writeString(name)
           writeType(tree.tpe)
 
+        case WitFunctionApply(receiver, className, method, args) =>
+          writeTagAndPos(TagWitFunctionApply)
+          writeOptTree(receiver)
+          writeName(className)
+          writeMethodIdent(method)
+          writeTrees(args)
+          writeType(tree.tpe)
+
         case Transient(value) =>
           throw new InvalidIRException(tree,
               "Cannot serialize a transient IR node (its value is of class " +
@@ -671,7 +685,8 @@ object Serializers {
       writeOptTree(jsSuperClass)
       writeJSNativeLoadSpec(jsNativeLoadSpec)
       writeMemberDefs(
-          fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers)
+          fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
+          ::: witNativeMembers)
       writeTopLevelExportDefs(topLevelExportDefs)
       writeInt(OptimizerHints.toBits(optimizerHints))
     }
@@ -787,6 +802,15 @@ object Serializers {
           writeInt(MemberFlags.toBits(flags))
           writeMethodIdent(name)
           writeJSNativeLoadSpec(Some(jsNativeLoadSpec))
+
+        case WitNativeMemberDef(flags, moduleName, name,
+                method, signature) =>
+          writeByte(TagWitNativeMemberDef)
+          writeInt(MemberFlags.toBits(flags))
+          writeString(moduleName)
+          writeWitFunctionName(name)
+          writeMethodIdent(method)
+          writeWITType(signature)
       }
     }
 
@@ -814,6 +838,13 @@ object Serializers {
         case TopLevelFieldExportDef(moduleID, exportName, field) =>
           writeByte(TagTopLevelFieldExportDef)
           writeString(moduleID); writeString(exportName); writeFieldIdentForEnclosingClass(field)
+
+        case WitExportDef(moduleName, name, methodDef, signature) =>
+          writeByte(TagWitExportDef)
+          writeString(moduleName)
+          writeWitFunctionName(name)
+          writeMemberDef(methodDef)
+          writeWITType(signature)
       }
     }
 
@@ -873,6 +904,11 @@ object Serializers {
       names.foreach(writeName(_))
     }
 
+    def writeFieldName(name: FieldName): Unit = {
+      writeName(name.className)
+      writeName(name.simpleName)
+    }
+
     def writeMethodName(name: MethodName): Unit =
       buffer.writeInt(methodNameToIndex(name))
 
@@ -928,6 +964,10 @@ object Serializers {
           buffer.write(tag)
           writeName(className)
 
+        case WitResourceType(className) =>
+          buffer.write(TagWitResourceType)
+          writeName(className)
+
         case ArrayType(arrayTypeRef, nullable, exact) =>
           val tag = (exact, nullable) match {
             case (true, true)   => TagExactArrayType
@@ -960,6 +1000,80 @@ object Serializers {
       tpes.foreach(writeType)
     }
 
+    def writeWITType(tpe: wit.WasmInterfaceType): Unit = tpe match {
+      case wit.BoolType                   => buffer.writeByte(TagWITBoolType)
+      case wit.U8Type                     => buffer.writeByte(TagWITU8Type)
+      case wit.U16Type                    => buffer.writeByte(TagWITU16Type)
+      case wit.U32Type                    => buffer.writeByte(TagWITU32Type)
+      case wit.U64Type                    => buffer.writeByte(TagWITU64Type)
+      case wit.S8Type                     => buffer.writeByte(TagWITS8Type)
+      case wit.S16Type                    => buffer.writeByte(TagWITS16Type)
+      case wit.S32Type                    => buffer.writeByte(TagWITS32Type)
+      case wit.S64Type                    => buffer.writeByte(TagWITS64Type)
+      case wit.F32Type                    => buffer.writeByte(TagWITF32Type)
+      case wit.F64Type                    => buffer.writeByte(TagWITF64Type)
+      case wit.CharType                   => buffer.writeByte(TagWITCharType)
+      case wit.StringType                 => buffer.writeByte(TagWITStringType)
+      case wit.ListType(elemType, length) =>
+        buffer.writeByte(TagWITListType)
+        writeWITType(elemType)
+        buffer.writeBoolean(length.isDefined)
+        length.foreach(buffer.writeInt)
+      case wit.RecordType(className, fields) =>
+        buffer.writeByte(TagWITRecordType)
+        writeName(className)
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeFieldName(f.label)
+          writeWITType(f.tpe)
+        }
+      case wit.TupleType(fields) =>
+        buffer.writeByte(TagWITTupleType)
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeWITType(f)
+        }
+      case wit.VariantType(className, cases) =>
+        buffer.writeByte(TagWITVariantType)
+        writeName(className)
+        buffer.writeInt(cases.length)
+        for (c <- cases) {
+          writeName(c.className)
+          buffer.writeBoolean(c.tpe.isDefined)
+          c.tpe.foreach(writeWITType)
+        }
+      case wit.EnumType(_) =>
+        buffer.writeByte(TagWITEnumType)
+        ???
+      case wit.OptionType(t) =>
+        buffer.writeByte(TagWITOptionType)
+        writeWITType(t)
+      case wit.ResultType(ok, err) =>
+        buffer.writeByte(TagWITResultType)
+        buffer.writeBoolean(ok.isDefined)
+        ok.foreach(writeWITType)
+        buffer.writeBoolean(err.isDefined)
+        err.foreach(writeWITType)
+      case wit.FlagsType(className, numFlags) =>
+        buffer.writeByte(TagWITFlagsType)
+        writeName(className)
+        buffer.writeInt(numFlags)
+      case wit.ResourceType(className) =>
+        buffer.writeByte(TagWITResourceType)
+        writeName(className)
+      case wit.FuncType(params, result) =>
+        buffer.writeByte(TagWITFuncType)
+        buffer.writeInt(params.length)
+        for (p <- params) writeWITType(p)
+        result match {
+          case Some(result) =>
+            buffer.writeBoolean(true)
+            writeWITType(result)
+          case None =>
+            buffer.writeBoolean(false)
+        }
+    }
+
     def writeTypeRef(typeRef: TypeRef): Unit = typeRef match {
       case PrimRef(tpe) =>
         tpe match {
@@ -977,6 +1091,9 @@ object Serializers {
         }
       case ClassRef(className) =>
         buffer.writeByte(TagClassRef)
+        writeName(className)
+      case WitResourceTypeRef(className) =>
+        buffer.writeByte(TagWitResourceTypeRef)
         writeName(className)
       case typeRef: ArrayTypeRef =>
         buffer.writeByte(TagArrayTypeRef)
@@ -1088,6 +1205,29 @@ object Serializers {
     def writeStrings(strings: List[String]): Unit = {
       buffer.writeInt(strings.size)
       strings.foreach(writeString)
+    }
+
+    def writeWitFunctionName(name: WitFunctionName): Unit = {
+      import WitFunctionName._
+      name match {
+        case Function(func) =>
+          buffer.writeByte(TagWitFunction)
+          writeString(func)
+        case ResourceMethod(func, resource) =>
+          buffer.writeByte(TagWitResourceMethod)
+          writeString(func)
+          writeString(resource)
+        case ResourceStaticMethod(func, resource) =>
+          buffer.writeByte(TagWitResourceStaticMethod)
+          writeString(func)
+          writeString(resource)
+        case ResourceConstructor(resource) =>
+          buffer.writeByte(TagWitResourceConstructor)
+          writeString(resource)
+        case ResourceDrop(resource) =>
+          buffer.writeByte(TagWitResourceDrop)
+          writeString(resource)
+      }
     }
   }
 
@@ -1547,6 +1687,9 @@ object Serializers {
 
         case TagLinkTimeProperty =>
           LinkTimeProperty(readString())(readType())
+
+        case TagWitFunctionApply =>
+          WitFunctionApply(readOptTree(), readClassName(), readMethodIdent(), readTrees())(readType())
       }
     }
 
@@ -1776,21 +1919,23 @@ object Serializers {
       val jsConstructorBuilder = new OptionBuilder[JSConstructorDef]
       val jsMethodPropsBuilder = List.newBuilder[JSMethodPropDef]
       val jsNativeMembersBuilder = List.newBuilder[JSNativeMemberDef]
+      val witNativeMembersBuilder = List.newBuilder[WitNativeMemberDef]
 
       for (_ <- 0 until readInt()) {
         implicit val pos = readPosition()
         readByte() match {
-          case TagFieldDef          => fieldsBuilder += readFieldDef()
-          case TagJSFieldDef        => fieldsBuilder += readJSFieldDef()
-          case TagMethodDef         => methodsBuilder += readMethodDef(cls, kind)
-          case TagJSConstructorDef  => jsConstructorBuilder += readJSConstructorDef(kind)
-          case TagJSMethodDef       => jsMethodPropsBuilder += readJSMethodDef()
-          case TagJSPropertyDef     => jsMethodPropsBuilder += readJSPropertyDef()
-          case TagJSNativeMemberDef => jsNativeMembersBuilder += readJSNativeMemberDef()
+          case TagFieldDef           => fieldsBuilder += readFieldDef()
+          case TagJSFieldDef         => fieldsBuilder += readJSFieldDef()
+          case TagMethodDef          => methodsBuilder += readMethodDef(cls, kind)
+          case TagJSConstructorDef   => jsConstructorBuilder += readJSConstructorDef(kind)
+          case TagJSMethodDef        => jsMethodPropsBuilder += readJSMethodDef()
+          case TagJSPropertyDef      => jsMethodPropsBuilder += readJSPropertyDef()
+          case TagJSNativeMemberDef  => jsNativeMembersBuilder += readJSNativeMemberDef()
+          case TagWitNativeMemberDef => witNativeMembersBuilder += readWitNativeMemberDef()
         }
       }
 
-      val topLevelExportDefs = readTopLevelExportDefs()
+      val topLevelExportDefs = readTopLevelExportDefs(cls, kind)
       val optimizerHints = OptimizerHints.fromBits(readInt())
 
       val fields = fieldsBuilder.result()
@@ -1819,10 +1964,11 @@ object Serializers {
       }
 
       val jsNativeMembers = jsNativeMembersBuilder.result()
+      val witNativeMembers = witNativeMembersBuilder.result()
 
       val classDef = ClassDef(name, originalName, kind, jsClassCaptures, superClass, parents,
           jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-          jsMethodProps, jsNativeMembers, topLevelExportDefs)(
+          jsMethodProps, jsNativeMembers, witNativeMembers, topLevelExportDefs)(
           optimizerHints)
 
       if (hacks.useBelow(19))
@@ -2198,6 +2344,7 @@ object Serializers {
           jsConstructor,
           jsMethodProps,
           jsNativeMembers,
+          witNativeMembers,
           topLevelExportDefs
         )(OptimizerHints.empty)(pos) // throws away the `@inline`
       }
@@ -2394,6 +2541,15 @@ object Serializers {
       JSNativeMemberDef(flags, name, jsNativeLoadSpec)
     }
 
+    private def readWitNativeMemberDef()(implicit pos: Position): WitNativeMemberDef = {
+      val flags = MemberFlags.fromBits(readInt())
+      val moduleName = readString()
+      val name = readWitFunctionName()
+      val methodIdent = readMethodIdent()
+      val signature = readWITFuncType()
+      WitNativeMemberDef(flags, moduleName, name, methodIdent, signature)
+    }
+
     /* #4442 and #4601: Patch Labeled, If, Match and TryCatch nodes in
      * statement position to have type VoidType. These 4 nodes are the
      * control structures whose result type is explicitly specified (and
@@ -2459,7 +2615,7 @@ object Serializers {
 
     private def bodyHackBelow6Expr(body: Tree): Tree = bodyHackBelow6(body, isStat = false)
 
-    def readTopLevelExportDef(): TopLevelExportDef = {
+    def readTopLevelExportDef(owner: ClassName, ownerKind: ClassKind): TopLevelExportDef = {
       implicit val pos = readPosition()
       val tag = readByte()
 
@@ -2481,11 +2637,23 @@ object Serializers {
 
         case TagTopLevelFieldExportDef =>
           TopLevelFieldExportDef(readModuleID(), readString(), readFieldIdentForEnclosingClass())
+
+        case TagWitExportDef =>
+          val moduleName = readString()
+          val name = readWitFunctionName()
+          // read methoddef
+          val methodPos = readPosition()
+          val tag = readByte()
+          assert(tag == TagMethodDef, s"unexpected tag $tag")
+          val methodDef = readMethodDef(owner, ownerKind)(methodPos)
+
+          val signature = readWITFuncType()
+          WitExportDef(moduleName, name, methodDef, signature)
       }
     }
 
-    def readTopLevelExportDefs(): List[TopLevelExportDef] =
-      List.fill(readInt())(readTopLevelExportDef())
+    def readTopLevelExportDefs(owner: ClassName, ownerKind: ClassKind): List[TopLevelExportDef] =
+      List.fill(readInt())(readTopLevelExportDef(owner, ownerKind))
 
     def readLocalIdent(): LocalIdent = {
       implicit val pos = readPosition()
@@ -2571,6 +2739,71 @@ object Serializers {
       }
     }
 
+    def readWITFuncType(): wit.FuncType = {
+      val tag = readByte()
+      assert(tag == TagWITFuncType)
+      wit.FuncType(
+        List.fill(readInt())(readWITType()),
+        if (readBoolean()) Some(readWITType()) else None
+      )
+    }
+
+    private def readWITType(): wit.ValType = {
+      val tag = readByte()
+      tag match {
+        case TagWITBoolType   => wit.BoolType
+        case TagWITU8Type     => wit.U8Type
+        case TagWITU16Type    => wit.U16Type
+        case TagWITU32Type    => wit.U32Type
+        case TagWITU64Type    => wit.U64Type
+        case TagWITS8Type     => wit.S8Type
+        case TagWITS16Type    => wit.S16Type
+        case TagWITS32Type    => wit.S32Type
+        case TagWITS64Type    => wit.S64Type
+        case TagWITF32Type    => wit.F32Type
+        case TagWITF64Type    => wit.F64Type
+        case TagWITCharType   => wit.CharType
+        case TagWITStringType => wit.StringType
+        case TagWITListType   =>
+          wit.ListType(
+            readWITType(),
+            if (readBoolean()) Some(readInt()) else None
+          )
+        case TagWITTupleType =>
+          wit.TupleType(
+            List.fill(readInt())(readWITType())
+          )
+
+        case TagWITRecordType =>
+          wit.RecordType(
+            readClassName(),
+            List.fill(readInt())(wit.FieldType(readFieldName(), readWITType()))
+          )
+        case TagWITVariantType =>
+          wit.VariantType(
+            readClassName(),
+            List.fill(readInt()) {
+              val className = readClassName()
+              val hasTpe = readBoolean()
+              val tpe = if (hasTpe) Some(readWITType()) else None
+              wit.CaseType(className, tpe)
+            }
+          )
+        case TagWITEnumType   => ???
+        case TagWITOptionType =>
+          wit.OptionType(readWITType())
+        case TagWITResultType =>
+          val ok = if (readBoolean()) Some(readWITType()) else None
+          val err = if (readBoolean()) Some(readWITType()) else None
+          wit.ResultType(ok, err)
+        case TagWITFlagsType =>
+          val className = readClassName()
+          val numFlags = readInt()
+          wit.FlagsType(className, numFlags)
+        case TagWITResourceType => wit.ResourceType(readClassName())
+      }
+    }
+
     def readType(): Type = {
       val tag = readByte()
       (tag: @switch) match {
@@ -2604,6 +2837,8 @@ object Serializers {
         case TagExactNonNullArrayType =>
           ArrayType(readArrayTypeRef(), nullable = false, exact = true)
 
+        case TagWitResourceType => WitResourceType(readClassName())
+
         case TagClosureType | TagNonNullClosureType =>
           val paramTypes = readTypes()
           val resultType = readType()
@@ -2625,19 +2860,20 @@ object Serializers {
 
     def readTypeRef(): TypeRef = {
       readByte() match {
-        case TagVoidRef      => VoidRef
-        case TagBooleanRef   => BooleanRef
-        case TagCharRef      => CharRef
-        case TagByteRef      => ByteRef
-        case TagShortRef     => ShortRef
-        case TagIntRef       => IntRef
-        case TagLongRef      => LongRef
-        case TagFloatRef     => FloatRef
-        case TagDoubleRef    => DoubleRef
-        case TagNullRef      => NullRef
-        case TagNothingRef   => NothingRef
-        case TagClassRef     => ClassRef(readClassName())
-        case TagArrayTypeRef => readArrayTypeRef()
+        case TagVoidRef            => VoidRef
+        case TagBooleanRef         => BooleanRef
+        case TagCharRef            => CharRef
+        case TagByteRef            => ByteRef
+        case TagShortRef           => ShortRef
+        case TagIntRef             => IntRef
+        case TagLongRef            => LongRef
+        case TagFloatRef           => FloatRef
+        case TagDoubleRef          => DoubleRef
+        case TagNullRef            => NullRef
+        case TagNothingRef         => NothingRef
+        case TagClassRef           => ClassRef(readClassName())
+        case TagWitResourceTypeRef => WitResourceTypeRef(readClassName())
+        case TagArrayTypeRef       => readArrayTypeRef()
       }
     }
 
@@ -2729,6 +2965,12 @@ object Serializers {
 
     def readStrings(): List[String] =
       List.fill(readInt())(readString())
+
+    private def readFieldName(): FieldName = {
+      val className = readClassName()
+      val simpleFieldName = readSimpleFieldName()
+      makeFieldName(className, simpleFieldName)
+    }
 
     private def readLocalName(): LocalName = {
       val i = readInt()
@@ -2862,6 +3104,23 @@ object Serializers {
       }
 
       res
+    }
+
+    private def readWitFunctionName(): WitFunctionName = {
+      import WitFunctionName._
+      val tag = readByte()
+      (tag: @switch) match {
+        case TagWitFunction =>
+          Function(readString())
+        case TagWitResourceMethod =>
+          ResourceMethod(readString(), readString())
+        case TagWitResourceStaticMethod =>
+          ResourceStaticMethod(readString(), readString())
+        case TagWitResourceConstructor =>
+          ResourceConstructor(readString())
+        case TagWitResourceDrop =>
+          ResourceDrop(readString())
+      }
     }
   }
 

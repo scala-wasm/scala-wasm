@@ -45,13 +45,14 @@ import org.scalajs.logging.Logger
 import SpecialNames._
 import VarGen._
 import org.scalajs.linker.backend.javascript.ByteArrayWriter
+import _root_.org.scalajs.ir.Trees.WitExportDef
 
 final class Emitter(config: Emitter.Config) {
   import Emitter._
 
   private val coreSpec = config.coreSpec
 
-  private val loaderContent = LoaderContent.makeBytesContent(coreSpec)
+  private val WasiCliRunExportName = "wasi:cli/run@0.2.0#run"
 
   private val classEmitter = new ClassEmitter(coreSpec)
 
@@ -62,6 +63,9 @@ final class Emitter(config: Emitter.Config) {
 
   def emit(module: ModuleSet.Module, globalInfo: LinkedGlobalInfo, logger: Logger): Result = {
     val (wasmModule, jsFileContentInfo) = emitWasmModule(module, globalInfo)
+    val loaderContent =
+      if (coreSpec.moduleKind == ModuleKind.ESModule) LoaderContent.makeBytesContent(coreSpec)
+      else LoaderContent.noJSInteropBytesContent
     val jsFileContent = buildJSFileContent(module, jsFileContentInfo)
 
     new Result(wasmModule, loaderContent, jsFileContent)
@@ -71,7 +75,7 @@ final class Emitter(config: Emitter.Config) {
       globalInfo: LinkedGlobalInfo): (wamod.Module, JSFileContentInfo) = {
     // Inject the derived linked classes
     val allClasses =
-      DerivedClasses.deriveClasses(module.classDefs) ::: module.classDefs
+      DerivedClasses.deriveClasses(module.classDefs, coreSpec) ::: module.classDefs
 
     /* Sort by ancestor count so that superclasses always appear before
      * subclasses, then tie-break by name for stability.
@@ -84,7 +88,6 @@ final class Emitter(config: Emitter.Config) {
 
     val topLevelExports = module.topLevelExports
     val moduleInitializers = module.initializers.toList
-
     val coreLib = new CoreWasmLib(coreSpec, globalInfo)
 
     implicit val ctx: WasmContext =
@@ -96,7 +99,24 @@ final class Emitter(config: Emitter.Config) {
     classEmitter.genArrayClasses()
     coreLib.genPostClasses()
 
-    genStartFunction(sortedClasses, moduleInitializers, topLevelExports)
+    /* For Wasm components, `wasm-tools component new` first instantiates the
+     * core module with shim imports, then uses the instantiated core module's
+     * exports such as `memory` and `cabi_realloc` to lower the final component
+     * imports, and finally patches the shim through a fixup step. The core
+     * module's `start` function runs during core module instantiation, before
+     * that fixup is complete. Any module initializer that calls into component
+     * imports (e.g., `Bridge.start()` for tests, or user `main` methods that
+     * use imported WIT interfaces) would trap with `uninitialized element`
+     * because the fixup has not happened yet. Move all module initializers to
+     * the synthetic `wasi:cli/run` export, which executes after component
+     * instantiation is completed for WasmComponent.
+     */
+    val isWasmComponent = coreSpec.moduleKind == ModuleKind.WasmComponent
+    if (isWasmComponent && moduleInitializers.nonEmpty)
+      genSyntheticWasiCliRunExport(moduleInitializers)
+    val startModuleInitializers =
+      if (isWasmComponent) Nil else moduleInitializers
+    genStartFunction(sortedClasses, startModuleInitializers, topLevelExports)
 
     val privateJSFields = genPrivateJSFields(sortedClasses)
 
@@ -121,6 +141,38 @@ final class Emitter(config: Emitter.Config) {
     (wasmModule, jsFileContentInfo)
   }
 
+  private def genModuleInitializers(
+      fb: FunctionBuilder,
+      moduleInitializers: List[ModuleInitializer.Initializer])(
+      afterCall: => Unit)(
+      implicit ctx: WasmContext): Unit = {
+    import org.scalajs.ir.Trees.MemberNamespace
+
+    moduleInitializers.foreach { init =>
+      def genCallStatic(className: ClassName, methodName: MethodName): Unit = {
+        val funcID = genFunctionID.forMethod(MemberNamespace.PublicStatic, className, methodName)
+        fb += wa.Call(funcID)
+        afterCall
+      }
+
+      ModuleInitializerImpl.fromInitializer(init) match {
+        case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
+          val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
+          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
+            for (arg <- args) {
+              fb ++= ctx.stringPool.getConstantStringInstr(arg)
+              if (ctx.hasJSInterop)
+                fb += wa.AnyConvertExtern
+            }
+          }
+          genCallStatic(className, encodedMainMethodName)
+
+        case ModuleInitializerImpl.VoidMainMethod(className, encodedMainMethodName) =>
+          genCallStatic(className, encodedMainMethodName)
+      }
+    }
+  }
+
   private def genStartFunction(
       sortedClasses: List[LinkedClass],
       moduleInitializers: List[ModuleInitializer.Initializer],
@@ -133,8 +185,22 @@ final class Emitter(config: Emitter.Config) {
     val fb =
       new FunctionBuilder(ctx.moduleBuilder, genFunctionID.start, OriginalName("start"), pos)
 
-    // Emit the static initializers
+    val topLevelHandlerLabel: Option[wanme.LabelID] = if (coreSpec.wasmFeatures.exceptionHandling) {
+      None
+    } else {
+      val label = Some(fb.genLabel())
+      fb += wa.Block(wa.BlockType.ValueType(), label)
+      label
+    }
 
+    def genForwardThrow(): Unit = {
+      for (handlerLabel <- topLevelHandlerLabel) {
+        fb += wa.GlobalGet(genGlobalID.isThrowing)
+        fb += wa.BrIf(handlerLabel)
+      }
+    }
+
+    // Initialize the JS private field symbols
     for (clazz <- sortedClasses if clazz.hasStaticInitializer) {
       val funcID = genFunctionID.forMethod(
         MemberNamespace.StaticConstructor,
@@ -151,8 +217,10 @@ final class Emitter(config: Emitter.Config) {
       tle.tree match {
         case TopLevelJSClassExportDef(_, exportName) =>
           fb += wa.Call(genFunctionID.loadJSClass(tle.owningClass))
+          genForwardThrow()
         case TopLevelModuleExportDef(_, exportName) =>
           fb += wa.Call(genFunctionID.loadModule(tle.owningClass))
+          genForwardThrow()
         case TopLevelMethodExportDef(_, methodDef) =>
           genTopLevelExportedFun(fb, tle.exportName, methodDef)
         case TopLevelFieldExportDef(_, _, fieldIdent) =>
@@ -162,40 +230,71 @@ final class Emitter(config: Emitter.Config) {
            * opposed to the default `undefined` value of the JS `let`).
            */
           fb += wa.GlobalGet(genGlobalID.forStaticField(fieldIdent.name))
+        case _: WitExportDef =>
       }
 
-      // Call the export setter
-      fb += wa.Call(genFunctionID.forTopLevelExportSetter(tle.exportName))
+      if (!tle.tree.isWitExport) {
+        // Call the export setter
+        fb += wa.Call(genFunctionID.forTopLevelExportSetter(tle.exportName))
+      }
     }
 
     // Emit the module initializers
 
-    moduleInitializers.foreach { init =>
-      def genCallStatic(className: ClassName, methodName: MethodName): Unit = {
-        val funcID = genFunctionID.forMethod(MemberNamespace.PublicStatic, className, methodName)
-        fb += wa.Call(funcID)
-      }
+    genModuleInitializers(fb, moduleInitializers)(genForwardThrow())
 
-      ModuleInitializerImpl.fromInitializer(init) match {
-        case ModuleInitializerImpl.MainMethodWithArgs(className, encodedMainMethodName, args) =>
-          val stringArrayTypeRef = ArrayTypeRef(ClassRef(BoxedStringClass), 1)
-          SWasmGen.genArrayValue(fb, stringArrayTypeRef, args.size) {
-            for (arg <- args) {
-              fb += ctx.stringPool.getConstantStringInstr(arg)
-              fb += wa.AnyConvertExtern
-            }
-          }
-          genCallStatic(className, encodedMainMethodName)
+    // Top-level exception handler
 
-        case ModuleInitializerImpl.VoidMainMethod(className, encodedMainMethodName) =>
-          genCallStatic(className, encodedMainMethodName)
-      }
+    if (topLevelHandlerLabel.isDefined) {
+      fb += wa.Return
+      fb += wa.End
+
+      // TODO Print the toString() of the exception, if possible
+      val message = "Uncaught exception"
+      for (c <- message)
+        fb += wa.I32Const(c.toInt)
+      fb += wa.ArrayNewFixed(genTypeID.i16Array, message.length())
+
+      if (coreSpec.moduleKind == ModuleKind.WasmComponent)
+        fb += wa.Drop // TODO
+      else
+        fb += wa.Call(genFunctionID.wasmEssentials.print)
+
+      // In any case, fail the execution
+      fb += wa.Unreachable
     }
 
     // Finish the start function
 
     fb.buildAndAddToModule()
     ctx.moduleBuilder.setStart(genFunctionID.start)
+  }
+
+  private def genSyntheticWasiCliRunExport(
+      moduleInitializers: List[ModuleInitializer.Initializer])(
+      implicit ctx: WasmContext): Unit = {
+    implicit val pos = Position.NoPosition
+
+    val functionID = genFunctionID.forExport(WasiCliRunExportName)
+    val fb = new FunctionBuilder(
+      ctx.moduleBuilder,
+      functionID,
+      OriginalName(WasiCliRunExportName),
+      pos
+    )
+    fb.setResultType(watpe.Int32)
+
+    genModuleInitializers(fb, moduleInitializers)(())
+
+    fb += wa.I32Const(0)
+
+    fb.buildAndAddToModule()
+    ctx.moduleBuilder.addExport(
+      wamod.Export(
+        WasiCliRunExportName,
+        wamod.ExportDesc.Func(functionID)
+      )
+    )
   }
 
   private def genTopLevelExportedFun(fb: FunctionBuilder, exportName: String,
@@ -313,9 +412,12 @@ final class Emitter(config: Emitter.Config) {
     }
 
     // Exports
+    val jsTopLevelExports = module.topLevelExports.filterNot { t =>
+      t.tree.isWitExport
+    }
 
     val (exportDecls, exportSettersItems) = (for {
-      exportName <- module.topLevelExports.map(_.exportName)
+      exportName <- jsTopLevelExports.map(_.exportName)
     } yield {
       val ident = js.Ident(s"exported$exportName")
       val decl = js.Let(ident, mutable = true, None)
@@ -531,6 +633,21 @@ object Emitter {
       instantiateClass(ClassClass, NoArgConstructorName),
       instantiateClass(JSExceptionClass, AnyArgConstructorName),
       instantiateClass(IllegalArgumentExceptionClass, NoArgConstructorName),
+      /* In pure-Wasm mode, a failed reflective-proxy lookup throws an
+       * IllegalArgumentException with a message. See CoreWasmLib.
+       */
+      cond(
+        coreSpec.moduleKind == ModuleKind.MinimalWasmModule ||
+        coreSpec.moduleKind == ModuleKind.WasmComponent
+      ) {
+        instantiateClass(IllegalArgumentExceptionClass, StringArgConstructorName)
+      },
+
+      // Wasm Component Model
+      // instantiateClass(WasmComponentResultClass, NoArgConstructorName),
+      // instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
+      // instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
+      // instantiateClass(WasmWitVariantClass, NoArgConstructorName),
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),
@@ -538,7 +655,11 @@ object Emitter {
 
       // Implementation of Float_% and Double_%
       callStaticMethod(WasmRuntimeClass, fmodfMethodName),
-      callStaticMethod(WasmRuntimeClass, fmoddMethodName)
+      callStaticMethod(WasmRuntimeClass, fmoddMethodName),
+
+      cond(coreSpec.moduleKind != ModuleKind.ESModule) {
+        callStaticMethod(RyuDoubleClass, doubleToStringMethodName)
+      }
     )
   }
 

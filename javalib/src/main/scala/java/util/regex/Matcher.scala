@@ -18,15 +18,12 @@ import java.lang.StringBuilder
 import java.lang.Utils._
 import java.util.function.Function
 
-import scala.scalajs.js
-
-import Pattern.IndicesArray
-
 final class Matcher private[regex] (
     private var pattern0: Pattern, private var input0: String)
     extends AnyRef with MatchResult {
 
   import Matcher._
+  import Engine.engine
 
   def pattern(): Pattern = pattern0
 
@@ -37,7 +34,7 @@ final class Matcher private[regex] (
 
   // Match result (updated by successful matches)
   private var position: Int = 0 // within `inputstr`, not `input0`
-  private var lastMatch: js.RegExp.ExecResult = null
+  private var lastMatch: engine.ExecResult = null
   private var lastMatchIsForMatches = false
 
   // Append state (updated by replacement methods)
@@ -50,25 +47,25 @@ final class Matcher private[regex] (
 
     lastMatch = pattern().execMatches(inputstr)
     lastMatchIsForMatches = true
-    lastMatch ne null
+    lastMatch != null
   }
 
   def lookingAt(): Boolean = {
     resetMatch()
     find()
-    if ((lastMatch ne null) && (ensureLastMatch.index != 0))
+    if ((lastMatch != null) && (engine.getIndex(ensureLastMatch) != 0))
       resetMatch()
-    lastMatch ne null
+    lastMatch != null
   }
 
   def find(): Boolean = {
     val (mtch, end) = pattern().execFind(inputstr, position)
     position =
-      if (mtch ne null) (if (end == mtch.index) end + 1 else end)
+      if (mtch != null) (if (end == engine.getIndex(mtch)) end + 1 else end)
       else inputstr.length() + 1 // cannot find anymore
     lastMatch = mtch
     lastMatchIsForMatches = false
-    mtch ne null
+    mtch != null
   }
 
   def find(start: Int): Boolean = {
@@ -199,7 +196,7 @@ final class Matcher private[regex] (
 
   // Query state methods - implementation of MatchResult
 
-  private def ensureLastMatch: js.RegExp.ExecResult = {
+  private def ensureLastMatch: engine.ExecResult = {
     if (lastMatch == null)
       throw new IllegalStateException("No match available")
     lastMatch
@@ -207,15 +204,18 @@ final class Matcher private[regex] (
 
   def groupCount(): Int = pattern().groupCount
 
-  def start(): Int = ensureLastMatch.index + regionStart()
+  def start(): Int = engine.getIndex(ensureLastMatch) + regionStart()
   def end(): Int = start() + group().length
-  def group(): String = undefOrForceGet(ensureLastMatch(0))
+  def group(): String = engine.getGroup(ensureLastMatch, 0)
 
-  private def indices: IndicesArray =
+  private def indices: engine.IndicesArray =
     pattern().getIndices(ensureLastMatch, lastMatchIsForMatches)
 
-  private def startInternal(compiledGroup: Int): Int =
-    undefOrFold(indices(compiledGroup))(() => -1)(_._1 + regionStart())
+  private def startInternal(compiledGroup: Int): Int = {
+    val rawResult = engine.getStart(indices, compiledGroup)
+    if (rawResult < 0) rawResult
+    else rawResult + regionStart()
+  }
 
   def start(group: Int): Int =
     startInternal(pattern().numberedGroup(group))
@@ -223,8 +223,11 @@ final class Matcher private[regex] (
   def start(name: String): Int =
     startInternal(pattern().namedGroup(name))
 
-  private def endInternal(compiledGroup: Int): Int =
-    undefOrFold(indices(compiledGroup))(() => -1)(_._2 + regionStart())
+  private def endInternal(compiledGroup: Int): Int = {
+    val rawResult = engine.getEnd(indices, compiledGroup)
+    if (rawResult < 0) rawResult
+    else rawResult + regionStart()
+  }
 
   def end(group: Int): Int =
     endInternal(pattern().numberedGroup(group))
@@ -233,10 +236,10 @@ final class Matcher private[regex] (
     endInternal(pattern().namedGroup(name))
 
   def group(group: Int): String =
-    undefOrGetOrNull(ensureLastMatch(pattern().numberedGroup(group)))
+    engine.getGroup(ensureLastMatch, pattern().numberedGroup(group))
 
   def group(name: String): String =
-    undefOrGetOrNull(ensureLastMatch(pattern().namedGroup(name)))
+    engine.getGroup(ensureLastMatch, pattern().namedGroup(name))
 
   // Seal the state
 
@@ -271,6 +274,8 @@ final class Matcher private[regex] (
 }
 
 object Matcher {
+  import Engine.engine
+
   def quoteReplacement(s: String): String = {
     var result = ""
     var i = 0
@@ -285,33 +290,39 @@ object Matcher {
     result
   }
 
-  private final class SealedResult(lastMatch: js.RegExp.ExecResult,
+  private final class SealedResult(lastMatch: engine.ExecResult,
       lastMatchIsForMatches: Boolean, pattern: Pattern, regionStart: Int)
       extends MatchResult {
 
     def groupCount(): Int = pattern.groupCount
 
-    def start(): Int = ensureLastMatch.index + regionStart
+    def start(): Int = engine.getIndex(ensureLastMatch) + regionStart
     def end(): Int = start() + group().length
-    def group(): String = undefOrForceGet(ensureLastMatch(0))
+    def group(): String = engine.getGroup(ensureLastMatch, 0)
 
-    private def indices: IndicesArray =
+    private def indices: engine.IndicesArray =
       pattern.getIndices(ensureLastMatch, lastMatchIsForMatches)
 
     /* Note that MatchResult does *not* define the named versions of `group`,
      * `start` and `end`, so we don't have them here either.
      */
 
-    def start(group: Int): Int =
-      undefOrFold(indices(pattern.numberedGroup(group)))(() => -1)(_._1 + regionStart)
+    def start(group: Int): Int = {
+      val rawResult = engine.getStart(indices, pattern.numberedGroup(group))
+      if (rawResult < 0) rawResult
+      else rawResult + regionStart
+    }
 
-    def end(group: Int): Int =
-      undefOrFold(indices(pattern.numberedGroup(group)))(() => -1)(_._2 + regionStart)
+    def end(group: Int): Int = {
+      val rawResult = engine.getEnd(indices, pattern.numberedGroup(group))
+      if (rawResult < 0) rawResult
+      else rawResult + regionStart
+    }
 
     def group(group: Int): String =
-      undefOrGetOrNull(ensureLastMatch(pattern.numberedGroup(group)))
+      engine.getGroup(ensureLastMatch, pattern.numberedGroup(group))
 
-    private def ensureLastMatch: js.RegExp.ExecResult = {
+    private def ensureLastMatch: engine.ExecResult = {
       if (lastMatch == null)
         throw new IllegalStateException("No match available")
       lastMatch

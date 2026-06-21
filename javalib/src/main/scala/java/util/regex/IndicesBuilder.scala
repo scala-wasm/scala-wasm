@@ -19,7 +19,7 @@ import java.lang.Utils._
 import scala.scalajs.js
 import scala.scalajs.js.JSStringOps._
 
-import Pattern.IndicesArray
+import JSEngine.IndicesArray
 
 /** The goal of an `IndicesBuilder` is to retrieve the start and end positions
  *  of each group of a matching regular expression.
@@ -359,6 +359,8 @@ private[regex] object IndicesBuilder {
       }
     }
   }
+
+  // !!! Lots of copy-paste with WasmEngine.Parser
 
   private final class Parser(pattern0: String) {
     /* Use a null-terminated string so that we don't have to check

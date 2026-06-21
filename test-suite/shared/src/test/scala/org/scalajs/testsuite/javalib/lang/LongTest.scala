@@ -16,8 +16,10 @@ import java.lang.{Long => JLong}
 
 import org.junit.Test
 import org.junit.Assert._
+import org.junit.Assume._
 
 import org.scalajs.testsuite.utils.AssertThrows.assertThrows
+import org.scalajs.testsuite.utils.Platform.executingInPureWebAssembly
 
 /** Tests the implementation of the java standard library Long
  *  requires jsinterop/LongTest to work to make sense
@@ -253,11 +255,38 @@ class LongTest {
   }
 
   @Test def testToString(): Unit = {
-    assertEquals("2147483647", Int.MaxValue.toLong.toString)
-    assertEquals("-50", (-50L).toString)
-    assertEquals("-1000000000", (-1000000000L).toString)
-    assertEquals("2147483648", (Int.MaxValue.toLong + 1L).toString)
-    assertEquals("-2147483648", Int.MinValue.toLong.toString)
+    @noinline
+    def testNoInline(expected: String, value: Long): Unit = {
+      assertEquals(expected, JLong.toString(value))
+      assertEquals(expected, value.toString)
+      assertEquals(expected, "" + value)
+    }
+
+    @inline
+    def test(expected: String, value: Long): Unit = {
+      // These computations get constant-folded by the optimizer
+      assertEquals(expected, JLong.toString(value))
+      assertEquals(expected, value.toString)
+      assertEquals(expected, "" + value)
+
+      testNoInline(expected, value)
+    }
+
+    test("0", 0L)
+    test("-1", -1L)
+    test("1", 1L)
+    test("-50", -50L)
+    test("123456789", 123456789L)
+    test("1000000000", 1000000000L)
+    test("-1000000000", -1000000000L)
+    test("2147483647", Int.MaxValue.toLong)
+    test("2147483648", Int.MaxValue.toLong + 1L)
+    test("-2147483648", Int.MinValue.toLong)
+    test("-2147483649", Int.MinValue.toLong - 1L)
+    test("4821685469972758569", 4821685469972758569L)
+    test("-2719414741484106837", -2719414741484106837L)
+    test("-9223372036854775808", Long.MinValue)
+    test("9223372036854775807", Long.MaxValue)
 
     /* Ported from
      * https://github.com/gwtproject/gwt/blob/master/user/test/com/google/gwt/emultest/java/lang/JLongTest.java
@@ -915,7 +944,8 @@ class LongTest {
     test(581852302953L, "1000011101111001000110011000111001101001", 2)
     test(-1L, "1111111111111111111111111111111111111111111111111111111111111111", 2)
     test(-1117567308L, "1111111111111111111111111111111110111101011000110100011010110100", 2)
-    test(-10067395877878416L, "1111111111011100001110111100000110111100111000101100010101110000", 2)
+    test(
+        -10067395877878416L, "1111111111011100001110111100000110111100111000101100010101110000", 2)
     test(-3070582626L, "1111111111111111111111111111111101001000111110101010000010011110", 2)
     test(220037L, "110101101110000101", 2)
     test(-952L, "1111111111111111111111111111111111111111111111111111110001001000", 2)

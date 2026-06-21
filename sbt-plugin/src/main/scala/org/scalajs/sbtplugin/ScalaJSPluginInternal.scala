@@ -30,16 +30,20 @@ import scala.util.control.NonFatal
 
 import java.io.{InputStream, OutputStream}
 import java.util.concurrent.atomic.AtomicReference
+import java.nio.file.Files
 
 import sbt._
 import sbt.Keys._
 import sbt.complete.DefaultParsers._
 import xsbti.FileConverter
 
+import sys.process._
+
 import org.scalajs.linker.interface._
 import org.scalajs.linker.interface.unstable.IRFileImpl
 
 import org.scalajs.jsenv._
+import org.scalajs.jsenv.wasmtime.WasmtimeInput
 
 import org.scalajs.ir.IRVersionNotSupportedException
 import org.scalajs.ir.Printers.IRTreePrinter
@@ -80,6 +84,58 @@ private[sbtplugin] object ScalaJSPluginInternal {
   private[sbtplugin] def closeAllTestAdapters(): Unit =
     createdTestAdapters.getAndSet(Nil).foreach(_.close())
 
+  private object EmbeddedTestBridgeWit {
+    private final val ResourceMappings = List(
+        ("/org/scalajs/sbtplugin/internal/testbridge-wit/world.wit",
+            "world.wit"),
+        ("/org/scalajs/sbtplugin/internal/testbridge-wit/deps/scalajs-test-rpc/package.wit",
+            "deps/scalajs-test-rpc/package.wit"),
+        ("/org/scalajs/sbtplugin/internal/testbridge-wit/deps/wasi-cli-0.2.0/package.wit",
+            "deps/wasi-cli-0.2.0/package.wit")
+    )
+
+    private final val World = "test-bridge"
+
+    private lazy val syntheticWitDirectory: File = {
+      val base = new File(
+          System.getProperty("java.io.tmpdir"),
+          s"scalajs-sbtplugin-testbridge-wit-$scalaJSVersion")
+      IO.delete(base)
+
+      ResourceMappings.foreach { case (resourcePath, targetRelPath) =>
+        val target = new File(base, targetRelPath)
+        IO.createDirectory(target.getParentFile)
+        val in = getClass.getResourceAsStream(resourcePath)
+        if (in == null) {
+          throw new MessageOnlyException(
+              s"Missing embedded test-bridge WIT resource: $resourcePath")
+        }
+        try {
+          Files.copy(in, target.toPath,
+              java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+          in.close()
+        }
+      }
+
+      base
+    }
+
+    def withTestBridgeWitConfig(config: StandardConfig): StandardConfig = {
+      val wasmFeatures = config.wasmFeatures
+      if (config.moduleKind == ModuleKind.WasmComponent &&
+          wasmFeatures.witDirectory.isEmpty) {
+        config.withWasmFeatures { prev =>
+          prev
+            .withWitDirectory(Some(syntheticWitDirectory.getAbsolutePath))
+            .withWitWorld(prev.witWorld.orElse(Some(World)))
+        }
+      } else {
+        config
+      }
+    }
+  }
+
   private def enhanceIRVersionNotSupportedException[A](body: => A): A = {
     try {
       body
@@ -116,6 +172,41 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val keyStr = Scope.display(skey.scope, skey.key.label)
         throw new MessageOnlyException(
             s"failed to start $cmd; did you install it? (run `last $keyStr` for the full stack trace)")
+    }
+  }
+
+  private def checkWitBindgenAvailable(log: Logger): Unit = {
+    try {
+      // Check if wit-bindgen is installed
+      val checkCmd = Seq("wit-bindgen", "--version")
+      val exitCode = Process(checkCmd).!(ProcessLogger(_ => (), _ => ()))
+      if (exitCode != 0) {
+        throw new MessageOnlyException("wit-bindgen is installed but returned non-zero exit code")
+      }
+
+      // Check if scala subcommand is available
+      val checkScalaCmd = Seq("wit-bindgen", "scala", "--help")
+      val scalaExitCode = Process(checkScalaCmd).!(ProcessLogger(_ => (), _ => ()))
+      if (scalaExitCode != 0) {
+        throw new MessageOnlyException(
+            """wit-bindgen is installed but the 'scala' subcommand is not available.
+            |
+            |Please install the Scala-enabled version of wit-bindgen:
+            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
+            |""".stripMargin
+        )
+      }
+    } catch {
+      case e: MessageOnlyException =>
+        throw e
+      case _: java.io.IOException =>
+        throw new MessageOnlyException(
+            """wit-bindgen is not installed or not in PATH.
+            |
+            |Please install the Scala-enabled version of wit-bindgen:
+            |  cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
+            |""".stripMargin
+        )
     }
   }
 
@@ -159,7 +250,13 @@ private[sbtplugin] object ScalaJSPluginInternal {
       key / scalaJSLinkerBox := new CacheBox,
 
       legacyKey / scalaJSLinker := Def.uncached {
-        val config = (key / scalaJSLinkerConfig).value
+        val config = {
+          val baseConfig = (key / scalaJSLinkerConfig).value
+          if (configuration.value == Test)
+            EmbeddedTestBridgeWit.withTestBridgeWitConfig(baseConfig)
+          else
+            baseConfig
+        }
         val box = (key / scalaJSLinkerBox).value
         val linkerImpl = (key / scalaJSLinkerImpl).value
 
@@ -200,7 +297,14 @@ private[sbtplugin] object ScalaJSPluginInternal {
       },
 
       key / scalaJSLinkerConfigFingerprint := Def.uncached {
-        StandardConfig.fingerprint((key / scalaJSLinkerConfig).value)
+        val config = {
+          val baseConfig = (key / scalaJSLinkerConfig).value
+          if (configuration.value == Test)
+            EmbeddedTestBridgeWit.withTestBridgeWitConfig(baseConfig)
+          else
+            baseConfig
+        }
+        StandardConfig.fingerprint(config)
       },
 
       key / moduleName := (legacyKey / moduleName).value,
@@ -549,6 +653,12 @@ private[sbtplugin] object ScalaJSPluginInternal {
           case ModuleKind.NoModule       => Input.Script(path)
           case ModuleKind.ESModule       => Input.ESModule(path)
           case ModuleKind.CommonJSModule => Input.CommonJSModule(path)
+
+          case ModuleKind.MinimalWasmModule =>
+            // Pretend that we are an ES module for now
+            Input.ESModule(path)
+          case ModuleKind.WasmComponent =>
+            WasmtimeInput.WasmComponent((linkerOutputDir / s"${mainModule.moduleID}.wasm").toPath)
         }
       },
 
@@ -592,15 +702,25 @@ private[sbtplugin] object ScalaJSPluginInternal {
       },
 
       run := Def.uncached {
-        if (!scalaJSUseMainModuleInitializer.value) {
+        val linkerConfig = scalaJSLinkerConfig.value
+        val isWasmComponent = linkerConfig.moduleKind == ModuleKind.WasmComponent
+        // Currently, `run` is supported for Wasm Component when it implements `wasi:cli/run`.
+        // We might want to automatiacally implement `wasi:cli/run` that invokes
+        // `scalaJSMainModuleInitializer.value` in future?
+        if (!scalaJSUseMainModuleInitializer.value && !isWasmComponent) {
           throw new MessageOnlyException("`run` is only supported with " +
             "scalaJSUseMainModuleInitializer := true")
         }
-
         val log = streams.value.log
-        val env = jsEnv.value
+        val env = if (isWasmComponent) {
+          wasmEnv.value
+        } else {
+          jsEnv.value
+        }
 
-        val className = mainClass.value.getOrElse("<unknown class>")
+        val className =
+          if (isWasmComponent) "wasi:cli/run"
+          else mainClass.value.getOrElse("<unknown class>")
         log.info(s"Running $className.")
         log.debug(s"with JSEnv ${env.name}")
 
@@ -660,7 +780,63 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
       runMain := Def.uncached {
         throw new MessageOnlyException("`runMain` is not supported in Scala.js")
-      }
+      },
+
+      scalaJSGenerateWitBindings := Def.uncached {
+        val linkerConfig = scalaJSLinkerConfig.value
+        val witDir = scalaJSWitDirectory.value
+        val witWorld = scalaJSWitWorld.value
+        val witPackage = scalaJSWitPackage.value
+        val witBindgenWith = scalaJSWitBindgenWith.value
+        val targetDir = (Compile / sourceManaged).value / "wit-bindgen"
+        val s = streams.value
+        val log = s.log
+
+        // Only run when component model is enabled
+        if (linkerConfig.moduleKind != ModuleKind.WasmComponent) {
+          Seq.empty[File]
+        } else if (!witDir.exists()) {
+          log.debug(s"WIT directory $witDir does not exist, skipping wit-bindgen")
+          Seq.empty[File]
+        } else {
+          val witFiles = (witDir ** "*.wit").get().toSet
+
+          if (witFiles.isEmpty) {
+            log.debug(s"No WIT files found in $witDir")
+            Seq.empty[File]
+          } else {
+            checkWitBindgenAvailable(log)
+
+            val cacheDir = s.cacheDirectory / "wit-bindgen"
+            val generatedFiles = {
+              FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
+                log.info(s"Generating Scala bindings from WIT files in $witDir")
+
+                IO.createDirectory(targetDir)
+
+                val baseCmd = Seq("wit-bindgen", "scala", witDir.absolutePath, "--out-dir",
+                    targetDir.absolutePath)
+                val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
+                val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
+                val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) => Seq("--with", s"$k=$v") }
+                val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
+
+                log.info(s"Running: ${fullCmd.mkString(" ")}")
+
+                val exitCode = Process(fullCmd).!(log)
+                if (exitCode != 0) {
+                  throw new MessageOnlyException(s"wit-bindgen failed with exit code $exitCode")
+                }
+                (targetDir ** "*.scala").get().toSet
+              }(witFiles)
+            }
+
+            generatedFiles.toSeq
+          }
+        }
+      },
+
+      Compile / sourceGenerators += scalaJSGenerateWitBindings.taskValue
   )
 
   val scalaJSCompileSettings: Seq[Setting[_]] = (
@@ -672,6 +848,11 @@ private[sbtplugin] object ScalaJSPluginInternal {
        * configurations, even if it is true in the Global configuration scope.
        */
       scalaJSUseMainModuleInitializer := false,
+
+      // Embed synthetic WIT files for test-bridge when moduleKind == WasmComponent
+      scalaJSLinkerConfig ~= { prev =>
+        EmbeddedTestBridgeWit.withTestBridgeWitConfig(prev)
+      },
 
       // Use test module initializer by default.
       scalaJSUseTestModuleInitializer := true,
@@ -721,15 +902,18 @@ private[sbtplugin] object ScalaJSPluginInternal {
               s"If you want to call `$configName / test` but not have it do anything, " +
               s"set `$configName / test` := {}`.")
         }
-
         val frameworks = testFrameworks.value
-        val env = jsEnv.value
         val frameworkNames = frameworks.map(_.implClassNames.toList).toList
 
         val log = streams.value.log
         val config = TestAdapter.Config()
           .withLogger(scalaJSLoggerFactory.value(log))
           .withEnv(envVars.value)
+        val jsEnvironment = jsEnv.value
+        val wasmEnvironment = wasmEnv.value
+        val env =
+          if (scalaJSLinkerConfig.value.moduleKind == ModuleKind.WasmComponent) wasmEnvironment
+          else jsEnvironment
 
         val adapter = newTestAdapter(env, input, config)
         val frameworkAdapters = enhanceNotInstalledException(resolvedScoped.value, log) {
@@ -835,25 +1019,25 @@ private[sbtplugin] object ScalaJSPluginInternal {
                * (It will also depend on some version of scalajs-scalalib_2.13,
                * but we do not have to worry about that here.)
                */
-              "org.scala-js" % "scalajs-library_2.13" % scalaJSVersion,
-              "org.scala-js" % "scalajs-test-bridge_2.13" % scalaJSVersion % "test"
+              scalaJSOrganization % "scalajs-library_2.13" % scalaJSVersion,
+              scalaJSOrganization % "scalajs-test-bridge_2.13" % scalaJSVersion % "test"
           )
         } else {
           val scalaBinV = scalaBinaryVersion.value
           prev ++ Seq(
               compilerPlugin(
-                  PluginCompat.scalaJSFullCrossVersionLib("org.scala-js", "scalajs-compiler",
+                  PluginCompat.scalaJSFullCrossVersionLib(scalaJSOrganization, "scalajs-compiler",
                       scalaJSVersion, scalaV)),
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-library", scalaJSVersion,
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-library", scalaJSVersion,
                   scalaBinV),
               /* scalajs-library depends on some version of scalajs-scalalib,
                * but we want to make sure to bump it to be at least the one
                * of our own `scalaVersion` (which would have back-published in
                * the meantime).
                */
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-scalalib",
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-scalalib",
                   s"$scalaV+$scalaJSVersion", scalaBinV),
-              PluginCompat.scalaJSCoreLib("org.scala-js", "scalajs-test-bridge", scalaJSVersion,
+              PluginCompat.scalaJSCoreLib(scalaJSOrganization, "scalajs-test-bridge", scalaJSVersion,
                   scalaBinV) % "test"
           )
         }

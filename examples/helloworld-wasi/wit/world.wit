@@ -1,0 +1,5 @@
+package scala-wasm:helloworld;
+
+world helloworld {
+  export wasi:cli/run@0.2.0;
+}

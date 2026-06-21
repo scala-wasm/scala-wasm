@@ -13,9 +13,14 @@
 package org.scalajs.testsuite.utils
 
 import scala.scalajs.js
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
+
+import org.scalajs.testsuite.utils.{BuildInfo => ScalaJSBuildInfo}
 
 object Platform {
+
+  private val BuildInfo = ScalaJSBuildInfo.apply
 
   def scalaVersion: String = BuildInfo.scalaVersion
 
@@ -98,6 +103,10 @@ object Platform {
   def isNoModule: Boolean = BuildInfo.isNoModule
   def isESModule: Boolean = BuildInfo.isESModule
   def isCommonJSModule: Boolean = BuildInfo.isCommonJSModule
+  def isMinimalWasmModule: Boolean = BuildInfo.isMinimalWasmModule
+  def isWasmComponent: Boolean = BuildInfo.isWasmComponent
+
+  def executingInPureWebAssembly: Boolean = isMinimalWasmModule || isWasmComponent
 
   /** Runs the specified piece of code in the global context.
    *

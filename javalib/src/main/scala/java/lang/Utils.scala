@@ -95,6 +95,16 @@ private[java] object Utils {
       default.get()
   }
 
+  @inline
+  def dictGetOrElseUpdate[A](dict: js.Dictionary[A], key: String)(
+      default: Supplier[A]): A = {
+    dictGetOrElse(dict, key) { () =>
+      val value = default.get()
+      dictSet(dict, key, value)
+      value
+    }
+  }
+
   def dictGetOrElseAndRemove[A](dict: js.Dictionary[_ <: A], key: String,
       default: A): A = {
     if (dictContains(dict, key)) {

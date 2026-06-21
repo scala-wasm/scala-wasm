@@ -1,0 +1,200 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - scala-wasm
+  pull_request:
+    branches:
+      - main
+      - scala-wasm
+
+env:
+  SBT_OPTS: '-Xmx6g -Xms1g -Xss4m'
+
+jobs:
+  test-suite-js:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_13]
+        esVersion: [ES5_1, ES2015, ES2021]
+    env:
+      SBT_SET_COMMAND: 'set Seq(ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))))'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt "$SBT_SET_COMMAND" "helloworld${{ matrix.suffix }}/run"
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "testSuite${{ matrix.suffix }}/test"
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "testSuiteEx${{ matrix.suffix }}/test"
+
+  test-suite-webassembly:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+        esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
+    env:
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }}))))'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm install
+        run: npm install
+      - name: helloworld${{ matrix.suffix }}/run
+        run: sbt "$SBT_SET_COMMAND" "helloworld${{ matrix.suffix }}/run"
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "testSuite${{ matrix.suffix }}/test"
+      - name: testSuiteEx${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "testSuiteEx${{ matrix.suffix }}/test"
+
+  test-suite-pure-wasm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+        esVersion: [ES2015, ES2021] # Some javalib features depend on the target ES version
+        eh-support: [true, false]
+    env:
+      SBT_SET_COMMAND: 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withESFeatures(_.withESVersion(ESVersion.${{ matrix.esVersion }})).withModuleKind(ModuleKind.MinimalWasmModule).withWasmFeatures(_.withExceptionHandling(${{ matrix.eh-support }}))))'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm install
+        run: npm install
+      - name: helloworld-wasm${{ matrix.suffix }}/run
+        run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/run"
+      - name: helloworld-wasm${{ matrix.suffix }}/fullLinkJS
+        run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/fullLinkJS"
+      - name: helloworld-wasm${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "helloworldWasm${{ matrix.suffix }}/test"
+      - name: testSuite${{ matrix.suffix }}/test
+        run: sbt "$SBT_SET_COMMAND" "testSuite${{ matrix.suffix }}/test"
+
+  test-suite-component:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+        include:
+          - suffix: 2_12
+            scalaVersion: "2.12"
+          - suffix: 2_13
+            scalaVersion: "2.13"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm install
+        run: npm install
+      - name: Install wasm32-wasip2
+        run: rustup target add wasm32-wasip2
+      - name: Install wasmtime, wasm-tools, wac-cli, cargo-component
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasmtime,wasm-tools,wac-cli,cargo-component
+      - name: Install wit-bindgen from scala-wasm/wit-bindgen scala branch
+        run: cargo install --git https://github.com/scala-wasm/wit-bindgen --branch scala
+      - name: Build rust-exports
+        run: cargo component build --target wasm32-wasip2 -r
+        working-directory: examples/test-component-model/rust-exports
+      - name: Build rust-run
+        run: cargo component build --target wasm32-wasip2 -r
+        working-directory: examples/test-component-model/rust-run
+      - name: testSuite${{ matrix.suffix }}/test with WasmComponent
+        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
+      - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fastLinkJS
+      - name: testComponentModel${{ matrix.suffix }}/fullLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' testComponentModel${{ matrix.suffix }}/fullLinkJS
+      - name: Compose and run tests
+        run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
+        working-directory: examples/test-component-model
+
+      # echoserver test, check at least it links
+      - name: echoserver${{ matrix.suffix }}/fastLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fastLinkJS
+      - name: echoserver${{ matrix.suffix }}/fullLinkJS
+        run: sbt 'set Global/enableWasmEverywhere := true' echoserver${{ matrix.suffix }}/fullLinkJS
+      - name: testSuite${{ matrix.suffix }}/test with WasmComponent
+        run: sbt 'set Seq(Global/enableWasmEverywhere := true, ThisBuild/scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.WasmComponent)))' testSuite${{ matrix.suffix }}/test
+
+  test-suite-jvm:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suffix: [2_12, 2_13]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - name: testSuiteJVM${{ matrix.suffix }}/test
+        run: sbt "testSuiteJVM${{ matrix.suffix }}/test"
+      - name: testSuiteExJVM${{ matrix.suffix }}/test
+        run: sbt "testSuiteExJVM${{ matrix.suffix }}/test"
+
+  sbt-plugin-scripted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'sbt'
+      - uses: sbt/setup-sbt@v1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: npm install
+        run: npm install
+      - name: sbtPlugin2_12/scripted
+        run: sbt sbtPlugin2_12/scripted
+      - name: sbtPlugin3/scripted
+        run: sbt sbtPlugin3/scripted

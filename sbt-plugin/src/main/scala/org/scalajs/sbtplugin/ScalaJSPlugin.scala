@@ -33,6 +33,7 @@ import org.scalajs.linker.interface._
 
 import org.scalajs.jsenv.{Input, JSEnv}
 import org.scalajs.jsenv.nodejs.NodeJSEnv
+import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 import PluginCompat.DefOps
 
@@ -44,6 +45,8 @@ object ScalaJSPlugin extends AutoPlugin {
 
     /** The current version of the Scala.js sbt plugin and tool chain. */
     val scalaJSVersion = ScalaJSVersions.current
+
+    val scalaJSOrganization = ScalaJSVersions.organization
 
     /** Declares `Tag`s which may be used to limit the concurrency of build
      *  tasks.
@@ -206,6 +209,11 @@ object ScalaJSPlugin extends AutoPlugin {
     val scalaJSIR = TaskKey[Attributed[Seq[IRFile]]](
         "scalaJSIR", "All the *.sjsir files on the classpath", CTask)
 
+    val scalaJSGenerateWitBindings = TaskKey[Seq[File]](
+        "scalaJSGenerateWitBindings",
+        "Generate Scala bindings from WIT files using wit-bindgen",
+        CTask)
+
     val scalaJSModuleInitializers = TaskKey[Seq[ModuleInitializer]]("scalaJSModuleInitializers",
         "Module initializers of the Scala.js application, to be called when it starts.",
         AMinusTask)
@@ -238,6 +246,26 @@ object ScalaJSPlugin extends AutoPlugin {
         "An internal task used to track changes to the `scalaJSLinkerConfig` setting",
         KeyRanks.Invisible)
 
+    val scalaJSWitDirectory = SettingKey[File](
+        "scalaJSWitDirectory",
+        "Directory containing WIT files for component model builds",
+        CSetting)
+
+    val scalaJSWitWorld = SettingKey[Option[String]](
+        "scalaJSWitWorld",
+        "World name to use for component model embedding (default: None, auto-detect)",
+        CSetting)
+
+    val scalaJSWitPackage = SettingKey[Option[String]](
+        "scalaJSWitPackage",
+        "Base package name for generated Scala bindings from WIT files (default: None)",
+        CSetting)
+
+    val scalaJSWitBindgenWith = SettingKey[Map[String, String]](
+        "scalaJSWitBindgenWith",
+        "Mappings for --with option of wit-bindgen to re-use pre-generated bindings (e.g. \"wasi:io\" -> \"scala.scalajs.wasi.io\")",
+        CSetting)
+
     val scalaJSStage = SettingKey[Stage]("scalaJSStage",
         "The optimization stage at which run and test are executed", APlusSetting)
 
@@ -251,6 +279,10 @@ object ScalaJSPlugin extends AutoPlugin {
 
     val jsEnv = TaskKey[JSEnv]("jsEnv",
         "The JavaScript environment in which to run and test Scala.js applications.",
+        AMinusTask)
+
+    val wasmEnv = TaskKey[JSEnv]("wasmEnv",
+        "The WebAssembly environment in which to run no-JS Wasm Scala.js applications.",
         AMinusTask)
 
     /** All Scala.js class names on the fullClasspath, used by scalajsp. */
@@ -311,6 +343,19 @@ object ScalaJSPlugin extends AutoPlugin {
 
         scalaJSLinkerConfig := StandardConfig(),
 
+        scalaJSWitDirectory := file("wit"),
+        scalaJSWitWorld := None,
+        scalaJSWitPackage := None,
+        scalaJSWitBindgenWith := Map(
+            "wasi:io" -> "scala.scalajs.wasi.io",
+            "wasi:cli" -> "scala.scalajs.wasi.cli",
+            "wasi:clocks" -> "scala.scalajs.wasi.clocks",
+            "wasi:random" -> "scala.scalajs.wasi.random",
+            "wasi:filesystem" -> "scala.scalajs.wasi.filesystem",
+            "wasi:sockets" -> "scala.scalajs.wasi.sockets",
+            "wasi:http" -> "scala.scalajs.wasi.http"
+        ),
+
         scalaJSLinkerImpl / dependencyResolution := Def.uncached {
           val log = streams.value.log
 
@@ -349,7 +394,7 @@ object ScalaJSPlugin extends AutoPlugin {
           val retrieveDir = s.cacheDirectory / "scalajs-linker" / scalaJSVersion
           val lm = (scalaJSLinkerImpl / dependencyResolution).value
           lm.retrieve(
-              "org.scala-js" % ("scalajs-linker" + PluginCompat.linkerScalaSuffix) % scalaJSVersion,
+              scalaJSOrganization % ("scalajs-linker" + PluginCompat.linkerScalaSuffix) % scalaJSVersion,
               scalaModuleInfo = None, retrieveDir, log)
             .fold(w => throw w.resolveException, files => PluginCompat.toAttributedFiles(files.toSeq))
         },
@@ -375,6 +420,18 @@ object ScalaJSPlugin extends AutoPlugin {
 
         jsEnv := Def.uncached {
           new NodeJSEnv()
+        },
+
+        wasmEnv := Def.uncached {
+          val configuredEnvVars = envVars.value
+          val config = WasmtimeEnv.Config()
+            .withArgs(List(
+                "run",
+                "-W", "gc,function-references,exceptions",
+                "-S", "cli,inherit-env,inherit-network,tcp"
+            ))
+            .withEnv(configuredEnvVars)
+          new WasmtimeEnv(config)
         },
 
         scalaJSLoggerFactory := ((logger: Logger) => Loggers.sbtLogger2ToolsLogger(logger)),

@@ -22,6 +22,7 @@ import org.scalajs.linker.standard.CoreSpec
 final class LinkTimeProperties private (
     semantics: Semantics,
     esFeatures: ESFeatures,
+    wasmFeatures: WasmFeatures,
     moduleKindInt: Int,
     targetIsWebAssembly: Boolean
 ) {
@@ -56,12 +57,14 @@ object LinkTimeProperties {
     // These magic constants are mandated by the values in `scala.scalajs.LinkingInfo.ModuleKind`.
     import org.scalajs.linker.interface.ModuleKind._
     val moduleKindInt = coreSpec.moduleKind match {
-      case NoModule       => 1
-      case ESModule       => 2
-      case CommonJSModule => 3
+      case NoModule          => 1
+      case ESModule          => 2
+      case CommonJSModule    => 3
+      case MinimalWasmModule => 4
+      case WasmComponent     => 5
     }
 
     new LinkTimeProperties(coreSpec.semantics, coreSpec.esFeatures,
-        moduleKindInt, coreSpec.targetIsWebAssembly)
+        coreSpec.wasmFeatures, moduleKindInt, coreSpec.targetIsWebAssembly)
   }
 }

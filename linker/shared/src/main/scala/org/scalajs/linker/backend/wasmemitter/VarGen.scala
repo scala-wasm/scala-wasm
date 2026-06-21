@@ -18,6 +18,7 @@ import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker.backend.webassembly.Identitities._
+import org.scalajs.ir.Trees.WitFunctionName
 
 /** Manages generation of non-local IDs.
  *
@@ -56,6 +57,19 @@ object VarGen {
     case object bZeroLong extends GlobalID
     case object lastIDHashCode extends GlobalID
 
+    // Wasm-only, without JS interop
+    case object stringLiteralCache extends GlobalID
+    case object bZeroBoolean extends GlobalID
+    case object bZeroInteger extends GlobalID
+    case object bZeroFloat extends GlobalID
+    case object bZeroDouble extends GlobalID
+    case object emptyStringArray extends GlobalID
+    case object thrownException extends GlobalID
+    case object isThrowing extends GlobalID
+    // component model
+    case object stackPointer extends GlobalID
+    case object savedStackPointer extends GlobalID
+
     /** A `GlobalID` for a JS helper global.
      *
      *  Its `toString()` is guaranteed to correspond to the import name of the helper.
@@ -66,6 +80,7 @@ object VarGen {
     case object bFalse extends JSHelperGlobalID
     case object bTrue extends JSHelperGlobalID
     case object idHashCodeMap extends JSHelperGlobalID
+
   }
 
   object genFunctionID {
@@ -110,6 +125,29 @@ object VarGen {
     final case class postSuperStats(className: ClassName) extends FunctionID
 
     case object start extends FunctionID
+
+    final case class forComponentFunction(module: String,
+        name: WitFunctionName)
+        extends FunctionID
+
+    final case object f32Fmod extends FunctionID
+    final case object f64Fmod extends FunctionID
+    final case object itoa extends FunctionID
+    final case object ltoa extends FunctionID
+    final case object hijackedValueToString extends FunctionID
+    final case object stringLiteral extends FunctionID
+
+    final case object malloc extends FunctionID
+    final case object realloc extends FunctionID
+    // CanonicalABI
+    final case object cabiLoadString extends FunctionID
+    final case object cabiStoreString extends FunctionID
+    // print
+    final case object wasiCliGetStdout extends FunctionID
+    final case object blockingWriteAndFlush extends FunctionID
+    final case object dropOutputStream extends FunctionID
+    final case object printlnInt extends FunctionID
+    final case object dumpMemory extends FunctionID
 
     // JS helpers
 
@@ -225,6 +263,47 @@ object VarGen {
       case object substring extends JSHelperFunctionID
       case object equals extends JSHelperFunctionID
     }
+
+    // Wasm-only, without JS interop
+    object wasmString {
+      // case object stringFromCharCode extends FunctionID
+      case object stringConcat extends FunctionID
+      case object stringEquals extends FunctionID
+
+      /** Mutate the given `ref $wasmString` to have all concatenated characters in the `chars` field.
+       *
+       *  This function traverses the chain of concatenated strings (linked via `left'),
+       *  copies the characters from each part into a reassigned i16 array.
+       *  This mutates the `chars' field of the given string to the newly created i16Array,
+       *  and also mutates `left' to null.
+       */
+      case object collapseString extends FunctionID
+
+      /** Returns a full character array of the concatenated strings (by calling `collapseString`) */
+      case object getWholeChars extends FunctionID
+
+      /** Returns a charCode at the given index (calling `collapseString`) */
+      case object charCodeAt extends FunctionID
+    }
+
+    case object scalaValueType extends FunctionID
+
+    // Wasm essentials
+
+    object wasmEssentials {
+      // Extend JSHelperFunctionID although these have nothing to do with JS
+      case object print extends JSHelperFunctionID
+      case object nanoTime extends JSHelperFunctionID
+      case object currentTimeMillis extends JSHelperFunctionID
+      case object random extends JSHelperFunctionID
+
+      object scalajsCom {
+        case object send extends JSHelperFunctionID
+        case object init extends JSHelperFunctionID
+      }
+
+      final case object handleMessage extends FunctionID
+    }
   }
 
   object genFieldID {
@@ -235,6 +314,7 @@ object VarGen {
     object objStruct {
       case object vtable extends FieldID
       case object arrayUnderlying extends FieldID
+      case object idHashCode extends FieldID // pure Wasm
     }
 
     object reflectiveProxy {
@@ -346,6 +426,19 @@ object VarGen {
        *  See `genSearchReflectivePRoxy` in `HelperFunctions`
        */
       case object reflectiveProxies extends FieldID
+
+      /** The name data as the 3 arguments to `stringLiteral` (only without JS interop).
+       *
+       *  It is only meaningful for primitives and for classes. For array types, they are all 0, as
+       *  array types compute their `name` from the `name` of their component type.
+       */
+      case object nameOffset extends FieldID
+
+      /** See `nameOffset`. */
+      case object nameSize extends FieldID
+
+      /** See `nameOffset`. */
+      case object nameStringIndex extends FieldID
     }
 
     /** Extension of `typeData` for vtables, starting with `jl.Object`. */
@@ -364,10 +457,45 @@ object VarGen {
       /** The `fun` field of a typed closure struct. */
       case object fun extends FieldID
     }
+
+    // Wasm-only, without JS interop
+    object wasmString {
+
+      /** Internal i16Array storage for the characters of the string.
+       *
+       *  For concatenation optimizations, this array may initially contain
+       *  the characters of the *right* segment of a concatenated string.
+       *  And the left segments of the concatenated string are stored in the `left' field.
+       *  The full sequence of characters from all segments is only stored here when
+       *  we call the `wasmString.collapseString' operation, which collects all the characters.
+       *  For string literals or after collapsing, this will hold the full string.
+       */
+      case object chars extends FieldID
+
+      /** The total number of characters.
+       *
+       *  This number is the sum of the direct characters of this string in `chars'
+       *  and those in the preceding strings linked by `left'.
+       */
+      case object length extends FieldID
+
+      /** Link to the left string `A` in a concatenation of `A + B`.
+       *
+       *  This allows to defer the full character array allocation,
+       *  for concatenating strings.
+       *  Initially, only the characters of the right operand (`B`) are stored in S's `chars',
+       *  and the left operand is stored in this property as a reference.
+       */
+      case object left extends FieldID
+    }
+
+    /** Resource handle for Component Model resource type. */
+    final case object handle extends FieldID
   }
 
   object genTypeID {
     final case class forClass(className: ClassName) extends TypeID
+    final case class forResourceClass(className: ClassName) extends TypeID
     final case class captureData(index: Int) extends TypeID
     final case class forVTable(className: ClassName) extends TypeID
     final case class forITable(className: ClassName) extends TypeID
@@ -417,6 +545,8 @@ object VarGen {
 
     case object typeDataArray extends TypeID
     case object reflectiveProxies extends TypeID
+    case object undefined extends TypeID // Wasm-only, without JS interop
+    case object wasmString extends TypeID // Wasm-only, without JS interop
 
     // primitive array types, underlying the Array[T] classes
     case object i8Array extends TypeID
@@ -457,9 +587,15 @@ object VarGen {
   }
 
   object genDataID {
+    // target pure Wasm
+    case object string extends DataID
 
     /** Data segment for constant arrays whose elements take 2^log2ByteSize bytes. */
     final case class constantArrays(log2ByteSize: Int) extends DataID
   }
 
+  object genMemoryID {
+    // target pure Wasm
+    case object memory extends MemoryID
+  }
 }

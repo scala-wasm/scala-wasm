@@ -14,11 +14,15 @@ package java.util
 
 import scala.annotation.switch
 import scala.scalajs.js
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 import java.lang.{Double => JDouble}
 import java.lang.Utils._
 import java.io._
 import java.math.{BigDecimal, BigInteger}
+import java.util.regex.RegExpImpl
 
 final class Formatter private (private[this] var dest: Appendable,
     formatterLocaleInfo: Formatter.LocaleInfo)
@@ -64,27 +68,31 @@ final class Formatter private (private[this] var dest: Appendable,
     if (dest eq null)
       stringOutput += s
     else
-      sendToDestSlowPath(js.Array(s))
+      sendToDestSlowPath(Array(s))
   }
 
   private def sendToDest(s1: String, s2: String): Unit = {
     if (dest eq null)
       stringOutput += s1 + s2
     else
-      sendToDestSlowPath(js.Array(s1, s2))
+      sendToDestSlowPath(Array(s1, s2))
   }
 
   private def sendToDest(s1: String, s2: String, s3: String): Unit = {
     if (dest eq null)
       stringOutput += s1 + s2 + s3
     else
-      sendToDestSlowPath(js.Array(s1, s2, s3))
+      sendToDestSlowPath(Array(s1, s2, s3))
   }
 
   @noinline
-  private def sendToDestSlowPath(ss: js.Array[String]): Unit = {
+  private def sendToDestSlowPath(ss: Array[String]): Unit = {
     trapIOExceptions { () =>
-      forArrayElems(ss)(dest.append(_))
+      var i = 0
+      while (i < ss.length) {
+        dest.append(ss(i))
+        i += 1
+      }
     }
   }
 
@@ -145,11 +153,12 @@ final class Formatter private (private[this] var dest: Appendable,
       // Parse the format specifier
 
       val formatSpecifierIndex = nextPercentIndex + 1
-      val re = FormatSpecifier
-      re.lastIndex = formatSpecifierIndex
-      val execResult = re.exec(format)
 
-      if (execResult == null || execResult.index != formatSpecifierIndex) {
+      import RegExpImpl.impl
+      val re = FormatSpecifier
+      val execResult = impl.execFrom(re, format, formatSpecifierIndex)
+
+      if (execResult == null || impl.matchStart(execResult) != formatSpecifierIndex) {
         /* Could not parse a valid format specifier. The reported unknown
          * conversion is the character directly following the '%', or '%'
          * itself if this is a trailing '%'. This mimics the behavior of the
@@ -161,10 +170,10 @@ final class Formatter private (private[this] var dest: Appendable,
         throwUnknownFormatConversionException(conversion)
       }
 
-      fmtIndex = re.lastIndex // position at the end of the match
+      fmtIndex = impl.matchEnd(re, execResult) // position at the end of the match
 
       // For error reporting
-      def fullFormatSpecifier: String = "%" + execResult(0)
+      val fullFormatSpecifier: String = "%" + impl.get(execResult, 0)
 
       /* Extract values from the match result
        *
@@ -172,9 +181,9 @@ final class Formatter private (private[this] var dest: Appendable,
        */
 
       val conversion = format.charAt(fmtIndex - 1)
-      val flags = parseFlags(execResult(2).asInstanceOf[String], conversion)
-      val width = parsePositiveInt(execResult(3))
-      val precision = parsePositiveInt(execResult(4))
+      val flags = parseFlags(impl.getOrElse(execResult, 2, ""), conversion)
+      val width = parsePositiveInt(impl.getOrElse(execResult, 3, ""))
+      val precision = parsePositiveInt(impl.getOrElse(execResult, 4, ""))
 
       if (width == -2)
         throwIllegalFormatWidthException(Int.MinValue) // Int.MinValue mimics the JVM
@@ -259,7 +268,7 @@ final class Formatter private (private[this] var dest: Appendable,
           // Explicitly use the last index
           lastArgIndex
         } else {
-          val i = parsePositiveInt(execResult(1))
+          val i = parsePositiveInt(impl.getOrElse(execResult, 1, ""))
           if (i == -1) {
             // No explicit index
             lastImplicitArgIndex += 1
@@ -331,18 +340,18 @@ final class Formatter private (private[this] var dest: Appendable,
 
   /** Parses an optional integer argument.
    *
-   *  Returns -1 if it was not specified, and -2 if it was out of the
+   *  Returns -1 if it was not specified (empty), and -2 if it was out of the
    *  Int range.
    */
-  private def parsePositiveInt(capture: js.UndefOr[String]): Int = {
-    undefOrFold(capture) { () =>
+  private def parsePositiveInt(s: String): Int = {
+    if (s.isEmpty) {
       -1
-    } { s =>
-      val x = js.Dynamic.global.parseInt(s, 10).asInstanceOf[Double]
-      if (x <= Int.MaxValue)
-        x.toInt
-      else
-        -2
+    } else {
+      try {
+        java.lang.Integer.parseInt(s)
+      } catch {
+        case _: NumberFormatException => -2
+      }
     }
   }
 
@@ -969,8 +978,10 @@ final class Formatter private (private[this] var dest: Appendable,
 
 object Formatter {
 
-  private val FormatSpecifier = new js.RegExp(
-      """(?:(\d+)\$)?([-#+ 0,\(<]*)(\d+)?(?:\.(\d+))?[%A-Za-z]""", "g")
+  private val FormatSpecifier = {
+    RegExpImpl.impl.compile(
+        """(?:(\d+)\$)?([-#+ 0,\(<]*)(\d+)?(?:\.(\d+))?[%A-Za-z]""", true)
+  }
 
   private def strOfZeros(count: Int): String = {
     val twentyZeros = "00000000000000000000"
@@ -1094,9 +1105,17 @@ object Formatter {
       val s = JDouble.toString(if (negative) -x else x)
 
       val ePos = s.indexOf('e')
-      val e =
-        if (ePos < 0) 0
-        else js.Dynamic.global.parseInt(s.substring(ePos + 1)).asInstanceOf[Int]
+      val e = {
+        if (ePos < 0) {
+          0
+        } else {
+          LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+            java.lang.Integer.parseInt(s.substring(ePos + 1))
+          } {
+            js.Dynamic.global.parseInt(s.substring(ePos + 1)).asInstanceOf[Int]
+          }
+        }
+      }
       val significandEnd = if (ePos < 0) s.length() else ePos
 
       val dotPos = s.indexOf('.')

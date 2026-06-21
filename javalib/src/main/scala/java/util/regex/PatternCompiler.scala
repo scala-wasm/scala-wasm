@@ -29,9 +29,9 @@ import java.lang.Utils._
 import java.util.ScalaOps._
 
 import scala.scalajs.js
-import scala.scalajs.js.JSStringOps.enableJSStringOps
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 /** Compiler from Java regular expressions to JavaScript regular expressions.
  *
@@ -44,42 +44,21 @@ import scala.scalajs.LinkingInfo.ESVersion
  */
 private[regex] object PatternCompiler {
   import Pattern._
+  import Engine.engine
 
   def compile(regex: String, flags: Int): Pattern =
     new PatternCompiler(regex, flags).compile()
 
-  /** RegExp to match leading embedded flag specifiers in a pattern.
+  /** RegExp to renumber backreferences (used for possessive quantifiers).
    *
-   *  E.g. (?u), (?-i), (?U-i)
+   *  Lazy because we cannot link it under Wasm without JS interop.
    */
-  private val leadingEmbeddedFlagSpecifierRegExp =
-    new js.RegExp("^\\(\\?([idmsuxU]*)(?:-([idmsuxU]*))?\\)")
-
-  /** RegExp to renumber backreferences (used for possessive quantifiers). */
-  private val renumberingRegExp =
+  private lazy val renumberingRegExp =
     new js.RegExp("(\\\\+)(\\d+)", "g")
 
-  /** Returns the flag that corresponds to an embedded flag specifier. */
-  private def charToFlag(c: Char): Int = (c: @switch) match {
-    case 'i' => CASE_INSENSITIVE
-    case 'd' => UNIX_LINES
-    case 'm' => MULTILINE
-    case 's' => DOTALL
-    case 'u' => UNICODE_CASE
-    case 'x' => COMMENTS
-    case 'U' => UNICODE_CHARACTER_CLASS
-    case _   => throw new IllegalArgumentException("bad in-pattern flag")
-  }
-
-  private def featureTest(flags: String): Boolean = {
-    try {
-      new js.RegExp("", flags)
-      true
-    } catch {
-      case _: Throwable =>
-        false
-    }
-  }
+  @noinline
+  private def featureTest(flags: String): Boolean =
+    engine.featureTest(flags)
 
   /** Cache for `Support.supportsUnicode`. */
   private val _supportsUnicode =
@@ -211,22 +190,33 @@ private[regex] object PatternCompiler {
     @inline def isHexDigit(c: Char): Boolean =
       isDigit(c) || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')
 
-    @inline def parseInt(s: String, radix: Int): Int =
-      js.Dynamic.global.parseInt(s, radix).asInstanceOf[Int]
+    @inline def parseInt(s: String, radix: Int): Int = {
+      LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+        Integer.parseInt(s, radix)
+      } {
+        js.Dynamic.global.parseInt(s, radix).asInstanceOf[Int]
+      }
+    }
   }
 
   import InlinedHelpers._
 
   private def codePointToString(codePoint: Int): String = {
-    if (LinkingInfo.esVersion >= ESVersion.ES2015) {
-      js.Dynamic.global.String.fromCodePoint(codePoint).asInstanceOf[String]
-    } else {
-      if (isBmpCodePoint(codePoint)) {
-        js.Dynamic.global.String.fromCharCode(codePoint).asInstanceOf[String]
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+      // Benefit from the intrinsified method, even though it does a range check
+      Character.toString(codePoint)
+    } {
+      // Avoid the range check by rolling our own
+      if (LinkingInfo.esVersion >= ESVersion.ES2015) {
+        js.Dynamic.global.String.fromCodePoint(codePoint).asInstanceOf[String]
       } else {
-        js.Dynamic.global.String
-          .fromCharCode(highSurrogate(codePoint).toInt, lowSurrogate(codePoint).toInt)
-          .asInstanceOf[String]
+        if (isBmpCodePoint(codePoint)) {
+          js.Dynamic.global.String.fromCharCode(codePoint).asInstanceOf[String]
+        } else {
+          js.Dynamic.global.String
+            .fromCharCode(highSurrogate(codePoint).toInt, lowSurrogate(codePoint).toInt)
+            .asInstanceOf[String]
+        }
       }
     }
   }
@@ -290,14 +280,12 @@ private[regex] object PatternCompiler {
 
   /** Mapping from POSIX character class to the character set to use when
    *  `UNICODE_CHARACTER_CLASSES` is *not* set.
-   *
-   *  This is a `js.Dictionary` because it can be used even when compiling to
-   *  ECMAScript 5.1.
    */
-  private val asciiPOSIXCharacterClasses: js.Dictionary[CompiledCharClass] = {
+  private val asciiPOSIXCharacterClasses: engine.Dictionary[CompiledCharClass] = {
     import CompiledCharClass._
 
-    val r = dictEmpty[CompiledCharClass]()
+    val r = engine.dictEmpty[CompiledCharClass]()
+    import engine.dictSet
     dictSet(r, "Lower", posClass("a-z"))
     dictSet(r, "Upper", posClass("A-Z"))
     dictSet(r, "ASCII", posClass("\u0000-\u007f"))
@@ -319,19 +307,17 @@ private[regex] object PatternCompiler {
    *
    *  Mappings that also exist in `asciiPOSIXCharacterClasses` must be
    *  preferred when `UNICODE_CHARACTER_CLASSES` is not set.
-   *
-   *  This is a `js.Map` (and a lazy val) because it is only used when `\\p` is
-   *  already known to be supported by the underlying `js.RegExp` (ES 2018),
-   *  and we assume that that implies that `js.Map` is supported (ES 2015).
    */
-  private lazy val predefinedPCharacterClasses: js.Map[String, CompiledCharClass] = {
+  private lazy val predefinedPCharacterClasses: engine.Dictionary[CompiledCharClass] = {
     import CompiledCharClass._
 
-    val result = new js.Map[String, CompiledCharClass]()
+    val result = engine.dictEmpty[CompiledCharClass]()
+
+    import engine.{dictSet => mapSet} // historical
 
     // General categories
 
-    val generalCategories = js.Array(
+    val generalCategories = Array(
         "Lu", "Ll", "Lt", "LC", "Lm", "Lo", "L",
         "Mn", "Mc", "Me", "M",
         "Nd", "Nl", "No", "N",
@@ -341,7 +327,8 @@ private[regex] object PatternCompiler {
         "Cc", "Cf", "Cs", "Co", "Cn", "C"
     )
 
-    forArrayElems(generalCategories) { gc =>
+    for (i <- 0 until generalCategories.length) {
+      val gc = generalCategories(i)
       val compiled = posP(gc)
       mapSet(result, gc, compiled)
       mapSet(result, "Is" + gc, compiled)
@@ -357,7 +344,7 @@ private[regex] object PatternCompiler {
     mapSet(result, "IsLowercase", posP("Lowercase"))
     mapSet(result, "IsUppercase", posP("Uppercase"))
     mapSet(result, "IsTitlecase", posP("Lt"))
-    mapSet(result, "IsPunctuation", posP("Punctuation"))
+    mapSet(result, "IsPunctuation", posP("P"))
     mapSet(result, "IsControl", posP("Control"))
     mapSet(result, "IsWhite_Space", posP("White_Space"))
     mapSet(result, "IsDigit", posP("Nd"))
@@ -396,12 +383,12 @@ private[regex] object PatternCompiler {
      * (resolved from the original definitions, which are in comments)
      */
 
-    mapSet(result, "Lower", posP("Lower")) // \p{IsLowercase}
-    mapSet(result, "Upper", posP("Upper")) // \p{IsUppercase}
+    mapSet(result, "Lower", posP("Lowercase")) // \p{IsLowercase}
+    mapSet(result, "Upper", posP("Uppercase")) // \p{IsUppercase}
     mapSet(result, "ASCII", posClass("\u0000-\u007f"))
-    mapSet(result, "Alpha", posP("Alpha")) // \p{IsAlphabetic}
+    mapSet(result, "Alpha", posP("Alphabetic")) // \p{IsAlphabetic}
     mapSet(result, "Digit", posP("Nd")) // \p{IsDigit}
-    mapSet(result, "Alnum", posClass("\\p{Alpha}\\p{Nd}")) // [\p{IsAlphabetic}\p{IsDigit}]
+    mapSet(result, "Alnum", posClass("\\p{Alphabetic}\\p{Nd}")) // [\p{IsAlphabetic}\p{IsDigit}]
     mapSet(result, "Punct", posP("P")) // \p{IsPunctuation}
 
     // [^\p{IsWhite_Space}\p{gc=Cc}\p{gc=Cs}\p{gc=Cn}]
@@ -436,7 +423,7 @@ private[regex] object PatternCompiler {
     mapSet(result, "Blank", posClass("\t\\p{Zs}"))
 
     mapSet(result, "Cntrl", posP("Cc")) // \p{gc=Cc}
-    mapSet(result, "XDigit", posClass("\\p{Nd}\\p{Hex}")) // [\p{gc=Nd}\p{IsHex_Digit}]
+    mapSet(result, "XDigit", posClass("\\p{Nd}\\p{Hex_Digit}")) // [\p{gc=Nd}\p{IsHex_Digit}]
     mapSet(result, "Space", posP("White_Space")) // \p{IsWhite_Space}
 
     result
@@ -468,21 +455,21 @@ private[regex] object PatternCompiler {
    * version of Unicode invalidates that assumption.
    */
 
-  private val scriptCanonicalizeRegExp = new js.RegExp("(?:^|_)[a-z]", "g")
-
-  /** A cache for verified and canonicalized script names.
+  /** A cache for verified canonicalized script names.
    *
-   *  This is a `js.Map` (and a lazy val) because it is only used when `\\p` is
-   *  already known to be supported by the underlying `js.RegExp` (ES 2018),
-   *  and we assume that that implies that `js.Map` is supported (ES 2015).
+   *  Normally, the values are all the same as the corresponding keys. The only
+   *  exception is the pair `"Signwriting" -> "SignWriting"`. That script name
+   *  has an uppercase 'W' even though it is not after '_'. Installing it that
+   *  way in the dictionary allows the canonicalizing logic not to know about
+   *  it.
    */
-  private lazy val canonicalizedScriptNameCache: js.Map[String, String] = {
-    val result = new js.Map[String, String]()
+  private lazy val canonicalizedScriptNameCache: engine.Dictionary[String] = {
+    val result = engine.dictEmpty[String]()
 
     /* SignWriting is an exception. It has an uppercase 'W' even though it is
      * not after '_'. We add the exception to the map immediately.
      */
-    mapSet(result, "signwriting", "SignWriting")
+    engine.dictSet(result, "Signwriting", "SignWriting")
 
     result
   }
@@ -726,6 +713,8 @@ private final class PatternCompiler(private val pattern: String, private var fla
   import PatternCompiler.InlinedHelpers._
   import Pattern._
 
+  import Engine.engine
+
   /** Whether the result `Pattern` must be sticky. */
   private var sticky: Boolean = false
 
@@ -742,22 +731,21 @@ private final class PatternCompiler(private val pattern: String, private var fla
   /** Map from original group number to compiled group number.
    *
    *  It contains a mapping for the entire match, which is group 0.
+   *  That particular element is never explicitly initialized; it is already
+   *  set to 0 by `new Array`.
    */
-  private val groupNumberMap = js.Array[Int](0)
+  private val groupNumberMap: Array[Int] =
+    new Array[Int](1 + (pattern.length() >>> 1)) // at worst, the pattern is "()()()...()"
 
-  /** The number of capturing groups found so far in the original pattern.
-   *
-   *  This is `groupNumberMap.length - 1`, because `groupNumberMap` contains
-   *  the mapping for the entire match, which is group 0.
-   */
-  @inline private def originalGroupCount = groupNumberMap.length - 1
+  /** The number of capturing groups found so far in the original pattern. */
+  private var originalGroupCount = 0
 
   /** Map from group name to original group number.
    *
    *  We store *original* group numbers, rather than compiled group numbers,
    *  in order to make the renumbering caused by possessive quantifiers easier.
    */
-  private val namedGroups = dictEmpty[Int]()
+  private val namedGroups: engine.Dictionary[Int] = engine.dictEmpty()
 
   @inline private def hasFlag(flag: Int): Boolean = (flags & flag) != 0
 
@@ -821,7 +809,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
     val jsPattern = if (isLiteral) {
       literal(pattern)
     } else {
-      if (pattern.jsSubstring(pIndex, pIndex + 2) == "\\G") {
+      if (pattern.startsWith("\\G", pIndex)) {
         sticky = true
         pIndex += 2
       }
@@ -842,7 +830,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
     }
 
     new Pattern(pattern, flags, jsPattern, jsFlags, sticky, originalGroupCount,
-        groupNumberMap, namedGroups)
+        java.util.Arrays.copyOf(groupNumberMap, 1 + originalGroupCount), namedGroups)
   }
 
   private def parseError(desc: String): Nothing =
@@ -864,20 +852,36 @@ private final class PatternCompiler(private val pattern: String, private var fla
   }
 
   private def processLeadingEmbeddedFlags(): Unit = {
-    val m = leadingEmbeddedFlagSpecifierRegExp.exec(pattern)
-    if (m != null) {
-      undefOrForeach(m(1)) { chars =>
-        for (i <- 0 until chars.length())
-          flags |= charToFlag(chars.charAt(i))
+    // E.g. (?u), (?-i), (?U-i), (?ux-)
+
+    val pattern = this.pattern // local copy
+    val len = pattern.length()
+
+    // Note: pIndex is 0 upon entry in this method, by construction
+
+    val savedFlags = flags
+
+    if (len >= 4 && pattern.startsWith("(?") &&
+        (isLetter(pattern.charAt(2)) || pattern.charAt(2) == '-')) {
+      pIndex = 2
+
+      // Positive flags
+      while (pIndex != len && isLetter(pattern.charAt(pIndex))) {
+        flags |= charToFlag(pattern.charAt(pIndex))
+        pIndex += 1
       }
 
       // If U was in the flags, we need to enable UNICODE_CASE as well
       if (hasFlag(UNICODE_CHARACTER_CLASS))
         flags |= UNICODE_CASE
 
-      undefOrForeach(m(2)) { chars =>
-        for (i <- 0 until chars.length())
-          flags &= ~charToFlag(chars.charAt(i))
+      // Negative flags
+      if (pIndex != len && pattern.charAt(pIndex) == '-') {
+        pIndex += 1
+        while (pIndex != len && isLetter(pattern.charAt(pIndex))) {
+          flags &= ~charToFlag(pattern.charAt(pIndex))
+          pIndex += 1
+        }
       }
 
       /* The way things are done here, it is possible to *remove*
@@ -887,9 +891,31 @@ private final class PatternCompiler(private val pattern: String, private var fla
        * `RegexPatternTest.flags()`.
        */
 
-      // Advance past the embedded flags
-      pIndex += undefOrForceGet(m(0)).length()
+      if (pIndex != len && pattern.charAt(pIndex) == ':') {
+        /* It turns out this is a non-capturing group with specific flags,
+         * which is not supported. Roll back as if nothing had happened, to get
+         * the correct error message later on.
+         */
+        pIndex = 0
+        flags = savedFlags
+      } else {
+        if (pIndex == len || pattern.charAt(pIndex) != ')')
+          parseError("Unclosed embedded flag group")
+        pIndex += 1
+      }
     }
+  }
+
+  /** Returns the flag that corresponds to an embedded flag specifier. */
+  private def charToFlag(c: Char): Int = (c: @switch) match {
+    case 'i' => CASE_INSENSITIVE
+    case 'd' => UNIX_LINES
+    case 'm' => MULTILINE
+    case 's' => DOTALL
+    case 'u' => UNICODE_CASE
+    case 'x' => COMMENTS
+    case 'U' => UNICODE_CHARACTER_CLASS
+    case _   => parseError("bad in-pattern flag: " + c)
   }
 
   // The predefined character class for \w, depending on the UNICODE_CHARACTER_CLASS flag
@@ -1175,7 +1201,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
       pIndex += 1
     }
 
-    pattern.jsSubstring(startOfRepeater, pIndex)
+    ucSubstring(pattern, startOfRepeater, pIndex)
   }
 
   /** Builds a possessive quantifier, which is sugar for an atomic group over
@@ -1184,41 +1210,50 @@ private final class PatternCompiler(private val pattern: String, private var fla
   private def buildPossessiveQuantifier(compiledGroupCountBeforeThisToken: Int,
       compiledToken: String, baseRepeater: String): String = {
 
-    /* This is very intricate. Not only do we need to surround a posteriori the
-     * previous token, we are introducing a new capturing group in between.
-     * This means that we need to renumber all backreferences contained in the
-     * compiled token.
-     */
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      /* Our WasmEngine supports possessive quantifiers.
+       * We use them so that we don't need renumbering, which we otherwise
+       * use a js.RegExp for.
+       */
 
-    // Remap group numbers
-    for (i <- 0 until groupNumberMap.length) {
-      val mapped = groupNumberMap(i)
-      if (mapped > compiledGroupCountBeforeThisToken)
-        groupNumberMap(i) = mapped + 1
-    }
+      compiledToken + baseRepeater + "+"
+    } {
+      /* This is very intricate. Not only do we need to surround a posteriori the
+       * previous token, we are introducing a new capturing group in between.
+       * This means that we need to renumber all backreferences contained in the
+       * compiled token.
+       */
 
-    // Renumber all backreferences contained in the compiled token
-    import js.JSStringOps._
-    val amendedToken = compiledToken.jsReplace(renumberingRegExp,
-        {
-          (str, backslashes, groupString) =>
-            if (backslashes.length() % 2 == 0) { // poor man's negative look-behind
-              str
-            } else {
-              val groupNumber = parseInt(groupString, 10)
-              if (groupNumber > compiledGroupCountBeforeThisToken)
-                backslashes + (groupNumber + 1)
-              else
+      // Remap group numbers
+      for (i <- 0 until groupNumberMap.length) {
+        val mapped = groupNumberMap(i)
+        if (mapped > compiledGroupCountBeforeThisToken)
+          groupNumberMap(i) = mapped + 1
+      }
+
+      // Renumber all backreferences contained in the compiled token
+      import js.JSStringOps._
+      val amendedToken = compiledToken.jsReplace(renumberingRegExp,
+          {
+            (str, backslashes, groupString) =>
+              if (backslashes.length() % 2 == 0) { // poor man's negative look-behind
                 str
-            }
-        }: js.Function3[String, String, String, String])
+              } else {
+                val groupNumber = parseInt(groupString, 10)
+                if (groupNumber > compiledGroupCountBeforeThisToken)
+                  backslashes + (groupNumber + 1)
+                else
+                  str
+              }
+          }: js.Function3[String, String, String, String])
 
-    // Plan the future remapping
-    compiledGroupCount += 1
+      // Plan the future remapping
+      compiledGroupCount += 1
 
-    // Finally, the encoding of the atomic group over the greedy quantifier
-    val myGroupNumber = compiledGroupCountBeforeThisToken + 1
-    s"(?:(?=($amendedToken$baseRepeater))\\$myGroupNumber)"
+      // Finally, the encoding of the atomic group over the greedy quantifier
+      val myGroupNumber = compiledGroupCountBeforeThisToken + 1
+      s"(?:(?=($amendedToken$baseRepeater))\\$myGroupNumber)"
+    }
   }
 
   @inline
@@ -1298,7 +1333,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
       // Boundary matchers
 
       case 'b' =>
-        if (pattern.jsSubstring(pIndex, pIndex + 4) == "b{g}") {
+        if (pattern.startsWith("b{g}", pIndex)) {
           parseError("\\b{g} is not supported")
         } else {
           /* Compile as is if both `UNICODE_CASE` and `UNICODE_CHARACTER_CLASS` are false.
@@ -1381,11 +1416,11 @@ private final class PatternCompiler(private val pattern: String, private var fla
 
         // In most cases, one of the first two conditions is immediately false
         while (end != len && isDigit(pattern.charAt(end)) &&
-            parseInt(pattern.jsSubstring(start, end + 1), 10) <= originalGroupCount) {
+            parseInt(ucSubstring(pattern, start, end + 1), 10) <= originalGroupCount) {
           end += 1
         }
 
-        val groupString = pattern.jsSubstring(start, end)
+        val groupString = ucSubstring(pattern, start, end)
         val groupNumber = parseInt(groupString, 10)
         if (groupNumber > originalGroupCount)
           parseError(s"numbered capturing group <$groupNumber> does not exist")
@@ -1400,7 +1435,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
           parseError("\\k is not followed by '<' for named capturing group")
         pIndex += 1
         val groupName = parseGroupName()
-        val groupNumber = dictGetOrElse(namedGroups, groupName) { () =>
+        val groupNumber = engine.dictGetOrElse(namedGroups, groupName) { () =>
           parseError(s"named capturing group <$groupName> does not exit")
         }
         val compiledGroupNumber = groupNumberMap(groupNumber)
@@ -1415,10 +1450,10 @@ private final class PatternCompiler(private val pattern: String, private var fla
         val end = pattern.indexOf("\\E", start)
         if (end < 0) {
           pIndex = pattern.length()
-          literal(pattern.jsSubstring(start))
+          literal(ucSubstring(pattern, start))
         } else {
           pIndex = end + 2
-          literal(pattern.jsSubstring(start, end))
+          literal(ucSubstring(pattern, start, end))
         }
 
       // Other
@@ -1560,10 +1595,9 @@ private final class PatternCompiler(private val pattern: String, private var fla
 
     pIndex = end
 
-    val lowStart = end + 2
-    val lowEnd = lowStart + 4
-
-    if (isHighSurrogateCP(codeUnit) && pattern.jsSubstring(end, lowStart) == "\\u") {
+    if (isHighSurrogateCP(codeUnit) && pattern.startsWith("\\u", end)) {
+      val lowStart = end + 2
+      val lowEnd = lowStart + 4
       val low = parseHexCodePoint(lowStart, lowEnd, "Unicode")
       if (isLowSurrogateCP(low)) {
         pIndex = lowEnd
@@ -1590,7 +1624,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
 
     val cp =
       if (end - start > 6) Character.MAX_CODE_POINT + 1
-      else parseInt(pattern.jsSubstring(start, end), 16)
+      else parseInt(ucSubstring(pattern, start, end), 16)
     if (cp > Character.MAX_CODE_POINT)
       parseError("Hexadecimal codepoint is too big")
 
@@ -1640,35 +1674,38 @@ private final class PatternCompiler(private val pattern: String, private var fla
       if (innerEnd < 0)
         parseError("Unclosed character family")
       pIndex = innerEnd
-      pattern.jsSubstring(innerStart, innerEnd)
+      ucSubstring(pattern, innerStart, innerEnd)
     } else {
-      pattern.jsSubstring(start, start + 1)
+      ucSubstring(pattern, start, start + 1)
     }
 
-    val result = if (!unicodeCharacterClass && dictContains(asciiPOSIXCharacterClasses, property)) {
-      val property2 =
-        if (asciiCaseInsensitive && (property == "Lower" || property == "Upper")) "Alpha"
-        else property
-      dictRawApply(asciiPOSIXCharacterClasses, property2)
-    } else {
-      // For anything else, we need built-in support for \p
-      requireES2018Features("Unicode character family")
+    val result = {
+      if (!unicodeCharacterClass && engine.dictContains(asciiPOSIXCharacterClasses, property)) {
+        val property2 =
+          if (asciiCaseInsensitive && (property == "Lower" || property == "Upper")) "Alpha"
+          else property
+        engine.dictRawApply(asciiPOSIXCharacterClasses, property2)
+      } else {
+        // For anything else, we need built-in support for \p
+        requireES2018Features("Unicode character family")
 
-      mapGetOrElse(predefinedPCharacterClasses, property) { () =>
-        val scriptPrefixLen = if (property.startsWith("Is")) {
-          2
-        } else if (property.startsWith("sc=")) {
-          3
-        } else if (property.startsWith("script=")) {
-          7
-        } else if (property.startsWith("In") || property.startsWith("blk=") || property.startsWith(
-                "block=")) {
-          parseError("Blocks are not supported in \\p Unicode character families")
-        } else {
-          // Error
-          parseError(s"Unknown Unicode character class '$property'")
+        engine.dictGetOrElse(predefinedPCharacterClasses, property) { () =>
+          val scriptPrefixLen = if (property.startsWith("Is")) {
+            2
+          } else if (property.startsWith("sc=")) {
+            3
+          } else if (property.startsWith("script=")) {
+            7
+          } else if (property.startsWith("In") || property.startsWith("blk=") || property.startsWith(
+                  "block=")) {
+            parseError("Blocks are not supported in \\p Unicode character families")
+          } else {
+            // Error
+            parseError(s"Unknown Unicode character class '$property'")
+          }
+          CompiledCharClass.posP(
+              "sc=" + canonicalizeScriptName(ucSubstring(property, scriptPrefixLen)))
         }
-        CompiledCharClass.posP("sc=" + canonicalizeScriptName(property.jsSubstring(scriptPrefixLen)))
       }
     }
 
@@ -1686,21 +1723,31 @@ private final class PatternCompiler(private val pattern: String, private var fla
    *  uses it. If that fails, we report the (original) script name as unknown.
    */
   private def canonicalizeScriptName(scriptName: String): String = {
-    import js.JSStringOps._
-
-    val lowercase = scriptName.toLowerCase()
-
-    mapGetOrElseUpdate(canonicalizedScriptNameCache, lowercase) { () =>
-      val canonical = lowercase.jsReplace(scriptCanonicalizeRegExp,
-          ((s: String) => s.toUpperCase()): js.Function1[String, String])
-
-      try {
-        new js.RegExp(s"\\p{sc=$canonical}", "u")
-      } catch {
-        case _: Throwable =>
-          parseError(s"Unknown character script name {$scriptName}")
+    // First compute the canonicalized form (with "SignWriting" as "Signwriting")
+    var builder = ""
+    val len = scriptName.length()
+    var i = 0
+    var nextIsUppercase = true
+    while (i != len) {
+      val c = scriptName.charAt(i)
+      builder += {
+        if (c >= 'a' && c <= 'z') {
+          (if (nextIsUppercase) (c - 'a' + 'A').toChar else c)
+        } else if (c >= 'A' && c <= 'Z') {
+          (if (nextIsUppercase) c else (c - 'A' + 'a').toChar)
+        } else {
+          c
+        }
       }
+      nextIsUppercase = c == '_'
+      i += 1
+    }
+    val canonical = builder // Make sure the lambda does not capture a var
 
+    // Then validate it, caching the result
+    engine.dictGetOrElseUpdate(canonicalizedScriptNameCache, canonical) { () =>
+      if (!engine.validateScriptName(canonical))
+        parseError(s"Unknown character script name {$scriptName}")
       canonical
     }
   }
@@ -1822,7 +1869,8 @@ private final class PatternCompiler(private val pattern: String, private var fla
       // Numbered capturing group
       pIndex = start + 1
       compiledGroupCount += 1
-      groupNumberMap.push(compiledGroupCount)
+      originalGroupCount += 1
+      groupNumberMap(originalGroupCount) = compiledGroupCount
       "(" + compileInsideGroup() + ")"
     } else {
       if (start + 2 == len)
@@ -1833,7 +1881,7 @@ private final class PatternCompiler(private val pattern: String, private var fla
       if (c1 == ':' || c1 == '=' || c1 == '!') {
         // Non-capturing group or look-ahead
         pIndex = start + 3
-        pattern.jsSubstring(start, start + 3) + compileInsideGroup() + ")"
+        ucSubstring(pattern, start, start + 3) + compileInsideGroup() + ")"
       } else if (c1 == '<') {
         if (start + 3 == len)
           parseError("Unclosed group")
@@ -1844,11 +1892,12 @@ private final class PatternCompiler(private val pattern: String, private var fla
           // Named capturing group
           pIndex = start + 3
           val name = parseGroupName()
-          if (dictContains(namedGroups, name))
+          if (engine.dictContains(namedGroups, name))
             parseError(s"named capturing group <$name> is already defined")
           compiledGroupCount += 1
-          groupNumberMap.push(compiledGroupCount) // this changes originalGroupCount
-          dictSet(namedGroups, name, originalGroupCount)
+          originalGroupCount += 1
+          groupNumberMap(originalGroupCount) = compiledGroupCount
+          engine.dictSet(namedGroups, name, originalGroupCount)
           pIndex += 1
           "(" + compileInsideGroup() + ")"
         } else {
@@ -1857,14 +1906,19 @@ private final class PatternCompiler(private val pattern: String, private var fla
             parseError("Unknown look-behind group")
           requireES2018Features("Look-behind group")
           pIndex = start + 4
-          pattern.jsSubstring(start, start + 4) + compileInsideGroup() + ")"
+          ucSubstring(pattern, start, start + 4) + compileInsideGroup() + ")"
         }
       } else if (c1 == '>') {
         // Atomic group
         pIndex = start + 3
-        compiledGroupCount += 1
-        val groupNumber = compiledGroupCount
-        s"(?:(?=(${compileInsideGroup()}))\\$groupNumber)"
+        LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+          // Our WasmEngine directly supports atomic groups, so use them.
+          s"(?>${compileInsideGroup()})"
+        } {
+          compiledGroupCount += 1
+          val groupNumber = compiledGroupCount
+          s"(?:(?=(${compileInsideGroup()}))\\$groupNumber)"
+        }
       } else {
         parseError("Embedded flag expression in the middle of a pattern is not supported")
       }
@@ -1885,6 +1939,32 @@ private final class PatternCompiler(private val pattern: String, private var fla
       pIndex += 1
     if (pIndex == len || pattern.charAt(pIndex) != '>')
       parseError("named capturing group is missing trailing '>'")
-    pattern.jsSubstring(start, pIndex)
+    ucSubstring(pattern, start, pIndex)
+  }
+
+  /** Unchecked substring. */
+  @inline
+  def ucSubstring(s: String, start: Int): String = {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+      // use s.substring anyway, for the intrinsic or the Wasm-only implementation
+      s.substring(start)
+    } {
+      // avoid range checks
+      import scala.scalajs.js.JSStringOps._
+      s.jsSubstring(start)
+    }
+  }
+
+  /** Unchecked substring. */
+  @inline
+  def ucSubstring(s: String, start: Int, end: Int): String = {
+    LinkingInfo.linkTimeIf(LinkingInfo.isWebAssembly) {
+      // use s.substring anyway, for the intrinsic or the Wasm-only implementation
+      s.substring(start, end)
+    } {
+      // avoid range checks
+      import scala.scalajs.js.JSStringOps._
+      s.jsSubstring(start, end)
+    }
   }
 }

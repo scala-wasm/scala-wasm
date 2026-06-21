@@ -25,8 +25,7 @@ import org.scalajs.ir.Trees.{FieldDef, ParamDef, JSNativeLoadSpec}
 import org.scalajs.ir.Types._
 import org.scalajs.ir.WellKnownNames._
 
-import org.scalajs.linker.interface.ModuleInitializer
-import org.scalajs.linker.interface.unstable.ModuleInitializerImpl
+import org.scalajs.linker.interface.ModuleKind
 import org.scalajs.linker.standard.{CoreSpec, LinkedClass, LinkedTopLevelExport}
 
 import org.scalajs.linker.backend.emitter.{NameGen => JSNameGen}
@@ -52,6 +51,8 @@ final class WasmContext(
 ) {
   import WasmContext._
 
+  val hasJSInterop = coreSpec.moduleKind == ModuleKind.ESModule
+
   private val functionTypes = LinkedHashMap.empty[watpe.FunctionType, wanme.TypeID]
   private val tableFunctionTypes = mutable.HashMap.empty[MethodName, wanme.TypeID]
   private val closureDataTypes = LinkedHashMap.empty[List[Type], wanme.TypeID]
@@ -60,6 +61,7 @@ final class WasmContext(
   val jsNameGen = new JSNameGen()
 
   private val customJSHelpers = mutable.ListBuffer.empty[(String, js.Function)]
+  private val componentFunctions = mutable.ListBuffer.empty[(String, String)]
 
   val moduleBuilder: ModuleBuilder = {
     new ModuleBuilder(new ModuleBuilder.FunctionTypeProvider {
@@ -97,7 +99,10 @@ final class WasmContext(
   private val _funcDeclarations: mutable.LinkedHashSet[wanme.FunctionID] =
     new mutable.LinkedHashSet()
 
-  val stringPool: StringPool = new StringPool
+  val stringPool: StringPool =
+    if (hasJSInterop) new JSStringPool
+    else new DataStringPool
+
   val constantArrayPool: ConstantArrayPool = new ConstantArrayPool
 
   /** The main `rectype` containing the object model types. */
@@ -117,6 +122,8 @@ final class WasmContext(
         AnyType
       else
         ClassType(className, nullable = true, exact = false)
+    case WitResourceTypeRef(className) =>
+      WitResourceType(className)
     case typeRef: ArrayTypeRef =>
       ArrayType(typeRef, nullable = true, exact = false)
     case typeRef: TransientTypeRef =>

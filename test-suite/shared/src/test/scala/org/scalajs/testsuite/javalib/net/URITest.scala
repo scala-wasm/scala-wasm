@@ -474,4 +474,55 @@ class URITest {
     assertTrue("SSP case-sensitive", new URI("mailto:john") != new URI("mailto:JOHN"))
     assertTrue(new URI("mailto:john") != new URI("MAILTO:jim"))
   }
+
+  // Tests for multi-component constructors, normalize edge cases, and
+  // non-ASCII quoting. These exercise quoting/parsing code paths that
+  // were previously not covered by the test suite.
+
+  @Test def multiComponentConstructorQuoting(): Unit = {
+    // 7-arg constructor exercises quoteUserInfo, quotePath, quoteAuthority
+    val uri = new URI("http", "us er", "example.com", 80, "/a path", "q=1 2", "frag ment")
+    assertEquals("http", uri.getScheme())
+    assertEquals("example.com", uri.getHost())
+    assertEquals(80, uri.getPort())
+    assertEquals("/a path", uri.getPath())
+    assertEquals("q=1 2", uri.getQuery())
+    assertEquals("frag ment", uri.getFragment())
+    assertEquals("us er", uri.getUserInfo())
+    // Raw forms should have spaces percent-encoded
+    assertEquals("/a%20path", uri.getRawPath())
+    assertEquals("q=1%202", uri.getRawQuery())
+    assertEquals("frag%20ment", uri.getRawFragment())
+    assertEquals("us%20er", uri.getRawUserInfo())
+  }
+
+  @Test def multiComponentConstructorWithIPv6Host(): Unit = { // exercises IPv6 detection
+    val uri = new URI("http", null, "::1", 8080, "/path", null, null)
+    assertEquals("[::1]", uri.getHost())
+    assertEquals(8080, uri.getPort())
+    assertEquals("/path", uri.getPath())
+    assertTrue(uri.toString().contains("[::1]"))
+  }
+
+  @Test def threeArgConstructorQuoting(): Unit = { // exercises quoteIllegal
+    val uri = new URI("foo", "hello world", "frag ment")
+    assertEquals("foo", uri.getScheme())
+    assertEquals("hello world", uri.getSchemeSpecificPart())
+    assertEquals("frag ment", uri.getFragment())
+    assertEquals("hello%20world", uri.getRawSchemeSpecificPart())
+    assertEquals("frag%20ment", uri.getRawFragment())
+  }
+
+  @Test def normalizeDotOnlyPaths(): Unit = {
+    // Dot-only relative paths (not covered by RFC resolve examples above)
+    assertEquals("", new URI(".").normalize().getPath())
+    assertEquals("", new URI("./").normalize().getPath())
+    assertEquals("..", new URI("..").normalize().getPath())
+    assertEquals("../", new URI("../").normalize().getPath())
+  }
+
+  @Test def normalizeEmptySegments(): Unit = {
+    // Multiple consecutive slashes produce empty segments
+    assertEquals("/a/b", new URI("/a///b").normalize().getPath())
+  }
 }

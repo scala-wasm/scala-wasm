@@ -63,4 +63,7 @@ object Identitities {
 
   /** ID of a data segment. */
   trait DataID
+
+  /** ID of a memory. */
+  trait MemoryID
 }

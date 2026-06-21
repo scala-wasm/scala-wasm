@@ -75,6 +75,9 @@ private[linker] object LambdaSynthesizer {
       case ClassRef(className) =>
         digestBuilder.update('L'.toByte)
         digestBuilder.updateUTF8String(className.encoded)
+      case WitResourceTypeRef(className) =>
+        digestBuilder.update('W'.toByte)
+        digestBuilder.updateUTF8String(className.encoded)
       case ArrayTypeRef(base, dimensions) =>
         digestBuilder.update('['.toByte)
         updateTypeRef(base)
@@ -138,7 +141,8 @@ private[linker] object LambdaSynthesizer {
     new ClassInfo(className, ClassKind.Class, Some(SyntheticClassKind.Lambda(descriptor)),
         nonExistent = false, Some(descriptor.superClass), descriptor.interfaces,
         jsNativeLoadSpec = None, referencedFieldClasses = Map.empty, methodInfos,
-        jsNativeMembers = Map.empty, jsMethodProps = Nil, topLevelExports = Nil)
+        jsNativeMembers = Map.empty, witNativeMembers = Map.empty,
+        jsMethodProps = Nil, topLevelExports = Nil)
   }
 
   /** Synthesizes the `ClassDef` for a lambda class, for use by the `BaseLinker`.
@@ -203,6 +207,7 @@ private[linker] object LambdaSynthesizer {
       jsConstructor = None,
       jsMethodProps = Nil,
       jsNativeMembers = Nil,
+      witNativeMembers = Nil,
       topLevelExportDefs = Nil
     )(OptimizerHints.empty.withInline(true))
   }

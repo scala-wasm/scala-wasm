@@ -1,0 +1,24 @@
+name: Scalafmt CI
+
+on:
+  push:
+    branches: [ main, scala-wasm ]
+  pull_request:
+    branches: [ main, scala-wasm ]
+
+env:
+  SBT_OPTS: '-Xmx6g -Xms1g -Xss4m'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up JDK 21
+      uses: coursier/setup-action@v1
+      with:
+        jvm: temurin:1.21
+        apps: sbt
+    - name: scalafmt
+      run: cs launch --java-opt -Xss8M scalafmt:3.10.4 -- --test

@@ -14,8 +14,11 @@ package org.scalajs.testsuite.javalib.util.function
 
 import org.junit.Assert._
 import org.junit.Test
+import org.junit.Assume._
 
 import java.util.function._
+
+import org.scalajs.testsuite.utils.Platform._
 
 class DoubleFunctionTest {
   @Test def testApply(): Unit = {

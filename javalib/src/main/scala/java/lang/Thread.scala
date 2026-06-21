@@ -12,6 +12,10 @@
 
 package java.lang
 
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
+
 /* We need a constructor to create SingleThread in the companion object, but
  * we don't want user code doing a 'new Thread()' to link, because that could
  * be confusing.
@@ -35,8 +39,13 @@ class Thread private (dummy: Unit) extends Runnable {
   final def getName(): String =
     this.name
 
-  def getStackTrace(): Array[StackTraceElement] =
-    StackTrace.getCurrentStackTrace()
+  def getStackTrace(): Array[StackTraceElement] = {
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      new Array[StackTraceElement](0)
+    } {
+      StackTrace.getCurrentStackTrace()
+    }
+  }
 
   def getId(): scala.Long = 1
 }

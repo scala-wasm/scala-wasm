@@ -155,4 +155,18 @@ object WellKnownNames {
   /** ModuleID of the default module */
   final val DefaultModuleID: String = "main"
 
+  // Component Models
+  final val ComponentResultClass: ClassName =
+    ClassName("scala.scalajs.wit.Result")
+
+  final val ComponentResultOkClass: ClassName =
+    ClassName("scala.scalajs.wit.Ok")
+
+  final val ComponentResultErrClass: ClassName =
+    ClassName("scala.scalajs.wit.Err")
+
+  final val WitVariantValueFieldName: SimpleFieldName =
+    SimpleFieldName("value")
+
+  final val juOptionalClass = ClassName("java.util.Optional")
 }

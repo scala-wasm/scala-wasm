@@ -33,8 +33,9 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     extends LinkerBackendImpl(config) {
 
   require(
-    coreSpec.moduleKind == ModuleKind.ESModule,
-    s"The WebAssembly backend only supports ES modules; was ${coreSpec.moduleKind}."
+    Set[ModuleKind](ModuleKind.ESModule, ModuleKind.MinimalWasmModule, ModuleKind.WasmComponent)
+      .contains(coreSpec.moduleKind),
+    s"The WebAssembly backend does not support the module kind ${coreSpec.moduleKind}."
   )
   require(
     coreSpec.esFeatures.esVersion >= ESVersion.ES2022,
@@ -52,6 +53,9 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     val loaderModuleName = OutputPatternsImpl.moduleName(config.outputPatterns, "__loader")
     new Emitter(Emitter.Config(coreSpec, loaderModuleName))
   }
+
+  private val componentModelProcessor: WasmComponentModelProcessor =
+    WasmComponentModelProcessor()
 
   val symbolRequirements: SymbolRequirement = emitter.symbolRequirements
 
@@ -117,24 +121,74 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     def writeWasmFile(): Future[Unit] = {
       val emitDebugInfo = !config.minify
 
-      if (config.sourceMap) {
-        val sourceMapWriter = new ByteArrayWriter
+      (if (config.sourceMap) {
+         val sourceMapWriter = new ByteArrayWriter
 
-        val wasmFileURI = s"./$wasmFileName"
-        val sourceMapURI = s"./$sourceMapFileName"
+         val wasmFileURI = s"./$wasmFileName"
+         val sourceMapURI = s"./$sourceMapFileName"
 
-        val smWriter = new SourceMapWriter(sourceMapWriter, wasmFileURI,
-            config.relativizeSourceMapBase, fragmentIndex)
-        val binaryOutput = BinaryWriter.writeWithSourceMap(
-            wasmModule, emitDebugInfo, smWriter, sourceMapURI)
-        smWriter.complete()
+         val smWriter = new SourceMapWriter(sourceMapWriter, wasmFileURI,
+             config.relativizeSourceMapBase, fragmentIndex)
+         val binaryOutput = BinaryWriter.writeWithSourceMap(
+             wasmModule, emitDebugInfo, smWriter, sourceMapURI)
+         smWriter.complete()
 
-        outputImpl.writeFull(wasmFileName, binaryOutput).flatMap { _ =>
-          outputImpl.writeFull(sourceMapFileName, sourceMapWriter.toByteBuffer())
+         outputImpl.writeFull(wasmFileName, binaryOutput).flatMap { _ =>
+           outputImpl.writeFull(sourceMapFileName, sourceMapWriter.toByteBuffer())
+         }
+       } else {
+         val binaryOutput = BinaryWriter.write(wasmModule, emitDebugInfo)
+         outputImpl.writeFull(wasmFileName, binaryOutput)
+       }).flatMap { _ =>
+        if (coreSpec.moduleKind != ModuleKind.WasmComponent) {
+          Future.unit
+        } else {
+          processComponentModel()
         }
-      } else {
-        val binaryOutput = BinaryWriter.write(wasmModule, emitDebugInfo)
-        outputImpl.writeFull(wasmFileName, binaryOutput)
+      }
+    }
+
+    def processComponentModel()(implicit ec: ExecutionContext): Future[Unit] = {
+      val witDir = coreSpec.wasmFeatures.witDirectory
+      val worldName = coreSpec.wasmFeatures.witWorld
+
+      witDir match {
+        case None =>
+          Future.failed(new IllegalArgumentException(
+            """Component model is enabled but witDirectory is not set.
+              |
+              |Please configure the WIT directory in your build.sbt:
+              |  scalaJSWitDirectory := file("wit")
+              |  scalaJSWitWorld := Some("scala")  // optional, auto-detect if not specified
+              |""".stripMargin
+          ))
+
+        case Some(witDirStr) =>
+          val witDirPath = new java.io.File(witDirStr).toPath
+
+          if (!java.nio.file.Files.exists(witDirPath)) {
+            Future.failed(new IllegalArgumentException(
+              s"WIT directory does not exist: $witDirStr"
+            ))
+          } else {
+            // Process the wasm file in-place using wasm-tools
+            componentModelProcessor.processComponentModel(
+              outputImpl,
+              wasmFileName,
+              witDirPath,
+              worldName,
+              coreSpec.wasmFeatures.autoIncludeWasiImports,
+              logger
+            ).recover {
+              case e: WasmToolsNotFoundException =>
+                throw e
+              case e: WasmToolsExecutionException =>
+                throw new Exception(
+                  s"Failed to process component model: ${e.getMessage}",
+                  e
+                )
+            }
+          }
       }
     }
 

@@ -16,6 +16,9 @@ import java.util.function._
 import java.util.Objects.requireNonNull
 
 import scala.scalajs.js.annotation.JSExport
+import scala.scalajs.LinkingInfo
+import scala.scalajs.LinkingInfo.moduleKind
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 class Throwable protected (s: String, private var e: Throwable,
     enableSuppression: scala.Boolean, writableStackTrace: scala.Boolean)
@@ -47,29 +50,41 @@ class Throwable protected (s: String, private var e: Throwable,
   def getLocalizedMessage(): String = getMessage()
 
   def fillInStackTrace(): Throwable = {
-    jsErrorForStackTrace = StackTrace.captureJSError(this)
-    this
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      this
+    } {
+      jsErrorForStackTrace = StackTrace.captureJSError(this)
+      this
+    }
   }
 
   def getStackTrace(): Array[StackTraceElement] = {
     if (stackTrace eq null) {
-      if (writableStackTrace)
-        stackTrace = StackTrace.extract(jsErrorForStackTrace)
-      else
+      LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
         stackTrace = new Array[StackTraceElement](0)
+      } {
+        if (writableStackTrace)
+          stackTrace = StackTrace.extract(jsErrorForStackTrace)
+        else
+          stackTrace = new Array[StackTraceElement](0)
+      }
     }
     stackTrace
   }
 
   def setStackTrace(stackTrace: Array[StackTraceElement]): Unit = {
-    if (writableStackTrace) {
-      var i = 0
-      while (i < stackTrace.length) {
-        requireNonNull(stackTrace(i))
-        i += 1
-      }
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      // do nothing
+    } {
+      if (writableStackTrace) {
+        var i = 0
+        while (i < stackTrace.length) {
+          requireNonNull(stackTrace(i))
+          i += 1
+        }
 
-      this.stackTrace = stackTrace.clone()
+        this.stackTrace = stackTrace.clone()
+      }
     }
   }
 

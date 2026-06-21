@@ -1,0 +1,14 @@
+# JitPack configuration for scala-wasm
+# See: https://jitpack.io/docs/BUILDING/
+
+jdk:
+  - openjdk11
+
+before_install:
+  - npm install
+
+install:
+  - ./scripts/publish-jitpack.sh
+
+env:
+  SBT_OPTS: "-Xmx4G -Xss8M -XX:+UseG1GC"

@@ -10,6 +10,18 @@
  * additional information regarding copyright ownership.
  */
 
+/* `floor` is ported from fdlibm. The original license copied below:
+ *
+ * ====================================================
+ * Copyright (C) 1993 by Sun Microsystems, Inc. All rights reserved.
+ *
+ * Developed at SunSoft, a Sun Microsystems, Inc. business.
+ * Permission to use, copy, modify, and distribute this
+ * software is freely granted, provided that this notice
+ * is preserved.
+ * ====================================================
+ */
+
 package java
 package lang
 
@@ -17,7 +29,8 @@ import scala.scalajs.js
 import js.Dynamic.{global => g}
 
 import scala.scalajs.LinkingInfo
-import scala.scalajs.LinkingInfo.ESVersion
+import scala.scalajs.LinkingInfo.{ESVersion, linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 object Math {
   final val E = 2.718281828459045
@@ -40,22 +53,97 @@ object Math {
   }
 
   // Wasm intrinsics
-  @inline def abs(a: scala.Float): scala.Float = js.Math.abs(a).toFloat
-  @inline def abs(a: scala.Double): scala.Double = js.Math.abs(a)
+  @inline def abs(a: scala.Float): scala.Float = {
+    linkTimeIf(LinkingInfo.isWebAssembly) {
+      Float.intBitsToFloat(Float.floatToIntBits(a) & ~Int.MinValue)
+    } {
+      js.Math.abs(a).toFloat
+    }
+  }
+
+  @inline def abs(a: scala.Double): scala.Double = {
+    linkTimeIf(LinkingInfo.isWebAssembly) {
+      Double.longBitsToDouble(Double.doubleToLongBits(a) & ~scala.Long.MinValue)
+    } {
+      js.Math.abs(a)
+    }
+  }
 
   @inline def max(a: scala.Int, b: scala.Int): scala.Int = if (a > b) a else b
   @inline def max(a: scala.Long, b: scala.Long): scala.Long = if (a > b) a else b
 
   // Wasm intrinsics
-  @inline def max(a: scala.Float, b: scala.Float): scala.Float = js.Math.max(a, b).toFloat
-  @inline def max(a: scala.Double, b: scala.Double): scala.Double = js.Math.max(a, b)
+  @inline def max(a: scala.Float, b: scala.Float): scala.Float = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (a != a || b != b) {
+        Float.NaN
+      } else if (a == 0.0f && b == 0.0f) {
+        if (Float.floatToIntBits(a) >= 0 || Float.floatToIntBits(b) >= 0) 0.0f
+        else -0.0f
+      } else if (a > b) {
+        a
+      } else {
+        b
+      }
+    } {
+      js.Math.max(a, b).toFloat
+    }
+  }
+
+  @inline def max(a: scala.Double, b: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (a != a || b != b) {
+        Double.NaN
+      } else if (a == 0.0 && b == 0.0) {
+        if (Double.doubleToLongBits(a) >= 0 || Double.doubleToLongBits(b) >= 0) 0.0f
+        else -0.0
+      } else if (a > b) {
+        a
+      } else {
+        b
+      }
+    } {
+      js.Math.max(a, b)
+    }
+  }
 
   @inline def min(a: scala.Int, b: scala.Int): scala.Int = if (a < b) a else b
   @inline def min(a: scala.Long, b: scala.Long): scala.Long = if (a < b) a else b
 
   // Wasm intrinsics
-  @inline def min(a: scala.Float, b: scala.Float): scala.Float = js.Math.min(a, b).toFloat
-  @inline def min(a: scala.Double, b: scala.Double): scala.Double = js.Math.min(a, b)
+  @inline def min(a: scala.Float, b: scala.Float): scala.Float = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (a != a || b != b) {
+        Float.NaN
+      } else if (a == 0.0f && b == 0.0f) {
+        if (Float.floatToIntBits(a) < 0 || Float.floatToIntBits(b) < 0) -0.0f
+        else 0.0f
+      } else if (a < b) {
+        a
+      } else {
+        b
+      }
+    } {
+      js.Math.min(a, b).toFloat
+    }
+  }
+
+  @inline def min(a: scala.Double, b: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (a != a || b != b) {
+        Double.NaN
+      } else if (a == 0.0 && b == 0.0) {
+        if (Double.doubleToLongBits(a) < 0 || Double.doubleToLongBits(b) < 0) 0.0
+        else 0.0
+      } else if (a < b) {
+        a
+      } else {
+        b
+      }
+    } {
+      js.Math.min(a, b)
+    }
+  }
 
   @inline def clamp(value: scala.Long, min: scala.Int, max: scala.Int): scala.Int = {
     if (min > max)
@@ -101,8 +189,58 @@ object Math {
   }
 
   // Wasm intrinsics
-  @inline def ceil(a: scala.Double): scala.Double = js.Math.ceil(a)
-  @inline def floor(a: scala.Double): scala.Double = js.Math.floor(a)
+  @inline def ceil(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      -floor(-a)
+    } {
+      js.Math.ceil(a)
+    }
+  }
+
+  @inline def floor(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      floorWasm(a)
+    } {
+      js.Math.floor(a)
+    }
+  }
+
+  // Ported from https://www.netlib.org/fdlibm/s_floor.c
+  @inline private def floorWasm(a: scala.Double): scala.Double = {
+    var bits = Double.doubleToRawLongBits(a)
+    val exponent = (((bits >>> 52).toInt) & 0x7ff) - 1023
+    if (exponent < 0) { // |a| < 1
+      /* Note: In the original C implementation, code block below was surrounded by
+       * "if (huge + x > 0.0)" (huge = 1.0e300),
+       * which was used to raise the IEEE 754 inexact flag.
+       * In Java, there is no standard way to access these flags,
+       * so this check has no practical effect and was removed.
+       */
+      if (bits >= 0) {
+        0.0
+      } else if ((bits & 0x7fffffffffffffffL) != 0L) {
+        -1.0
+      } else { // -0.0
+        a
+      }
+    } else if (exponent > 51) { // Very large numbers or special values
+      a
+    } else { // 0 <= exponent <= 51
+      val fractionalMask = 0x000fffffffffffffL >>> exponent
+      if ((bits & fractionalMask) == 0L) { // a is integral
+        a
+      } else {
+        val adjustedBits = if (bits < 0) {
+          // increment the integer part (and then clear the fractional part)
+          // 0x0010000000000000L is the bit right after the integer part
+          bits + (0x0010000000000000L >>> exponent)
+        } else {
+          bits
+        }
+        Double.longBitsToDouble(adjustedBits & ~fractionalMask)
+      }
+    }
+  }
 
   // Wasm intrinsic
   def rint(a: scala.Double): scala.Double = {
@@ -140,29 +278,91 @@ object Math {
     }
   }
 
-  @inline def round(a: scala.Float): scala.Int = js.Math.round(a).toInt
-  @inline def round(a: scala.Double): scala.Long = js.Math.round(a).toLong
+  @inline def round(a: scala.Float): scala.Int = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (Float.isNaN(a)) {
+        0
+      } else if (a <= Int.MinValue.toFloat) {
+        Int.MinValue
+      } else if (a >= Int.MaxValue.toFloat) {
+        Int.MaxValue
+      } else {
+        floor(a.toDouble + 0.5).toInt
+      }
+    } {
+      js.Math.round(a).toInt
+    }
+  }
+
+  @inline def round(a: scala.Double): scala.Long = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      if (Double.isNaN(a)) {
+        0L
+      } else if (a <= scala.Long.MinValue.toDouble) {
+        scala.Long.MinValue
+      } else if (a >= scala.Long.MaxValue.toDouble) {
+        scala.Long.MaxValue
+      } else {
+        floor(a + 0.5).toLong
+      }
+    } {
+      js.Math.round(a).toLong
+    }
+  }
 
   // Wasm intrinsic
-  @inline def sqrt(a: scala.Double): scala.Double = js.Math.sqrt(a)
+  @inline def sqrt(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      StrictMath.sqrt(a)
+    } {
+      js.Math.sqrt(a)
+    }
+  }
 
-  @inline def pow(a: scala.Double, b: scala.Double): scala.Double = js.Math.pow(a, b)
+  @inline def pow(a: scala.Double, b: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      StrictMath.pow(a, b)
+    } {
+      js.Math.pow(a, b)
+    }
+  }
 
-  @inline def exp(a: scala.Double): scala.Double = js.Math.exp(a)
-  @inline def log(a: scala.Double): scala.Double = js.Math.log(a)
+  @inline def exp(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      pow(E, a)
+    } {
+      js.Math.exp(a)
+    }
+  }
+
+  @inline def log(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      StrictMath.log(a)
+    } {
+      js.Math.log(a)
+    }
+  }
 
   @inline def log10(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.log10))
-      js.Math.log10(a)
-    else
-      log(a) / 2.302585092994046
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      StrictMath.log10(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.log10))
+        js.Math.log10(a)
+      else
+        log(a) / 2.302585092994046
+    }
   }
 
   @inline def log1p(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.log1p))
-      js.Math.log1p(a)
-    else if (a == 0.0) a
-    else log(a + 1)
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      StrictMath.log1p(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.log1p))
+        js.Math.log1p(a)
+      else if (a == 0.0) a
+      else log(a + 1)
+    }
   }
 
   @inline def sin(a: scala.Double): scala.Double = js.Math.sin(a)
@@ -173,7 +373,13 @@ object Math {
   @inline def atan(a: scala.Double): scala.Double = js.Math.atan(a)
   @inline def atan2(y: scala.Double, x: scala.Double): scala.Double = js.Math.atan2(y, x)
 
-  @inline def random(): scala.Double = js.Math.random()
+  @inline def random(): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      WasmSystem.random()
+    } {
+      js.Math.random()
+    }
+  }
 
   @inline def toDegrees(a: scala.Double): scala.Double = {
     /* According to
@@ -206,28 +412,36 @@ object Math {
   }
 
   def cbrt(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.cbrt)) {
-      js.Math.cbrt(a)
-    } else {
-      if (a == 0 || Double.isNaN(a) || Double.isInfinite(a)) {
-        a
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      cbrtImpl(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.cbrt)) {
+        js.Math.cbrt(a)
       } else {
-        val sign = if (a < 0.0) -1.0 else 1.0
-        val value = sign * a
-
-        // Initial Approximation
-        var x = 0.0
-        var xi = pow(value, 0.3333333333333333)
-
-        // Halley's Method (http://metamerist.com/cbrt/cbrt.htm)
-        while (abs(x - xi) >= 1e-16) {
-          x = xi
-          val x3 = js.Math.pow(x, 3)
-          val x3Plusa = x3 + value
-          xi = x * (x3Plusa + value) / (x3Plusa + x3)
-        }
-        sign * xi
+        cbrtImpl(a)
       }
+    }
+  }
+
+  @inline private def cbrtImpl(a: scala.Double): scala.Double = {
+    if (a == 0 || Double.isNaN(a) || Double.isInfinite(a)) {
+      a
+    } else {
+      val sign = if (a < 0.0) -1.0 else 1.0
+      val value = sign * a
+
+      // Initial Approximation
+      var x = 0.0
+      var xi = pow(value, 0.3333333333333333)
+
+      // Halley's Method (http://metamerist.com/cbrt/cbrt.htm)
+      while (abs(x - xi) >= 1e-16) {
+        x = xi
+        val x3 = pow(x, 3)
+        val x3Plusa = x3 + value
+        xi = x * (x3Plusa + value) / (x3Plusa + x3)
+      }
+      sign * xi
     }
   }
 
@@ -469,87 +683,122 @@ object Math {
   }
 
   def hypot(a: scala.Double, b: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.hypot)) {
-      js.Math.hypot(a, b)
-    } else {
-      // http://en.wikipedia.org/wiki/Hypot#Implementation
-      if (abs(a) == scala.Double.PositiveInfinity || abs(b) == scala.Double.PositiveInfinity) {
-        scala.Double.PositiveInfinity
-      } else if (Double.isNaN(a) || Double.isNaN(b)) {
-        scala.Double.NaN
-      } else if (a == 0 && b == 0) {
-        0.0
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      hypotImpl(a, b)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.hypot)) {
+        js.Math.hypot(a, b)
       } else {
-        // To Avoid Overflow and UnderFlow
-        // calculate |x| * sqrt(1 - (y/x)^2) instead of sqrt(x^2 + y^2)
-        val x = abs(a)
-        val y = abs(b)
-        val m = max(x, y)
-        val t = min(x, y) / m
-        m * sqrt(1 + t * t)
+        hypotImpl(a, b)
       }
     }
   }
 
-  def expm1(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.expm1)) {
-      js.Math.expm1(a)
+  @inline private def hypotImpl(a: scala.Double, b: scala.Double): scala.Double = {
+    // http://en.wikipedia.org/wiki/Hypot#Implementation
+    if (abs(a) == scala.Double.PositiveInfinity || abs(b) == scala.Double.PositiveInfinity) {
+      scala.Double.PositiveInfinity
+    } else if (Double.isNaN(a) || Double.isNaN(b)) {
+      scala.Double.NaN
+    } else if (a == 0 && b == 0) {
+      0.0
     } else {
-      // https://github.com/ghewgill/picomath/blob/master/javascript/expm1.js
-      if (a == 0 || Double.isNaN(a))
-        a
-      // Power Series http://en.wikipedia.org/wiki/Power_series
-      // for small values of a, exp(a) = 1 + a + (a*a)/2
-      else if (abs(a) < 1e-5)
-        a + 0.5 * a * a
-      else
-        exp(a) - 1.0
+      // To Avoid Overflow and UnderFlow
+      // calculate |x| * sqrt(1 - (y/x)^2) instead of sqrt(x^2 + y^2)
+      val x = abs(a)
+      val y = abs(b)
+      val m = max(x, y)
+      val t = min(x, y) / m
+      m * sqrt(1 + t * t)
     }
+  }
+
+  def expm1(a: scala.Double): scala.Double = {
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      expm1Impl(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.expm1))
+        js.Math.expm1(a)
+      else
+        expm1Impl(a)
+    }
+  }
+
+  private def expm1Impl(a: scala.Double): scala.Double = {
+    // https://github.com/ghewgill/picomath/blob/master/javascript/expm1.js
+    if (a == 0 || Double.isNaN(a))
+      a
+    // Power Series http://en.wikipedia.org/wiki/Power_series
+    // for small values of a, exp(a) = 1 + a + (a*a)/2
+    else if (abs(a) < 1e-5)
+      a + 0.5 * a * a
+    else
+      exp(a) - 1.0
   }
 
   def sinh(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.sinh)) {
-      js.Math.sinh(a)
-    } else {
-      if (Double.isNaN(a) || a == 0.0 || abs(a) == scala.Double.PositiveInfinity) a
-      else (exp(a) - exp(-a)) / 2.0
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      sinhImpl(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.sinh))
+        js.Math.sinh(a)
+      else
+        sinhImpl(a)
     }
   }
 
+  private def sinhImpl(a: scala.Double): scala.Double =
+    if (Double.isNaN(a) || a == 0.0 || abs(a) == scala.Double.PositiveInfinity) a
+    else (exp(a) - exp(-a)) / 2.0
+
   def cosh(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.cosh)) {
-      js.Math.cosh(a)
-    } else {
-      if (Double.isNaN(a))
-        a
-      else if (a == 0.0)
-        1.0
-      else if (abs(a) == scala.Double.PositiveInfinity)
-        scala.Double.PositiveInfinity
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      coshImpl(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.cosh))
+        js.Math.cosh(a)
       else
-        (exp(a) + exp(-a)) / 2.0
+        coshImpl(a)
     }
+  }
+
+  private def coshImpl(a: scala.Double): scala.Double = {
+    if (Double.isNaN(a))
+      a
+    else if (a == 0.0)
+      1.0
+    else if (abs(a) == scala.Double.PositiveInfinity)
+      scala.Double.PositiveInfinity
+    else
+      (exp(a) + exp(-a)) / 2.0
   }
 
   def tanh(a: scala.Double): scala.Double = {
-    if (assumingES6 || !Utils.isUndefined(g.Math.tanh)) {
-      js.Math.tanh(a)
+    linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      tanhImpl(a)
+    } {
+      if (assumingES6 || !Utils.isUndefined(g.Math.tanh))
+        js.Math.tanh(a)
+      else
+        tanhImpl(a)
+    }
+  }
+
+  private def tanhImpl(a: scala.Double): scala.Double = {
+    if (Double.isNaN(a) || a == 0.0) {
+      a
+    } else if (abs(a) == scala.Double.PositiveInfinity) {
+      signum(a)
     } else {
-      if (Double.isNaN(a) || a == 0.0) {
-        a
-      } else if (abs(a) == scala.Double.PositiveInfinity) {
-        signum(a)
+      // sinh(a) / cosh(a) =
+      // 1 - 2 * (exp(-a)/ (exp(-a) + exp (a)))
+      val expma = exp(-a)
+      if (expma == scala.Double.PositiveInfinity) { // Infinity / Infinity
+        -1.0
       } else {
-        // sinh(a) / cosh(a) =
-        // 1 - 2 * (exp(-a)/ (exp(-a) + exp (a)))
-        val expma = exp(-a)
-        if (expma == scala.Double.PositiveInfinity) { // Infinity / Infinity
-          -1.0
-        } else {
-          val expa = exp(a)
-          val ret = expma / (expa + expma)
-          1.0 - (2.0 * ret)
-        }
+        val expa = exp(a)
+        val ret = expma / (expa + expma)
+        1.0 - (2.0 * ret)
       }
     }
   }

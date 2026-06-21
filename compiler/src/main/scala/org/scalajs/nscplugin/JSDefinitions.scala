@@ -76,6 +76,32 @@ trait JSDefinitions {
     lazy val JSGlobalScopeAnnotation   = getRequiredClass("scala.scalajs.js.annotation.JSGlobalScope")
     lazy val JSOperatorAnnotation      = getRequiredClass("scala.scalajs.js.annotation.JSOperator")
 
+    lazy val ScalaJSWitPackageModule = getPackageObject("scala.scalajs.wit")
+      lazy val WitPackage_native = getMemberMethod(ScalaJSWitPackageModule, newTermName("native"))
+    lazy val WitImportAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitImport")
+    lazy val WitExportAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitExport")
+    lazy val WitRecordAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitRecord")
+    lazy val WitVariantAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitVariant")
+    lazy val WitFlagsAnnotation  = getRequiredClass("scala.scalajs.wit.annotation.WitFlags")
+    lazy val WitImplementationAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitImplementation")
+    lazy val WitExportInterfaceAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitExportInterface")
+
+    lazy val WitResourceImportAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceImport")
+    lazy val WitResourceMethodAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceMethod")
+    lazy val WitResourceStaticMethodAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceStaticMethod")
+    lazy val WitResourceConstructorAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceConstructor")
+    lazy val WitResourceDropAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceDrop")
+
+    lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.wit.Result")
+    lazy val ComponentResultOkClass    = getRequiredClass("scala.scalajs.wit.Ok")
+    lazy val ComponentResultErrClass   = getRequiredClass("scala.scalajs.wit.Err")
+
+    lazy val ScalaJSWitUnsignedPackageModule = getPackageObject("scala.scalajs.wit.unsigned")
+      lazy val WitUnsigned_UByte = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
+      lazy val WitUnsigned_UShort = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
+      lazy val WitUnsigned_UInt = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
+      lazy val WitUnsigned_ULong = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
+
     lazy val JSImportNamespaceObject = getRequiredModule("scala.scalajs.js.annotation.JSImport.Namespace")
 
     lazy val ExposedJSMemberAnnot = getRequiredClass("scala.scalajs.js.annotation.internal.ExposedJSMember")
