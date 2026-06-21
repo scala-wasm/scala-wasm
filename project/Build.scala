@@ -185,9 +185,8 @@ object MyScalaJSPlugin extends AutoPlugin {
 
         if (enableWasmEverywhere.value) {
           config = config
-            .withExperimentalUseWebAssembly(true)
             .withModuleKind(ModuleKind.ESModule)
-            .withESFeatures(_.withESVersion(ESVersion.ES2022))
+            .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
         }
 
         config
@@ -390,7 +389,8 @@ object Build {
       "1.3.0", "1.3.1", "1.4.0", "1.5.0", "1.5.1", "1.6.0", "1.7.0", "1.7.1",
       "1.8.0", "1.9.0", "1.10.0", "1.10.1", "1.11.0", "1.12.0", "1.13.0",
       "1.13.1", "1.13.2", "1.14.0", "1.15.0", "1.16.0", "1.17.0", "1.18.0",
-      "1.18.1", "1.18.2", "1.19.0", "1.20.0", "1.20.1", "1.20.2", "1.21.0")
+      "1.18.1", "1.18.2", "1.19.0", "1.20.0", "1.20.1", "1.20.2", "1.21.0",
+      "1.22.0")
   val previousVersion = previousVersions.last
 
   val previousBinaryCrossVersion = CrossVersion.binaryWith("sjs1_", "")
@@ -2313,7 +2313,7 @@ object Build {
               ))
             } else {
               Some(ExpectedSizes(
-                  fastLink = 306000 to 307000,
+                  fastLink = 305000 to 307000,
                   fullLink = 263000 to 264000,
                   fastLinkGz = 48000 to 49000,
                   fullLinkGz = 43000 to 44000,
@@ -2556,7 +2556,7 @@ object Build {
         val esVersion = linkerConfig.esFeatures.esVersion
         val moduleKind = linkerConfig.moduleKind
         val hasModules = moduleKind != ModuleKind.NoModule
-        val isWebAssembly = linkerConfig.experimentalUseWebAssembly
+        val isWebAssembly = linkerConfig.esFeatures.useWebAssembly
 
         val hasAsyncAwait =
           if (isWebAssembly) linkerConfig.wasmFeatures.useJSPI
@@ -2663,7 +2663,7 @@ object Build {
           "productionMode" -> sems.productionMode,
           "esVersion" -> linkerConfig.esFeatures.esVersion.edition,
           "useECMAScript2015Semantics" -> linkerConfig.esFeatures.useECMAScript2015Semantics,
-          "isWebAssembly" -> linkerConfig.experimentalUseWebAssembly,
+          "isWebAssembly" -> linkerConfig.esFeatures.useWebAssembly,
         )
       },
 
