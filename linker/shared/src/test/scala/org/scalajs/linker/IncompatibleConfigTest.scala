@@ -41,9 +41,12 @@ class IncompatibleConfigTest {
       .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
 
     // Unsupported ModuleKind
-    val supportedModuleKinds = Set[ModuleKind](ModuleKind.ESModule)
+    val supportedModuleKinds = Set[ModuleKind](
+        ModuleKind.ESModule,
+        ModuleKind.MinimalWasmModule,
+        ModuleKind.WasmComponent)
     for (moduleKind <- ModuleKind.All if !supportedModuleKinds.contains(moduleKind)) {
-      test(s"The WebAssembly backend only supports ES modules; was $moduleKind.",
+      test(s"The WebAssembly backend does not support the module kind $moduleKind.",
           wasmC.withModuleKind(moduleKind))
     }
 
