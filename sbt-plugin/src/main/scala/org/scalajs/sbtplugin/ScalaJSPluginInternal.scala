@@ -704,9 +704,9 @@ private[sbtplugin] object ScalaJSPluginInternal {
       run := Def.uncached {
         val linkerConfig = scalaJSLinkerConfig.value
         val isWasmComponent = linkerConfig.moduleKind == ModuleKind.WasmComponent
-        // Currently, `run` is supported for Wasm Component when it implements `wasi:cli/run`.
-        // We might want to automatiacally implement `wasi:cli/run` that invokes
-        // `scalaJSMainModuleInitializer.value` in future?
+        // Wasmtime's `run` command uses `wasi:cli/run` as the component entry point.
+        // A Wasm Component project can bind its module initializers to that export
+        // with `WasmFeatures.moduleInitializerExport`.
         if (!scalaJSUseMainModuleInitializer.value && !isWasmComponent) {
           throw new MessageOnlyException("`run` is only supported with " +
             "scalaJSUseMainModuleInitializer := true")

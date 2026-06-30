@@ -45,14 +45,12 @@ import org.scalajs.logging.Logger
 import SpecialNames._
 import VarGen._
 import org.scalajs.linker.backend.javascript.ByteArrayWriter
-import _root_.org.scalajs.ir.Trees.WitExportDef
+import _root_.org.scalajs.ir.Trees.{WitExportDef, WitFunctionName}
 
 final class Emitter(config: Emitter.Config) {
   import Emitter._
 
   private val coreSpec = config.coreSpec
-
-  private val WasiCliRunExportName = "wasi:cli/run@0.2.0#run"
 
   private val loaderContent = LoaderContent.makeBytesContent(coreSpec)
 
@@ -103,21 +101,27 @@ final class Emitter(config: Emitter.Config) {
     classEmitter.genArrayClasses()
     coreLib.genPostClasses()
 
-    /* For Wasm components, `wasm-tools component new` first instantiates the
-     * core module with shim imports, then uses the instantiated core module's
-     * exports such as `memory` and `cabi_realloc` to lower the final component
-     * imports, and finally patches the shim through a fixup step. The core
-     * module's `start` function runs during core module instantiation, before
-     * that fixup is complete. Any module initializer that calls into component
-     * imports (e.g., `Bridge.start()` for tests, or user `main` methods that
-     * use imported WIT interfaces) would trap with `uninitialized element`
-     * because the fixup has not happened yet. Move all module initializers to
-     * the synthetic `wasi:cli/run` export, which executes after component
-     * instantiation is completed for WasmComponent.
+    /* In the Component Model, `_start` runs before other components are
+     * initialized. Move module initializers to a configured component export so
+     * they can safely call WIT functions.
      */
     val isWasmComponent = coreSpec.moduleKind == ModuleKind.WasmComponent
-    if (isWasmComponent && moduleInitializers.nonEmpty)
-      genSyntheticWasiCliRunExport(moduleInitializers)
+    coreSpec.wasmFeatures.moduleInitializerExport match {
+      case Some(componentExport) if isWasmComponent =>
+        validateWasmComponentModuleInitializerExport(topLevelExports, componentExport)
+        genSyntheticModuleInitializerExport(componentExport, moduleInitializers)
+
+      case Some(_) =>
+        ()
+
+      case None =>
+        if (isWasmComponent && moduleInitializers.nonEmpty) {
+          throw new LinkingException(
+              "Wasm Component module initializers require a configured " +
+              "Wasm Component module initializer export.")
+        }
+    }
+
     val startModuleInitializers =
       if (isWasmComponent) Nil else moduleInitializers
     genStartFunction(sortedClasses, startModuleInitializers, topLevelExports)
@@ -274,28 +278,64 @@ final class Emitter(config: Emitter.Config) {
     ctx.moduleBuilder.setStart(genFunctionID.start)
   }
 
-  private def genSyntheticWasiCliRunExport(
+  private def validateWasmComponentModuleInitializerExport(
+      topLevelExports: List[LinkedTopLevelExport],
+      componentExport: WasmComponentModuleInitializerExport): Unit = {
+    val conflicts = topLevelExports.exists {
+      case topLevelExport =>
+        topLevelExport.tree match {
+          case WitExportDef(moduleName, WitFunctionName.Function(functionName), _, _) =>
+            moduleName == componentExport.moduleName &&
+            functionName == componentExport.functionName
+          case _ =>
+            false
+        }
+    }
+
+    if (conflicts) {
+      throw new LinkingException(
+          "Wasm Component module initializer export conflicts with " +
+          s"a WIT export: ${componentExport.moduleName}#${componentExport.functionName}")
+    }
+  }
+
+  private def genSyntheticModuleInitializerExport(
+      componentExport: WasmComponentModuleInitializerExport,
       moduleInitializers: List[ModuleInitializer.Initializer])(
       implicit ctx: WasmContext): Unit = {
     implicit val pos = Position.NoPosition
 
-    val functionID = genFunctionID.forExport(WasiCliRunExportName)
+    val exportName =
+      if (componentExport.moduleName.isEmpty) componentExport.functionName
+      else s"${componentExport.moduleName}#${componentExport.functionName}"
+    val functionID = genFunctionID.forExport(exportName)
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,
       functionID,
-      OriginalName(WasiCliRunExportName),
+      OriginalName(exportName),
       pos
     )
-    fb.setResultType(watpe.Int32)
+
+    componentExport.resultType match {
+      case WasmComponentModuleInitializerExport.ResultType.Unit =>
+        ()
+      case WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit =>
+        fb.setResultType(watpe.Int32)
+    }
 
     genModuleInitializers(fb, moduleInitializers)(())
 
-    fb += wa.I32Const(0)
+    componentExport.resultType match {
+      case WasmComponentModuleInitializerExport.ResultType.Unit =>
+        ()
+      case WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit =>
+        fb += wa.I32Const(0)
+    }
 
     fb.buildAndAddToModule()
     ctx.moduleBuilder.addExport(
       wamod.Export(
-        WasiCliRunExportName,
+        exportName,
         wamod.ExportDesc.Func(functionID)
       )
     )

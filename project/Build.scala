@@ -2149,7 +2149,7 @@ object Build {
         val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
-         .withExperimentalUseWebAssembly(true)
+         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
@@ -2170,7 +2170,7 @@ object Build {
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
         _.withPrettyPrint(true)
-         .withExperimentalUseWebAssembly(true)
+         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
          .withModuleKind(ModuleKind.MinimalWasmModule)
       },
       jsEnv := {
@@ -2191,20 +2191,26 @@ object Build {
       exampleSettings,
       name := "HelloWorld WASI",
       moduleName := "helloworld-wasi",
-      // scalaJSUseMainModuleInitializer := true,
+      scalaJSUseMainModuleInitializer := true,
       scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
       scalaJSWitPackage := Some("helloworld"),
       scalaJSLinkerConfig := {
         val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
+        val moduleInitializerExport =
+          WasmComponentModuleInitializerExport(
+              "wasi:cli/run@0.2.0",
+              "run",
+              WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
-         .withExperimentalUseWebAssembly(true)
+         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
+             .withModuleInitializerExport(Some(moduleInitializerExport))
           }
       },
   ).withScalaJSCompiler.dependsOnLibrary
@@ -2217,20 +2223,27 @@ object Build {
       exampleSettings,
       name := "HelloWorld Component Model",
       moduleName := "helloworld-component-model",
+      scalaJSUseMainModuleInitializer := true,
       scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
       scalaJSWitWorld := Some("scala"),
       scalaJSWitPackage := Some("helloworld"),
       scalaJSLinkerConfig := {
         val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
+        val moduleInitializerExport =
+          WasmComponentModuleInitializerExport(
+              "wasi:cli/run@0.2.0",
+              "run",
+              WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
-         .withExperimentalUseWebAssembly(true)
+         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
              .withWitDirectory(Some(witDir.getAbsolutePath))
              .withWitWorld(witWorld)
+             .withModuleInitializerExport(Some(moduleInitializerExport))
           }
       },
   ).withScalaJSCompiler.dependsOnLibrary
@@ -2252,7 +2265,7 @@ object Build {
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withModuleKind(ModuleKind.WasmComponent)
-         .withExperimentalUseWebAssembly(true)
+         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
          .withWasmFeatures { prevFeatures =>
            prevFeatures
              .withWitDirectory(Some(witDir.getAbsolutePath))

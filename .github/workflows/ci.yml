@@ -140,6 +140,8 @@ jobs:
           tool: wasmtime@44.0.2,wasm-tools,wac-cli,cargo-component
       - name: Install wit-bindgen from scala-wasm/wit-bindgen scala-wasm-wasm.4 tag
         run: cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
+      - name: helloworldWASI${{ matrix.suffix }}/run
+        run: sbt "$SBT_SET_COMMAND" helloworldWASI${{ matrix.suffix }}/run
       - name: Build rust-exports
         run: cargo component build --target wasm32-wasip2 -r
         working-directory: examples/test-component-model/rust-exports

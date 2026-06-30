@@ -1,4 +1,3 @@
 *.wasm
-wit/deps
 
 bindings.rs
