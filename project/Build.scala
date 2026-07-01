@@ -393,6 +393,18 @@ object Build {
       "1.22.0")
   val previousVersion = previousVersions.last
 
+  private val WasiCliRunModuleInitializerExport =
+    WasmComponentModuleInitializerExport(
+        "wasi:cli/run@0.2.0",
+        "run",
+        WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
+
+  private def withWasiCliRunModuleInitializerExport(
+      config: StandardConfig): StandardConfig = {
+    config.withWasmFeatures(
+        _.withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport)))
+  }
+
   val previousBinaryCrossVersion = CrossVersion.binaryWith("sjs1_", "")
 
   val newScalaBinaryVersionsInThisRelease: Set[String] =
@@ -2197,21 +2209,16 @@ object Build {
       scalaJSLinkerConfig := {
         val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
-        val moduleInitializerExport =
-          WasmComponentModuleInitializerExport(
-              "wasi:cli/run@0.2.0",
-              "run",
-              WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
         scalaJSLinkerConfig.value
-         .withPrettyPrint(true)
-         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
-         .withModuleKind(ModuleKind.WasmComponent)
-         .withWasmFeatures { prevFeatures =>
-           prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
-             .withModuleInitializerExport(Some(moduleInitializerExport))
-          }
+          .withPrettyPrint(true)
+          .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
+          .withModuleKind(ModuleKind.WasmComponent)
+        .withWasmFeatures { prevFeatures =>
+          prevFeatures
+            .withWitDirectory(Some(witDir.getAbsolutePath))
+            .withWitWorld(witWorld)
+            .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
+        }
       },
   ).withScalaJSCompiler.dependsOnLibrary
 
@@ -2230,21 +2237,16 @@ object Build {
       scalaJSLinkerConfig := {
         val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
-        val moduleInitializerExport =
-          WasmComponentModuleInitializerExport(
-              "wasi:cli/run@0.2.0",
-              "run",
-              WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
         scalaJSLinkerConfig.value
-         .withPrettyPrint(true)
-         .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
-         .withModuleKind(ModuleKind.WasmComponent)
-         .withWasmFeatures { prevFeatures =>
-           prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
-             .withModuleInitializerExport(Some(moduleInitializerExport))
-          }
+            .withPrettyPrint(true)
+            .withESFeatures(_.withUseWebAssembly(true).withESVersion(ESVersion.ES2022))
+            .withModuleKind(ModuleKind.WasmComponent)
+        .withWasmFeatures { prevFeatures =>
+          prevFeatures
+            .withWitDirectory(Some(witDir.getAbsolutePath))
+            .withWitWorld(witWorld)
+            .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
+        }
       },
   ).withScalaJSCompiler.dependsOnLibrary
 
@@ -2639,6 +2641,8 @@ object Build {
         )
         .withPrettyPrint(true)
       },
+      Test / fastLinkJS / scalaJSLinkerConfig ~= withWasiCliRunModuleInitializerExport,
+      Test / fullLinkJS / scalaJSLinkerConfig ~= withWasiCliRunModuleInitializerExport,
 
       buildInfoOrStubs(Compile, Def.setting(baseDirectory.value / "src/main")),
 
