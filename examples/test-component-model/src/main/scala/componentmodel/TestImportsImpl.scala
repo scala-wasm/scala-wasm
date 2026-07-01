@@ -8,15 +8,14 @@ import componentmodel.component.testing.basics._
 import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
-import componentmodel.exports.component.testing.TestImports
 
 import scala.scalajs.WitUtils.toEither
 
 import java.util.Optional
 
-@WitImplementation
-object TestImportsImpl extends TestImports {
-  override def run(): Unit = {
+object TestImportsImpl {
+  @WitExport("component:testing/test-imports", "run")
+  def run(): Unit = {
     def newCounterArray(size: Int): Array[Counter] =
       new Array[Counter](size)
 

@@ -851,270 +851,74 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """.hasNoWarns()
   }
 
-  // --- Component Export Interface Tests ---
+  // --- Component Export Tests ---
 
-  @Test def exportInterfaceMustBeOnTrait: Unit = {
+  @Test def witExportMustBeInStaticObject: Unit = {
     """
-    @WitExportInterface
-    class NotATrait {
-      @WitExport("test:module", "func")
-      def func(): Unit
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:8: error: @WitExport can only be used in @WitExportInterface traits.
-      |      @WitExport("test:module", "func")
-      |       ^
-    """
-
-    """
-    @WitExportInterface
-    object NotATrait {
-      @WitExport("test:module", "func")
-      def func(): Unit = ???
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:8: error: @WitExport can only be used in @WitExportInterface traits.
-      |      @WitExport("test:module", "func")
-      |       ^
-    """
-  }
-
-  @Test def exportInterfaceCannotHaveConcreteMethod: Unit = {
-    """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "concrete")
-      def concreteMethod(): Unit = {
-        println("concrete")
-      }
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:9: error: @WitExportInterface trait cannot contain concrete method implementations. Method 'concreteMethod' must be abstract.
-      |      def concreteMethod(): Unit = {
-      |          ^
-    """
-  }
-
-  @Test def exportInterfaceMethodsMustHaveAnnotation: Unit = {
-    """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "annotated")
-      def annotated(): Unit
-
-      def unannotated(): Unit
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:11: error: All methods in @WitExportInterface trait must be annotated with @WitExport. Method 'unannotated' is missing the annotation.
-      |      def unannotated(): Unit
-      |          ^
-    """
-  }
-
-  @Test def exportInterfaceCannotHaveNonMethodMembers: Unit = {
-    """
-    @WitExportInterface
-    trait MyExport {
+    class NotStatic {
       @WitExport("test:module", "method")
-      def method(): Unit
-
-      val value: Int = 42
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:11: error: @WitExportInterface trait cannot contain concrete method implementations. Method 'value' must be abstract.
-      |      val value: Int = 42
-      |          ^
-    """
-
-    """
-    @WitExportInterface
-    trait MyExport {
-      var mutableValue: String = "foo"
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:8: error: @WitExportInterface trait cannot contain concrete method implementations. Method 'mutableValue' must be abstract.
-      |      var mutableValue: String = "foo"
-      |          ^
-    """
-  }
-
-  @Test def exportInterfaceExtendedByClassOrTrait: Unit = {
-
-    """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "method")
-      def method(): Unit
-    }
-
-    @WitImplementation
-    class MyClass extends MyExport {
-      override def method(): Unit = ???
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:13: error: @WitExportInterface trait MyExport cannot be extended by a class. Use an object annotated with @WitImplementation instead.
-      |    class MyClass extends MyExport {
-      |          ^
-    """
-
-    """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "method")
-      def method(): Unit
-    }
-
-    @WitImplementation
-    trait AnotherTrait extends MyExport {
-      override def method(): Unit = ???
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:13: error: @WitExportInterface trait MyExport cannot be extended by another trait. Use an object annotated with @WitImplementation instead.
-      |    trait AnotherTrait extends MyExport {
-      |          ^
-    """
-
-    """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "method")
-      def method(): Unit
-    }
-
-    object MyObjectWithoutAnnotation extends MyExport {
-      override def method(): Unit = ???
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:12: error: Object MyObjectWithoutAnnotation extends @WitExportInterface trait MyExport but is not annotated with @WitImplementation. Add @WitImplementation annotation to the object.
-      |    object MyObjectWithoutAnnotation extends MyExport {
-      |           ^
-    """
-  }
-
-  // --- Component Implementation Tests ---
-
-  @Test def witImplementationMustExtendExportInterface: Unit = {
-    """
-    trait PlainTrait {
-      def method(): Unit
-    }
-
-    @WitImplementation
-    object MyImpl extends PlainTrait {
-      override def method(): Unit = ???
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:11: error: @WitImplementation object must extend a trait annotated with @WitExportInterface
-      |    object MyImpl extends PlainTrait {
-      |           ^
-      |newSource1.scala:12: error: @WitImplementation object MyImpl must extend a trait annotated with @WitExportInterface
-      |      override def method(): Unit = ???
-      |                   ^
-    """
-
-    """
-    @WitImplementation
-    object StandaloneImpl {
       def method(): Unit = ???
     }
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitImplementation object must extend a trait annotated with @WitExportInterface
-      |    object StandaloneImpl {
-      |           ^
-      |newSource1.scala:8: error: @WitImplementation object StandaloneImpl must extend a trait annotated with @WitExportInterface
-      |      def method(): Unit = ???
-      |          ^
+      |newSource1.scala:7: error: @WitExport can only be used in static objects.
+      |      @WitExport("test:module", "method")
+      |       ^
     """
-  }
 
-  @Test def witImplementationMustImplementAllMethods: Unit = {
     """
-    @WitExportInterface
-    trait MyExport {
-      @WitExport("test:module", "method1")
-      def method1(): Unit
-
-      @WitExport("test:module", "method2")
-      def method2(x: Int): String
-    }
-
-    @WitImplementation
-    object IncompleteImpl extends MyExport {
-      override def method1(): Unit = ???
-      // missing method2
+    class Owner {
+      object Nested {
+        @WitExport("test:module", "method")
+        def method(): Unit = ()
+      }
     }
     """ hasErrors
     """
-      |newSource1.scala:16: error: Must implement method method2 from trait MyExport
-      |    object IncompleteImpl extends MyExport {
-      |           ^
+      |newSource1.scala:8: error: @WitExport can only be used in static objects.
+      |        @WitExport("test:module", "method")
+      |         ^
     """
   }
 
-  @Test def witImplementationMethodSignatureMustMatch: Unit = {
+  @Test def witExportTraitMethodsAreTemporarilyIgnored: Unit = {
     """
-    @WitExportInterface
-    trait MyExport {
+    trait GeneratedExports {
       @WitExport("test:module", "method")
-      def method(x: Int): String
+      def method(): Unit
     }
-
-    @WitImplementation
-    object WrongSignature extends MyExport {
-      override def method(x: Int): Int = 42  // Wrong return type
-    }
-    """ hasErrors
-    """
-      |newSource1.scala:14: error: overriding method method in trait MyExport of type (x: Int)String;
-      | method method has incompatible type
-      |      override def method(x: Int): Int = 42  // Wrong return type
-      |                   ^
-    """
+    """.hasNoWarns()
   }
 
   @Test def validWitExportExamples: Unit = {
     """
-    @WitExportInterface
-    trait Run {
+    object DirectRunImpl {
+      val foo = "bar"
+
       @WitExport("wasi:cli/run@0.2.0", "run")
-      def run(): wm.Result[Unit, Unit]
+      def run(): wm.Result[Unit, Unit] = {
+        println(foo)
+        new wm.Ok(())
+      }
+
+      def helper(): String = foo
     }
 
-    @WitImplementation
-    object RunImpl extends Run {
-      override def run(): wm.Result[Unit, Unit] = {
-        println("Hello!")
-        new wm.Ok(())
+    object MyAPIImpl {
+      @WitExport("test:api", "get-data")
+      def getData(id: Int): wm.Result[String, String] =
+        new wm.Ok(s"data-$id")
+
+      @WitExport("test:api", "process")
+      def process(data: Array[UByte]): Unit = {
+        // Process data
       }
     }
 
-    @WitExportInterface
-    trait MyAPI {
-      @WitExport("test:api", "get-data")
-      def getData(id: Int): wm.Result[String, String]
-
-      @WitExport("test:api", "process")
-      def process(data: Array[UByte]): Unit
-    }
-
-    @WitImplementation
-    object MyAPIImpl extends MyAPI {
-      override def getData(id: Int): wm.Result[String, String] =
-        new wm.Ok(s"data-$id")
-
-      override def process(data: Array[UByte]): Unit = {
-        // Process data
+    object Outer {
+      object Nested {
+        @WitExport("test:nested", "method")
+        def method(): Unit = ()
       }
     }
     """.hasNoWarns()

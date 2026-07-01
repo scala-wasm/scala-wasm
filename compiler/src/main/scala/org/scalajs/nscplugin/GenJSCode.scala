@@ -691,8 +691,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           witNativeMembersBuilder ++= genWitResourceConstructor(dd)
         } else if (dd.symbol.hasAnnotation(JSNativeAnnotation)) {
           jsNativeMembersBuilder += genJSNativeMemberDef(dd)
-        } else if (cd.symbol.hasAnnotation(WitImplementationAnnotation) &&
-            jsInterop.witExportOf(dd.symbol).isDefined) {
+        } else if (jsInterop.witExportOf(dd.symbol).isDefined) {
           val info = jsInterop.witExportOf(dd.symbol).get
           for (method <- genMethod(dd)) {
             methodsBuilder += method

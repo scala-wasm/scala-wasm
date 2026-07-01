@@ -38,5 +38,6 @@ import scala.annotation.meta._
  *  }
  *  }}}
  */
+@deprecated("Use @WitExport directly on static object methods instead.", "1.22.1-wasm.4")
 @getter
 class WitExportInterface extends scala.annotation.StaticAnnotation
