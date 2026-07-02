@@ -712,11 +712,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
             "scalaJSUseMainModuleInitializer := true")
         }
         val log = streams.value.log
-        val env = if (isWasmComponent) {
-          wasmEnv.value
-        } else {
-          jsEnv.value
-        }
+        val env = jsEnv.value
 
         val className =
           if (isWasmComponent) "wasi:cli/run"
@@ -909,11 +905,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val config = TestAdapter.Config()
           .withLogger(scalaJSLoggerFactory.value(log))
           .withEnv(envVars.value)
-        val jsEnvironment = jsEnv.value
-        val wasmEnvironment = wasmEnv.value
-        val env =
-          if (scalaJSLinkerConfig.value.moduleKind == ModuleKind.WasmComponent) wasmEnvironment
-          else jsEnvironment
+        val env = jsEnv.value
 
         val adapter = newTestAdapter(env, input, config)
         val frameworkAdapters = enhanceNotInstalledException(resolvedScoped.value, log) {

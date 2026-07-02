@@ -198,6 +198,12 @@ jobs:
           node-version: '26'
       - name: npm install
         run: npm install
+      - name: Install wasmtime, wasm-tools, and wac-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasmtime@44.0.2,wasm-tools,wac-cli
+      - name: Install wit-bindgen from scala-wasm/wit-bindgen scala-wasm-wasm.4 tag
+        run: cargo install --git https://github.com/scala-wasm/wit-bindgen --tag scala-wasm-wasm.4 wit-bindgen-cli
       - name: sbtPlugin2_12/scripted
         run: sbt sbtPlugin2_12/scripted
       - name: sbtPlugin3/scripted
