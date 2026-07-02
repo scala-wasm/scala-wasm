@@ -1,0 +1,5 @@
+package scala-wasm:scripted;
+
+world command {
+  export wasi:cli/run@0.2.0;
+}

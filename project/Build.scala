@@ -31,6 +31,7 @@ import org.scalajs.sbtplugin._
 import org.scalajs.jsenv.{JSEnv, RunConfig, Input}
 import org.scalajs.jsenv.JSUtils.escapeJS
 import org.scalajs.jsenv.nodejs.NodeJSEnv
+import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 import ScalaJSPlugin.autoImport.{ModuleKind => _, _}
 import org.scalastyle.sbt.ScalastylePlugin.autoImport.scalastyle
@@ -244,8 +245,20 @@ object MyScalaJSPlugin extends AutoPlugin {
       wantSourceMaps := true,
 
       jsEnv := {
-        val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
-        new NodeJSEnv(config)
+        scalaJSLinkerConfig.value.moduleKind match {
+          case ModuleKind.WasmComponent =>
+            val config = WasmtimeEnv.Config()
+              .withArgs(List(
+                  "run",
+                  "-W", "gc,function-references,exceptions",
+                  "-S", "cli,http,inherit-env,inherit-network,tcp"
+              ))
+            new WasmtimeEnv(config)
+
+          case _ =>
+            val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
+            new NodeJSEnv(config)
+        }
       },
 
       Compile / jsEnvInput :=

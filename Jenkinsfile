@@ -593,10 +593,11 @@ def allESVersions = [
   // "ES2019", // We do not use anything specifically from ES2019
   "ES2020",
   // "ES2021", // We do not use anything specifically from ES2021
-  "ES2022", // the 'd' flag for RegExp
+  "ES2022", // the 'd' flag for RegExp, and minimum version for Wasm
   "ES2026" // We do not use anything specifically from ES2023-ES2026, but always test the latest to avoid #4675
 ]
 def defaultESVersion = "ES2015"
+def minWasmESVersion = "ES2022"
 def latestESVersion = "ES2026"
 
 // The 'quick' matrix
