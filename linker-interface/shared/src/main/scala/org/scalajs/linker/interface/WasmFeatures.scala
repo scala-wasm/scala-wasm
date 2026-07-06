@@ -18,6 +18,9 @@ import Fingerprint.FingerprintBuilder
  *
  *  The options in `WasmFeatures` specify what features of modern versions of
  *  WebAssembly are used by the Scala.js linker.
+ *
+ *  TODO: Move WIT and Wasm Component packaging options to a dedicated Wasm
+ *  Component configuration once such a configuration exists.
  */
 final class WasmFeatures private (
     /* We define `val`s separately below so that we can attach Scaladoc to them
@@ -26,6 +29,7 @@ final class WasmFeatures private (
     _exceptionHandling: Boolean,
     _witDirectory: Option[String],
     _witWorld: Option[String],
+    _moduleInitializerExport: Option[WasmComponentModuleInitializerExport],
     _autoIncludeWasiImports: Boolean,
     _useJSPI: Boolean
 ) {
@@ -36,6 +40,7 @@ final class WasmFeatures private (
       _exceptionHandling = true,
       _witDirectory = None,
       _witWorld = None,
+      _moduleInitializerExport = None,
       _autoIncludeWasiImports = true,
       _useJSPI = false
     )
@@ -59,6 +64,15 @@ final class WasmFeatures private (
    */
   val witWorld = _witWorld
 
+  /** Wasm Component export that invokes the module initializers.
+   *
+   *  This does not generate WIT declarations. The selected WIT world must
+   *  already declare the corresponding export.
+   *
+   *  Default: `None`
+   */
+  val moduleInitializerExport = _moduleInitializerExport
+
   /** Automatically include WASI imports when generating a WebAssembly component.
    *
    *  Default: `true`
@@ -73,6 +87,11 @@ final class WasmFeatures private (
 
   def withWitWorld(witWorld: Option[String]): WasmFeatures =
     copy(witWorld = witWorld)
+
+  def withModuleInitializerExport(
+      moduleInitializerExport: Option[WasmComponentModuleInitializerExport]): WasmFeatures = {
+    copy(moduleInitializerExport = moduleInitializerExport)
+  }
 
   def withAutoIncludeWasiImports(autoIncludeWasiImports: Boolean): WasmFeatures =
     copy(autoIncludeWasiImports = autoIncludeWasiImports)
@@ -95,6 +114,7 @@ final class WasmFeatures private (
       this.exceptionHandling == that.exceptionHandling &&
       this.witDirectory == that.witDirectory &&
       this.witWorld == that.witWorld &&
+      this.moduleInitializerExport == that.moduleInitializerExport &&
       this.autoIncludeWasiImports == that.autoIncludeWasiImports &&
       this.useJSPI == that.useJSPI
     case _ =>
@@ -107,9 +127,10 @@ final class WasmFeatures private (
     acc = mix(acc, exceptionHandling.##)
     acc = mix(acc, witDirectory.##)
     acc = mix(acc, witWorld.##)
+    acc = mix(acc, moduleInitializerExport.##)
     acc = mix(acc, autoIncludeWasiImports.##)
     acc = mixLast(acc, useJSPI.##)
-    finalizeHash(acc, 5)
+    finalizeHash(acc, 6)
   }
 
   override def toString(): String = {
@@ -117,6 +138,7 @@ final class WasmFeatures private (
        |  exceptionHandling = $exceptionHandling,
        |  witDirectory = $witDirectory,
        |  witWorld = $witWorld,
+       |  moduleInitializerExport = $moduleInitializerExport,
        |  autoIncludeWasiImports = $autoIncludeWasiImports,
        |  useJSPI = $useJSPI
        |)""".stripMargin
@@ -126,6 +148,8 @@ final class WasmFeatures private (
       exceptionHandling: Boolean = this.exceptionHandling,
       witDirectory: Option[String] = this.witDirectory,
       witWorld: Option[String] = this.witWorld,
+      moduleInitializerExport: Option[WasmComponentModuleInitializerExport] =
+        this.moduleInitializerExport,
       autoIncludeWasiImports: Boolean = this.autoIncludeWasiImports,
       useJSPI: Boolean = this.useJSPI
   ): WasmFeatures = {
@@ -133,6 +157,7 @@ final class WasmFeatures private (
       _exceptionHandling = exceptionHandling,
       _witDirectory = witDirectory,
       _witWorld = witWorld,
+      _moduleInitializerExport = moduleInitializerExport,
       _autoIncludeWasiImports = autoIncludeWasiImports,
       _useJSPI = useJSPI
     )
@@ -148,6 +173,7 @@ object WasmFeatures {
    *  - `exceptionHandling`: true
    *  - `witDirectory`: `None`
    *  - `witWorld`: `None`
+   *  - `moduleInitializerExport`: `None`
    *  - `autoIncludeWasiImports`: true
    *  - `useJSPI`: false
    */
@@ -160,6 +186,7 @@ object WasmFeatures {
         .addField("exceptionHandling", wasmFeatures.exceptionHandling)
         .addField("witDirectory", wasmFeatures.witDirectory)
         .addField("witWorld", wasmFeatures.witWorld)
+        .addField("moduleInitializerExport", wasmFeatures.moduleInitializerExport)
         .addField("autoIncludeWasiImports", wasmFeatures.autoIncludeWasiImports)
         .addField("useJSPI", wasmFeatures.useJSPI)
         .build()
