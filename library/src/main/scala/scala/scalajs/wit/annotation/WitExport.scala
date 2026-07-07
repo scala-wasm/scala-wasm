@@ -14,6 +14,10 @@ package scala.scalajs.wit.annotation
 
 import scala.annotation.meta._
 
+/** Marks a function as a Wasm Component Model export.
+ *
+ *  This annotation is only valid on methods in static objects.
+ */
 @field @getter @setter
 class WitExport private () extends scala.annotation.StaticAnnotation {
   def this(moduleName: String, name: String) = this()

@@ -11,13 +11,25 @@ import scala.scalajs.wit
 import scala.scalajs.WitUtils._
 import scala.collection.mutable
 
-import echo.exports.wasi.http.IncomingHandler
 import scala.scalajs.wasi.http.types._
 
-@WitImplementation
-object Server extends IncomingHandler {
-  override def handle(request: IncomingRequest, outParam: ResponseOutparam): Unit = {
-    val inputBody = (for {
+object Server {
+  @WitExport("wasi:http/incoming-handler@0.2.0", "handle")
+  def handle(request: IncomingRequest, outParam: ResponseOutparam): Unit = {
+    val inputBody = readRequestBody(request)
+
+    val headers: Headers = Fields()
+    val resp = OutgoingResponse(headers)
+    val body: OutgoingBody =
+      toEither(resp.body()).getOrElse(throw new Error("failed to obtain outgoing response"))
+
+    ResponseOutparam.set(outParam, new wit.Ok(resp))
+
+    writeResponseBody(body, inputBody)
+  }
+
+  private def readRequestBody(request: IncomingRequest): Array[Byte] = {
+    (for {
       body <- toEither(request.consume())
       inputStream <- toEither(body.stream())
     } yield {
@@ -37,16 +49,11 @@ object Server extends IncomingHandler {
       }
       in.toArray
     }).getOrElse(throw new Error("failed to obtain request body"))
+  }
 
-    val headers: Headers = Fields()
-    val resp = OutgoingResponse(headers)
-    val body: OutgoingBody =
-      toEither(resp.body()).getOrElse(throw new Error("failed to obtain outgoing response"))
-
-    ResponseOutparam.set(outParam, new wit.Ok(resp))
-
+  private def writeResponseBody(body: OutgoingBody, bytes: Array[Byte]): Unit = {
     val out = toEither(body.write()).getOrElse(throw new Error("failed to get outgoing stream"))
-    out.blockingWriteAndFlush(inputBody)
+    out.blockingWriteAndFlush(bytes)
 
     out.close()
 

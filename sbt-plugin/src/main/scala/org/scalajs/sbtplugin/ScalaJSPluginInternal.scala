@@ -96,6 +96,13 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
     private final val World = "test-bridge"
 
+    private final val TestBridgeModuleInitializerExport = {
+      WasmComponentModuleInitializerExport(
+          "wasi:cli/run@0.2.0",
+          "run",
+          WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
+    }
+
     private lazy val syntheticWitDirectory: File = {
       val base = new File(
           System.getProperty("java.io.tmpdir"),
@@ -129,6 +136,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
           prev
             .withWitDirectory(Some(syntheticWitDirectory.getAbsolutePath))
             .withWitWorld(prev.witWorld.orElse(Some(World)))
+            .withModuleInitializerExport(
+                prev.moduleInitializerExport.orElse(Some(TestBridgeModuleInitializerExport)))
         }
       } else {
         config
