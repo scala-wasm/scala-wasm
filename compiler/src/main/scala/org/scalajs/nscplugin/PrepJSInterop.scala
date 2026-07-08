@@ -894,10 +894,13 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         return
       }
 
-      val nonObjectParents = sym.info.parents.map(_.typeSymbol).filter(_ != definitions.ObjectClass)
+      val nonObjectParents = sym.info.parents.map(_.typeSymbol).filterNot { parent =>
+        parent == definitions.ObjectClass || parent == AutoCloseableClass
+      }
       if (nonObjectParents.nonEmpty) {
         reporter.error(pos,
-            "@WitResourceImport class may only extend java.lang.Object")
+            "@WitResourceImport class may only extend java.lang.Object " +
+            "and/or java.lang.AutoCloseable")
         return
       }
 
@@ -2036,6 +2039,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
     Set(JSGlobalAnnotation, JSImportAnnotation, JSGlobalScopeAnnotation)
 
   private lazy val ScalaEnumClass = getRequiredClass("scala.Enumeration")
+
+  private lazy val AutoCloseableClass = getRequiredClass("java.lang.AutoCloseable")
 
   private def wasPublicBeforeTyper(sym: Symbol): Boolean =
     sym.hasAnnotation(WasPublicBeforeTyperClass)
