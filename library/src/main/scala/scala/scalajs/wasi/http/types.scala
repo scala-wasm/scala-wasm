@@ -600,7 +600,7 @@ package object types {
    *  operations will fail with `header-error.immutable`.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "fields")
-  trait Fields {
+  final class Fields private () extends Object {
 
     /** Get all of the values corresponding to a key. If the key is not present
      *  in this `fields`, an empty list is returned. However, if the key is
@@ -699,7 +699,7 @@ package object types {
 
   /** Represents an incoming HTTP Request. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "incoming-request")
-  trait IncomingRequest {
+  final class IncomingRequest private () extends Object {
 
     /** Returns the method of the incoming request. */
     @scala.scalajs.wit.annotation.WitResourceMethod("method")
@@ -743,7 +743,7 @@ package object types {
 
   /** Represents an outgoing HTTP Request. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "outgoing-request")
-  trait OutgoingRequest {
+  final class OutgoingRequest private () extends Object {
 
     /** Returns the resource corresponding to the outgoing Body for this
      *  Request.
@@ -852,7 +852,7 @@ package object types {
    *  blocking call to `wasi:io/poll.poll`.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "request-options")
-  trait RequestOptions {
+  final class RequestOptions private () extends Object {
 
     /** The timeout for the initial connect to the HTTP Server. */
     @scala.scalajs.wit.annotation.WitResourceMethod("connect-timeout")
@@ -917,7 +917,7 @@ package object types {
    *  other argument to `incoming-handler.handle`.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "response-outparam")
-  trait ResponseOutparam {
+  final class ResponseOutparam private () extends Object {
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }
@@ -943,7 +943,7 @@ package object types {
 
   /** Represents an incoming HTTP Response. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "incoming-response")
-  trait IncomingResponse {
+  final class IncomingResponse private () extends Object {
 
     /** Returns the status code from the incoming response. */
     @scala.scalajs.wit.annotation.WitResourceMethod("status")
@@ -982,7 +982,7 @@ package object types {
    *  the body contents or waiting on trailers at any given time.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "incoming-body")
-  trait IncomingBody {
+  final class IncomingBody private () extends Object {
 
     /** Returns the contents of the body, as a stream of bytes.
      *
@@ -1023,7 +1023,7 @@ package object types {
    *  complete Request or Response body has been received.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "future-trailers")
-  trait FutureTrailers {
+  final class FutureTrailers private () extends Object {
 
     /** Returns a pollable which becomes ready when either the trailers have
      *  been received, or an error has occured. When this pollable is ready,
@@ -1066,7 +1066,7 @@ package object types {
 
   /** Represents an outgoing HTTP Response. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "outgoing-response")
-  trait OutgoingResponse {
+  final class OutgoingResponse private () extends Object {
 
     /** Get the HTTP Status Code for the Response. */
     @scala.scalajs.wit.annotation.WitResourceMethod("status-code")
@@ -1136,7 +1136,7 @@ package object types {
    *  Request, or sending a late status code for the Response.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:http/types@0.2.0", "outgoing-body")
-  trait OutgoingBody {
+  final class OutgoingBody private () extends Object {
 
     /** Returns a stream for writing the body contents.
      *
@@ -1182,7 +1182,7 @@ package object types {
    */
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:http/types@0.2.0", "future-incoming-response")
-  trait FutureIncomingResponse {
+  final class FutureIncomingResponse private () extends Object {
 
     /** Returns a pollable which becomes ready when either the Response has
      *  been received, or an error has occured. When this pollable is ready,

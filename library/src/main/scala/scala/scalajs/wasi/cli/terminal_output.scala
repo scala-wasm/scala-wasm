@@ -6,7 +6,7 @@ package object terminal_output {
   /** The output side of a terminal. */
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:cli/terminal-output@0.2.0", "terminal-output")
-  trait TerminalOutput {
+  final class TerminalOutput private () extends Object {
     @scala.scalajs.wit.annotation.WitResourceDrop
     def close(): Unit = scala.scalajs.wit.native
   }

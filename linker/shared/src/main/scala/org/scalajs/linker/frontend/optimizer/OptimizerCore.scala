@@ -329,7 +329,7 @@ private[optimizer] abstract class OptimizerCore(
            * of type tests.
            */
           true
-        case _:ClosureType | _:RecordType | WitResourceType(_) =>
+        case _:ClosureType | _:RecordType =>
           // These types are only subtypes of themselves, modulo nullability
           true
       }
@@ -2274,7 +2274,6 @@ private[optimizer] abstract class OptimizerCore(
             case ClassType(_, _, exact)   => exact
             case _:PrimType | _:ArrayType => true
             case AnyType | AnyNotNullType => false
-            case _: WitResourceType       => true
 
             case _:ClosureType | _:RecordType =>
               throw new AssertionError(s"Invalid receiver type ${treceiver.tpe} at $pos")
@@ -2458,7 +2457,7 @@ private[optimizer] abstract class OptimizerCore(
   private def boxedClassForType(tpe: Type): ClassName = (tpe: @unchecked) match {
     case ClassType(className, _, _) =>
       className
-    case AnyType | AnyNotNullType | _:ArrayType | _:WitResourceType =>
+    case AnyType | AnyNotNullType | _:ArrayType =>
       ObjectClass
     case tpe: PrimType =>
       PrimTypeToBoxedClass(tpe)
@@ -4428,14 +4427,10 @@ private[optimizer] abstract class OptimizerCore(
         primRef.displayName
       case ClassRef(className) =>
         mappedClassName(className)
-      case WitResourceTypeRef(className) =>
-        "resource<" + mappedClassName(className) + ">"
       case ArrayTypeRef(primRef: PrimRef, dimensions) =>
         "[" * dimensions + primRef.charCode
       case ArrayTypeRef(ClassRef(className), dimensions) =>
         "[" * dimensions + "L" + mappedClassName(className) + ";"
-      case ArrayTypeRef(WitResourceTypeRef(className), dimensions) =>
-        "[" * dimensions + "W" + mappedClassName(className) + ";"
       case typeRef: TransientTypeRef =>
         throw new IllegalArgumentException(typeRef.toString())
     }
@@ -6184,9 +6179,6 @@ private[optimizer] abstract class OptimizerCore(
         case ClassRef(className) =>
           if (isJSType(className)) AnyType
           else ClassType(className, nullable = true, exact = false)
-
-        case WitResourceTypeRef(className) =>
-          WitResourceType(className)
       }
     } else {
       ArrayType(ArrayTypeRef(base, dimensions - 1), nullable = true, exact = false)

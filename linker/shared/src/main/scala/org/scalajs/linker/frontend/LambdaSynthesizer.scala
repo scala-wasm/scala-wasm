@@ -75,9 +75,6 @@ private[linker] object LambdaSynthesizer {
       case ClassRef(className) =>
         digestBuilder.update('L'.toByte)
         digestBuilder.updateUTF8String(className.encoded)
-      case WitResourceTypeRef(className) =>
-        digestBuilder.update('W'.toByte)
-        digestBuilder.updateUTF8String(className.encoded)
       case ArrayTypeRef(base, dimensions) =>
         digestBuilder.update('['.toByte)
         updateTypeRef(base)

@@ -260,14 +260,6 @@ object Infos {
           addMethodCalledStatically(ObjectClass,
               NamespacedMethodName(MemberNamespace.Public, method))
 
-        case WitResourceType(_) =>
-          /* WIT resource types are opaque external types that do not define
-           * standard Java methods themselves. They are all inherited from
-           * j.l.Object, so we handle them the same way as Arrays.
-           */
-          addMethodCalledStatically(ObjectClass,
-              NamespacedMethodName(MemberNamespace.Public, method))
-
         case NullType | NothingType =>
           // Nothing to do
 

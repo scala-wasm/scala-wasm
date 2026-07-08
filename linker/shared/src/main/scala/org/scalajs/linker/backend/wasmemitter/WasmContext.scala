@@ -122,8 +122,6 @@ final class WasmContext(
         AnyType
       else
         ClassType(className, nullable = true, exact = false)
-    case WitResourceTypeRef(className) =>
-      WitResourceType(className)
     case typeRef: ArrayTypeRef =>
       ArrayType(typeRef, nullable = true, exact = false)
     case typeRef: TransientTypeRef =>

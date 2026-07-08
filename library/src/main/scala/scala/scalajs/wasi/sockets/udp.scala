@@ -71,7 +71,7 @@ package object udp {
   // Resources
   /** A UDP socket handle. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:sockets/udp@0.2.0", "udp-socket")
-  trait UdpSocket {
+  final class UdpSocket private () extends Object {
 
     /** Bind the socket to a specific network on the provided IP address and port.
      *
@@ -258,7 +258,7 @@ package object udp {
 
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:sockets/udp@0.2.0", "incoming-datagram-stream")
-  trait IncomingDatagramStream {
+  final class IncomingDatagramStream private () extends Object {
 
     /** Receive messages on the socket.
      *
@@ -306,7 +306,7 @@ package object udp {
 
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:sockets/udp@0.2.0", "outgoing-datagram-stream")
-  trait OutgoingDatagramStream {
+  final class OutgoingDatagramStream private () extends Object {
 
     /** Check readiness for sending. This function never blocks.
      *

@@ -14,7 +14,7 @@ package object ip_name_lookup {
   // Resources
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:sockets/ip-name-lookup@0.2.0", "resolve-address-stream")
-  trait ResolveAddressStream {
+  final class ResolveAddressStream private () extends Object {
 
     /** Returns the next address from the resolver.
      *

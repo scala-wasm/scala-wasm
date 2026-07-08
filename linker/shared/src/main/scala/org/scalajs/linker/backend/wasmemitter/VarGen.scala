@@ -495,7 +495,6 @@ object VarGen {
 
   object genTypeID {
     final case class forClass(className: ClassName) extends TypeID
-    final case class forResourceClass(className: ClassName) extends TypeID
     final case class captureData(index: Int) extends TypeID
     final case class forVTable(className: ClassName) extends TypeID
     final case class forITable(className: ClassName) extends TypeID

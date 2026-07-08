@@ -41,7 +41,6 @@ object Types {
       case ClassType(_, nullable, _)   => nullable
       case ArrayType(_, nullable, _)   => nullable
       case ClosureType(_, _, nullable) => nullable
-      case WitResourceType(_)          => false
       case _                           => false
     }
 
@@ -270,15 +269,6 @@ object Types {
         tpe: Type, mutable: Boolean)
   }
 
-  /** WebAssembly Component Model resource type.
-   *
-   *  This represents a handle to a resource in the WebAssembly Component Model.
-   *  Resources are represented as i32 handles at the Wasm level.
-   */
-  final case class WitResourceType(className: ClassName) extends Type {
-    def toNonNullable: this.type = this
-  }
-
   /** Void type, the top of type of our type system. */
   case object VoidType extends PrimTypeWithRef('V', "void")
 
@@ -312,12 +302,6 @@ object Types {
           case that: ClassRef => thiz.className.compareTo(that.className)
           case _: PrimRef     => 1
           case _              => -1
-        }
-      case thiz: WitResourceTypeRef =>
-        that match {
-          case that: WitResourceTypeRef => thiz.className.compareTo(that.className)
-          case _:PrimRef | _:ClassRef   => 1
-          case _                        => -1
         }
       case thiz: ArrayTypeRef =>
         that match {
@@ -407,15 +391,6 @@ object Types {
     def displayName: String = className.nameString
   }
 
-  /** WebAssembly Component Model resource type reference.
-   *
-   *  This represents a reference to a component resource type in method signatures.
-   *  Component resources are opaque handles represented as i32 at the Wasm level.
-   */
-  final case class WitResourceTypeRef(className: ClassName) extends NonArrayTypeRef {
-    def displayName: String = "resource<" + className.nameString + ">"
-  }
-
   /** Array type. */
   final case class ArrayTypeRef(base: NonArrayTypeRef, dimensions: Int) extends TypeRef {
 
@@ -467,7 +442,7 @@ object Types {
       RecordValue(tpe, tpe.fields.map(f => zeroOf(f.tpe)))
 
     case NothingType | VoidType | ClassType(_, false, _) | ArrayType(_, false, _) |
-        ClosureType(_, _, false) | AnyNotNullType | WitResourceType(_) =>
+        ClosureType(_, _, false) | AnyNotNullType =>
       throw new IllegalArgumentException(s"cannot generate a zero for $tpe")
   }
 
@@ -548,8 +523,6 @@ object Types {
                  * Object in their ancestors.
                  */
                 rhsBaseName == ObjectClass || isSubclass(lhsBaseName, rhsBaseName)
-              case (WitResourceTypeRef(lhsBaseName), WitResourceTypeRef(rhsBaseName)) =>
-                lhsBaseName == rhsBaseName
               case _ =>
                 lhsBase eq rhsBase
             }
@@ -559,11 +532,6 @@ object Types {
       case (ArrayType(_, lhsNullable, _), ClassType(className, rhsNullable, false)) =>
         isSubnullable(lhsNullable, rhsNullable) &&
         AncestorsOfPseudoArrayClass.contains(className)
-
-      case (WitResourceType(_), ClassType(className, rhsNullable, _)) =>
-        // WitResourceType is always non-nullable and subtype of ObjectClass.
-        isSubnullable(false, rhsNullable) &&
-        className == ObjectClass
 
       case _ =>
         false

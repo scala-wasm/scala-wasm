@@ -172,9 +172,11 @@ private final class ClassDefChecker(classDef: ClassDef,
         if (classDef.superClass.isDefined)
           reportError("java.lang.Object cannot have a superClass")
 
-      case ClassKind.NativeWasmComponentResourceClass =>
-        if (classDef.superClass.isDefined)
-          reportError("Wasm component resource cannot have a superClass")
+      case ClassKind.WasmComponentResourceClass =>
+        if (classDef.superClass.isEmpty)
+          reportError("missing superClass")
+        else if (classDef.superClass.get.name != ObjectClass)
+          reportError("Wasm component resource must have java.lang.Object as its superClass")
 
       case ClassKind.Class | ClassKind.ModuleClass | ClassKind.HijackedClass |
           ClassKind.JSClass | ClassKind.JSModuleClass |
@@ -289,8 +291,9 @@ private final class ClassDefChecker(classDef: ClassDef,
       case ClassKind.Class | ClassKind.HijackedClass =>
         // all namespaces are allowed (except for class initializers as checked above)
 
-      case ClassKind.NativeWasmComponentResourceClass =>
-        // TODO
+      case ClassKind.WasmComponentResourceClass =>
+        if (isConstructor && name != NoArgConstructorName)
+          reportError("Wasm component resource class must have a parameterless constructor")
 
       case ClassKind.Interface =>
         if (isConstructor)

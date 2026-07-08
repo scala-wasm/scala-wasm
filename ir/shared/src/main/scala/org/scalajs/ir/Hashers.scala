@@ -619,9 +619,6 @@ object Hashers {
       case ClassRef(className) =>
         mixTag(TagClassRef)
         mixName(className)
-      case WitResourceTypeRef(className) =>
-        mixTag(TagWitResourceTypeRef)
-        mixName(className)
       case typeRef: ArrayTypeRef =>
         mixTag(TagArrayTypeRef)
         mixArrayTypeRef(typeRef)
@@ -661,10 +658,6 @@ object Hashers {
           case (false, false) => TagNonNullClassType
         }
         mixTag(tag)
-        mixName(className)
-
-      case WitResourceType(className) =>
-        mixTag(TagWitResourceType)
         mixName(className)
 
       case ArrayType(arrayTypeRef, nullable, exact) =>

@@ -464,7 +464,7 @@ package object types {
    *  calls may be made.
    */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:filesystem/types@0.2.0", "descriptor")
-  trait Descriptor {
+  final class Descriptor private () extends Object {
 
     /** Return a stream for reading from a file, if available.
      *
@@ -804,7 +804,7 @@ package object types {
   /** A stream of directory entries. */
   @scala.scalajs.wit.annotation.WitResourceImport(
       "wasi:filesystem/types@0.2.0", "directory-entry-stream")
-  trait DirectoryEntryStream {
+  final class DirectoryEntryStream private () extends Object {
 
     /** Read a single directory entry from a `directory-entry-stream`. */
     @scala.scalajs.wit.annotation.WitResourceMethod("read-directory-entry")

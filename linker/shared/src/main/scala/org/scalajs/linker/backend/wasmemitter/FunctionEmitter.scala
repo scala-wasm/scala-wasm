@@ -612,7 +612,7 @@ private class FunctionEmitter private (
        * synthesize a fake result.
        */
       if (expectedType != VoidType && expectedType != NothingType)
-        fb ++= SWasmGen.genZeroOf(expectedType)
+        fb += SWasmGen.genZeroOf(expectedType)
     }
 
     currentExceptionHandler = null
@@ -989,7 +989,7 @@ private class FunctionEmitter private (
             PrimTypeToBoxedClass(prim)
           case ClassType(cls, _, _) =>
             cls
-          case AnyType | AnyNotNullType | ArrayType(_, _, _) | WitResourceType(_) =>
+          case AnyType | AnyNotNullType | ArrayType(_, _, _) =>
             ObjectClass
 
           case tpe @ (_:ClosureType | _:RecordType) =>
@@ -1011,7 +1011,6 @@ private class FunctionEmitter private (
         val useStaticDispatch = receiver.tpe match {
           case _ if receiverClassInfo.kind == ClassKind.HijackedClass => true
           case _: ArrayType                                           => true
-          case _: WitResourceType                                     => true
           case ClassType(_, _, exact)                                 => exact
           case _                                                      => false
         }
@@ -2385,9 +2384,6 @@ private class FunctionEmitter private (
       case ArrayType(_, _, _) =>
         genWithDispatch(needHijackedClassDispatch = false)
 
-      case WitResourceType(_) =>
-        genWithDispatch(needHijackedClassDispatch = false)
-
       case tpe @ (_:ClosureType | _:RecordType) =>
         throw new AssertionError(
             s"Invalid type ${tree.tpe} for String_+ at ${tree.pos}: $tree")
@@ -2605,8 +2601,7 @@ private class FunctionEmitter private (
       case AnyType |
           ClassType(_, true, _) | ClassType(_, _, true) |
           ArrayType(_, true, _) | ArrayType(_, _, true) |
-          _:ClosureType | _:RecordType |
-          _:WitResourceType =>
+          _:ClosureType | _:RecordType =>
         throw new AssertionError(s"Illegal type in IsInstanceOf: $testType")
     }
 
@@ -2746,7 +2741,7 @@ private class FunctionEmitter private (
           )
           fb += wa.Br(doneLabel)
         }
-        fb ++= genZeroOf(targetTpe)
+        fb += genZeroOf(targetTpe)
       }
     }
     targetTpe match {

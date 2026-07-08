@@ -796,17 +796,16 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           val isDrop = annot.symbol == WitResourceDropAnnotation
 
           if ((isResourceMethod || isDrop) && (
-                !sym.owner.isTraitOrInterface ||
-                  !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
+                !sym.owner.isClass || !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
             reporter.error(pos,
-                s"$annot is allowed in trait annotated with @WitResourceImport")
+                s"$annot is allowed in final class annotated with @WitResourceImport")
           } else if ((isStaticMethod || isConstructor) && (
                 !sym.owner.isModuleClass ||
                   sym.owner.companionClass == NoSymbol ||
-                  !sym.owner.companionClass.isTraitOrInterface ||
+                  !sym.owner.companionClass.isClass || sym.owner.companionClass.isTrait ||
                   !sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation))) {
             reporter.error(pos,
-                s"$annot is allowed in companion object of trait annotated with @WitResourceImport")
+                s"$annot is allowed in companion object of class annotated with @WitResourceImport")
           }
         }
       }
@@ -862,21 +861,43 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
             reporter.error(pos,
                 s"Return type '${returnType}' is not compatible with Component Model")
           }
+
         }
       }
     }
 
     private def checkWasmWitResourceImport(pos: Position, sym: Symbol): Unit = {
-      if (!sym.isTrait) {
+      if (!sym.isClass || sym.isTrait || sym.isModuleClass || !sym.isFinal) {
         reporter.error(pos,
-            "@WitResourceImport is allowed for traits")
+            "@WitResourceImport is allowed for final classes")
         return
       }
 
-      // Resource imports should not be sealed
       if (sym.isSealed) {
         reporter.error(pos,
-            "@WitResourceImport traits cannot be sealed")
+            "@WitResourceImport classes cannot be sealed")
+        return
+      }
+
+      val primaryCtor = sym.primaryConstructor
+      if (primaryCtor == NoSymbol) {
+        reporter.error(pos,
+            "@WitResourceImport class must have a primary constructor")
+        return
+      }
+
+      val ctorParams =
+        if (primaryCtor.info.paramss.isEmpty) Nil else primaryCtor.info.paramss.head
+      if (!primaryCtor.isPrivate || ctorParams.nonEmpty) {
+        reporter.error(pos,
+            "@WitResourceImport class must have a private parameterless primary constructor")
+        return
+      }
+
+      val nonObjectParents = sym.info.parents.map(_.typeSymbol).filter(_ != definitions.ObjectClass)
+      if (nonObjectParents.nonEmpty) {
+        reporter.error(pos,
+            "@WitResourceImport class may only extend java.lang.Object")
         return
       }
 
@@ -888,7 +909,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           val hasResourceConstructor = member.hasAnnotation(WitResourceConstructorAnnotation)
           val hasResourceStaticMethod = member.hasAnnotation(WitResourceStaticMethodAnnotation)
 
-          // @WitResourceConstructor and @WitResourceStaticMethod are not allowed in trait
+          // @WitResourceConstructor and @WitResourceStaticMethod are not allowed in class
           if (hasResourceConstructor) {
             reporter.error(member.pos,
                 "@WitResourceConstructor can only be used on apply method in companion object")
@@ -901,7 +922,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           val hasResourceMethodAnnotation = hasResourceMethod || hasResourceDrop
           if (!hasResourceMethodAnnotation) {
             reporter.error(member.pos,
-                s"Method '${member.name}' in @WitResourceImport trait must be " +
+                s"Method '${member.name}' in @WitResourceImport class must be " +
                 "annotated with @WitResourceMethod or @WitResourceDrop")
           }
 
@@ -947,13 +968,14 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
                   overridden.fullName)
             }
           }
+
         }
       }
 
       // Ensure there is at most one drop method
       if (dropMethodCount > 1) {
         reporter.error(pos,
-            s"@WitResourceImport trait can have at most one @WitResourceDrop method, found $dropMethodCount")
+            s"@WitResourceImport class can have at most one @WitResourceDrop method, found $dropMethodCount")
       }
 
       // Check companion object if it exists
@@ -976,9 +998,10 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
                 !hasStaticMethodAnnot &&
                 !member.isSynthetic) {
               reporter.error(member.pos,
-                  s"Public method '${member.name}' in companion object of @WitResourceImport trait must be " +
+                  s"Public method '${member.name}' in companion object of @WitResourceImport class must be " +
                   "annotated with @WitResourceConstructor or @WitResourceStaticMethod")
             }
+
           }
         }
       }

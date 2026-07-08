@@ -147,7 +147,7 @@ object CABIToScalaJS {
         // genAlignTo(fb, wit.alignment(tpe), ptr)
 
       case wit.ResourceType(className) =>
-        val resourceStructID = genTypeID.forResourceClass(className)
+        val resourceStructID = genTypeID.forClass(className)
         val handleLocal = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.I32Load()
         fb += wa.LocalSet(handleLocal)
@@ -236,7 +236,7 @@ object CABIToScalaJS {
         fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable
         fb += wa.I32Const(0) // idHashCode
         vi.next(watpe.Int32) // handle
-        fb += wa.StructNew(genTypeID.forResourceClass(className))
+        fb += wa.StructNew(genTypeID.forClass(className))
 
       case wit.TupleType(fields) =>
         val ctor = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))

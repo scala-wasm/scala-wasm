@@ -25,28 +25,7 @@ import org.scalajs.linker.backend.webassembly.Identitities.LocalID
 /** Scala.js-specific Wasm generators that are used across the board. */
 object SWasmGen {
 
-  def nonArrayTypeDataGlobalID(typeRef: NonArrayTypeRef) = typeRef match {
-    case WitResourceTypeRef(className) =>
-      // Resource classes currently share the class-backed typeData/vtable global.
-      genGlobalID.forVTable(className)
-    case _ =>
-      genGlobalID.forVTable(typeRef)
-  }
-
-  def genZeroOf(tpe: Type)(implicit ctx: WasmContext): List[Instr] = {
-    tpe match {
-      case WitResourceType(className) =>
-        List(
-            GlobalGet(genGlobalID.forVTable(className)), // vtable
-            I32Const(0), // idHashCode (unused, needed for subtyping)
-            I32Const(0), // handle (zero value)
-            StructNew(genTypeID.forResourceClass(className)))
-      case _ =>
-        List(genZeroOf0(tpe))
-    }
-  }
-
-  private def genZeroOf0(tpe: Type)(implicit ctx: WasmContext): Instr = {
+  def genZeroOf(tpe: Type)(implicit ctx: WasmContext): Instr = {
     tpe match {
       case BooleanType | CharType | ByteType | ShortType | IntType =>
         I32Const(0)
@@ -68,7 +47,7 @@ object SWasmGen {
         RefNull(Types.HeapType.None)
 
       case NothingType | VoidType | ClassType(_, false, _) | ArrayType(_, false, _) |
-          ClosureType(_, _, false) | AnyNotNullType | _:WitResourceType | _:RecordType =>
+          ClosureType(_, _, false) | AnyNotNullType | _:RecordType =>
         throw new AssertionError(s"Unexpected type for field: ${tpe.show()}")
     }
   }
@@ -91,7 +70,7 @@ object SWasmGen {
   }
 
   def genLoadNonArrayTypeData(fb: FunctionBuilder, typeRef: NonArrayTypeRef): Unit =
-    fb += GlobalGet(nonArrayTypeDataGlobalID(typeRef))
+    fb += GlobalGet(genGlobalID.forVTable(typeRef))
 
   def genLoadArrayTypeData(fb: FunctionBuilder, arrayTypeRef: ArrayTypeRef): Unit = {
     val ArrayTypeRef(base, dimensions) = arrayTypeRef

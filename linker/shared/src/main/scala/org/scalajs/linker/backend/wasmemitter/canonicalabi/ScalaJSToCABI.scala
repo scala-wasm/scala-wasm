@@ -204,7 +204,7 @@ object ScalaJSToCABI {
         genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
 
       case wit.ResourceType(className) =>
-        val resourceStructID = genTypeID.forResourceClass(className)
+        val resourceStructID = genTypeID.forClass(className)
         fb += wa.RefCast(watpe.RefType(resourceStructID))
         fb += wa.StructGet(resourceStructID, genFieldID.handle)
         fb += wa.I32Store()
@@ -226,7 +226,7 @@ object ScalaJSToCABI {
 
       case wit.ResourceType(className) =>
         // Unwrap: Extract i32 handle from resource struct for stack
-        val resourceStructID = genTypeID.forResourceClass(className)
+        val resourceStructID = genTypeID.forClass(className)
         fb += wa.RefCast(watpe.RefType(resourceStructID))
         fb += wa.StructGet(resourceStructID, genFieldID.handle)
 
@@ -615,7 +615,7 @@ object ScalaJSToCABI {
     targetTpe match {
       case wit.ResourceType(className) =>
         // Cast from anyref (from Result/Option value field) to resource struct type
-        val resourceStructType = watpe.RefType(genTypeID.forResourceClass(className))
+        val resourceStructType = watpe.RefType(genTypeID.forClass(className))
         fb += wa.RefCast(resourceStructType)
       case _ =>
         targetTpe.toIRType() match {

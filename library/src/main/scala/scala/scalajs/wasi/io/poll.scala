@@ -5,7 +5,7 @@ package object poll {
   // Resources
   /** `pollable` represents a single I/O event which may be ready, or not. */
   @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/poll@0.2.0", "pollable")
-  trait Pollable {
+  final class Pollable private () extends Object {
 
     /** Return the readiness of a pollable. This function never blocks.
      *

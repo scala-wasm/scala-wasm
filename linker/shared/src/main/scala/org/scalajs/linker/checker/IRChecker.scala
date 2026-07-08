@@ -873,12 +873,6 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
               i"JS type $className is not a valid target type for " +
               "Is/AsInstanceOf")
         }
-        if (kind == ClassKind.NativeWasmComponentResourceClass) {
-          reportError(
-              i"Resource class $className is not a valid target type for " +
-              "Is/AsInstanceOf")
-        }
-
       case _ =>
         // Non ClassTypes are checked by the ClassDef checker.
     }
@@ -895,11 +889,10 @@ private final class IRChecker(linkTimeProperties: LinkTimeProperties,
   private def typeRefToType(typeRef: TypeRef)(
       implicit ctx: ErrorContext): Type = {
     typeRef match {
-      case PrimRef(tpe)                  => tpe
-      case ClassRef(className)           => classNameToType(className)
-      case arrayTypeRef: ArrayTypeRef    => ArrayType(arrayTypeRef, nullable = true, exact = false)
-      case typeRef: TransientTypeRef     => typeRef.tpe
-      case WitResourceTypeRef(className) => WitResourceType(className)
+      case PrimRef(tpe)               => tpe
+      case ClassRef(className)        => classNameToType(className)
+      case arrayTypeRef: ArrayTypeRef => ArrayType(arrayTypeRef, nullable = true, exact = false)
+      case typeRef: TransientTypeRef  => typeRef.tpe
     }
   }
 

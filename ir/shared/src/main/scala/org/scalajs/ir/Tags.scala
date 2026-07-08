@@ -208,10 +208,6 @@ private[ir] object Tags {
   final val TagExactArrayType = TagExactNonNullClassType + 1
   final val TagExactNonNullArrayType = TagExactArrayType + 1
 
-  // New in Component Model support
-
-  final val TagWitResourceType = TagExactNonNullArrayType + 1
-
   // Tags for TypeRefs
 
   final val TagVoidRef = 1
@@ -231,10 +227,6 @@ private[ir] object Tags {
   // New in 1.19
 
   final val TagTransientTypeRefHashingOnly = TagArrayTypeRef + 1
-
-  // New in Component Model support
-
-  final val TagWitResourceTypeRef = TagTransientTypeRefHashingOnly + 1
 
   // Tags for JS native loading specs
 

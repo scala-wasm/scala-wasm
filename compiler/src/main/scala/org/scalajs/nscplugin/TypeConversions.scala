@@ -68,7 +68,7 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
   def toTypeRef(t: Type): Types.TypeRef = {
     val (base, arrayDepth) = convert(t)
     if (arrayDepth == 0)
-      makeNonArrayTypeRef(base)
+      primitiveRefMap.getOrElse(base, Types.ClassRef(encodeClassName(base)))
     else
       makeArrayTypeRef(base, arrayDepth)
   }
@@ -108,17 +108,11 @@ trait TypeConversions[G <: Global with Singleton] extends SubComponent {
     WitUnsigned_ULong -> wit.U64Type
   )
 
-  private def makeNonArrayTypeRef(sym: Symbol): Types.NonArrayTypeRef = {
-    primitiveRefMap.getOrElse(sym, {
-      if (isWasmWitResourceType(sym))
-        Types.WitResourceTypeRef(encodeClassName(sym))
-      else
-        Types.ClassRef(encodeClassName(sym))
-    })
+  private def makeArrayTypeRef(base: Symbol, depth: Int): Types.ArrayTypeRef = {
+    Types.ArrayTypeRef(
+        primitiveRefMap.getOrElse(base, Types.ClassRef(encodeClassName(base))),
+        depth)
   }
-
-  private def makeArrayTypeRef(base: Symbol, depth: Int): Types.ArrayTypeRef =
-    Types.ArrayTypeRef(makeNonArrayTypeRef(base), depth)
 
   // The following code was modeled after backend.icode.TypeKinds.toTypeKind
 

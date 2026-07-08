@@ -23,6 +23,7 @@ import org.scalajs.linker.checker._
 import org.scalajs.linker.analyzer._
 
 import org.scalajs.ir
+import org.scalajs.ir.ClassKind
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.Trees.{ClassDef, MethodDef}
 import org.scalajs.ir.Version
@@ -177,6 +178,8 @@ private[frontend] object BaseLinker {
     val allMethods = methods ++ syntheticMethodDefs
 
     val ancestors = classInfo.ancestors.map(_.className)
+    val isNativeWasmComponentResource =
+      classDef.kind == ClassKind.WasmComponentResourceClass
 
     val linkedClass = new LinkedClass(
         classDef.name,
@@ -195,8 +198,8 @@ private[frontend] object BaseLinker {
         classDef.optimizerHints,
         classDef.pos,
         ancestors.toList,
-        hasInstances = classInfo.isAnySubclassInstantiated,
-        hasDirectInstances = classInfo.isInstantiated,
+        hasInstances = classInfo.isAnySubclassInstantiated || isNativeWasmComponentResource,
+        hasDirectInstances = classInfo.isInstantiated || isNativeWasmComponentResource,
         hasInstanceTests = classInfo.areInstanceTestsUsed,
         hasRuntimeTypeInfo = classInfo.isDataAccessed,
         fieldsRead = classInfo.fieldsRead.toSet,

@@ -1693,8 +1693,6 @@ private[emitter] object CoreJSLib {
               (globalVar(VarField.ah, ObjectClass).prototype := prototypeFor(ArrayClass)) :: Nil
             case _: PrimRef =>
               clsDef
-            case WitResourceTypeRef(_) =>
-              throw new AssertionError(s"Unexpected component resource type in JS backend.")
           }
         }
       }

@@ -67,7 +67,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
         origName,
         isMutable = true,
         transformFieldType(ftpe),
-        wa.Expr(genZeroOf(ftpe))
+        wa.Expr(List(genZeroOf(ftpe)))
       )
       ctx.addGlobal(global)
     }
@@ -93,9 +93,10 @@ class ClassEmitter(coreSpec: CoreSpec) {
         genInterface(clazz)
       case ClassKind.JSClass | ClassKind.JSModuleClass =>
         genJSClass(clazz)
-      case ClassKind.NativeWasmComponentResourceClass =>
+      case ClassKind.WasmComponentResourceClass =>
         genResourceStruct(clazz)
-        genResourceCastFunction(clazz)
+        if (clazz.hasInstanceTests && semantics.asInstanceOfs != CheckedBehavior.Unchecked)
+          genResourceCastFunction(clazz)
         genResourceVTable(clazz)
       case ClassKind.HijackedClass | ClassKind.AbstractJSType | ClassKind.NativeJSClass |
           ClassKind.NativeJSModuleClass =>
@@ -248,7 +249,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
             KindClass
           case Interface =>
             KindInterface
-          case NativeWasmComponentResourceClass =>
+          case WasmComponentResourceClass =>
             KindClass // TODO
           case JSClass | JSModuleClass | AbstractJSType | NativeJSClass | NativeJSModuleClass =>
             if (clazz.superClass.isDefined)
@@ -575,9 +576,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
       val vtableGlobalID = genGlobalID.forArrayVTable(baseTypeRef)
 
       val nameStr = baseTypeRef match {
-        case baseTypeRef: PrimRef          => "[" + baseTypeRef.charCode.toString()
-        case ClassRef(className)           => "[L" + runtimeClassNameOf(className) + ";"
-        case WitResourceTypeRef(className) => "[W" + runtimeClassNameOf(className) + ";"
+        case baseTypeRef: PrimRef => "[" + baseTypeRef.charCode.toString()
+        case ClassRef(className)  => "[L" + runtimeClassNameOf(className) + ";"
       }
       val nameValue = if (ctx.hasJSInterop) {
         ctx.stringPool.getConstantStringDataInstr(nameStr)
@@ -592,7 +592,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
       ) ::: (
         strictAncestorsTypeData // strictAncestors
       ) ::: List(
-        wa.GlobalGet(nonArrayTypeDataGlobalID(baseTypeRef)), // componentType
+        wa.GlobalGet(genGlobalID.forVTable(baseTypeRef)), // componentType
         wa.RefNull(watpe.HeapType.None), // classOf
         wa.RefNull(watpe.HeapType.None), // arrayOf
         wa.RefFunc(genFunctionID.cloneArray(baseTypeRef)), // clone
@@ -822,7 +822,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
       fb += wa.I32Const(0)
 
     classInfo.allFieldDefs.foreach { f =>
-      fb ++= genZeroOf(f.ftpe)
+      fb += genZeroOf(f.ftpe)
     }
     for (dataParam <- dataParamOpt)
       fb += wa.LocalGet(dataParam)
@@ -900,33 +900,35 @@ class ClassEmitter(coreSpec: CoreSpec) {
     val objParam = fb.addParam("obj", watpe.RefType.anyref)
     fb.setResultType(resultType)
 
-    fb.block(resultType) { successLabel =>
+    fb.block() { successLabel =>
       fb += wa.LocalGet(objParam)
+      fb += wa.BrOnNull(successLabel)
 
       if (className == SpecialNames.JLNumberClass) {
         /* jl.Number is special, because it is the only non-Object *class*
          * that is an  ancestor of a hijacked class.
          */
-        fb += wa.BrOnCast(successLabel, watpe.RefType.anyref,
-            watpe.RefType.nullable(genTypeID.forClass(SpecialNames.JLNumberClass)))
-
-        /* The `obj` still on the stack will be used for:
-         * a) the result in the true case
-         * b) consistency with non-Number in the false case
-         */
+        fb += wa.RefTest(watpe.RefType(genTypeID.forClass(SpecialNames.JLNumberClass)))
+        fb += wa.BrIf(successLabel)
 
         fb += wa.LocalGet(objParam)
         fb += wa.Call(genFunctionID.typeTest(DoubleRef))
         fb += wa.BrIf(successLabel)
       } else {
-        fb += wa.BrOnCast(successLabel, watpe.RefType.anyref, resultType)
+        fb += wa.RefTest(resultType.toNonNullable)
+        fb += wa.BrIf(successLabel)
       }
 
-      // If we get here, it's a CCE -- `obj` is still on the stack
+      // If we get here, it's a CCE.
+      fb += wa.LocalGet(objParam)
       fb += wa.GlobalGet(genGlobalID.forVTable(className))
       fb += wa.Call(genFunctionID.classCastException)
       SWasmGen.genForwardThrowAlwaysAsReturn(fb, List(wa.RefNull(watpe.HeapType.None)))
     }
+
+    fb += wa.LocalGet(objParam)
+    if (resultType != watpe.RefType.anyref)
+      fb += wa.RefCast(resultType)
 
     fb.buildAndAddToModule()
   }
@@ -1625,7 +1627,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
    */
   private def genResourceStruct(clazz: LinkedClass)(implicit ctx: WasmContext): Unit = {
     val className = clazz.className
-    val structTypeID = genTypeID.forResourceClass(className)
+    val structTypeID = genTypeID.forClass(className)
 
     val vtableField = watpe.StructField(
       genFieldID.objStruct.vtable,
@@ -1668,7 +1670,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
    *  resource name (e.g., "resource<ClassName>") and all Object methods.
    */
   private def genResourceVTable(clazz: LinkedClass)(implicit ctx: WasmContext): Unit = {
-    assert(clazz.kind == ClassKind.NativeWasmComponentResourceClass)
+    assert(clazz.kind == ClassKind.WasmComponentResourceClass)
     val className = clazz.className
     val vtableTypeID = genTypeID.ObjectVTable
     val objectClassInfo = ctx.getClassInfo(ObjectClass)
@@ -1736,18 +1738,33 @@ class ClassEmitter(coreSpec: CoreSpec) {
    */
   private def genResourceCastFunction(clazz: LinkedClass)(implicit ctx: WasmContext): Unit = {
     val className = clazz.className
-    val resourceStructType = TypeTransformer.transformWitResourceType(className)
+    val resourceStructType = watpe.RefType.nullable(genTypeID.forClass(className))
 
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,
-      genFunctionID.asInstance(WitResourceType(className)),
+      genFunctionID.asInstance(ClassType(className, nullable = true, exact = false)),
       makeDebugName(ns.AsInstance, className),
       clazz.pos
     )
     val objParam = fb.addParam("obj", watpe.RefType.anyref)
     fb.setResultType(resourceStructType)
+
+    fb.block() { successLabel =>
+      fb += wa.LocalGet(objParam)
+      fb += wa.BrOnNull(successLabel)
+
+      fb += wa.RefTest(resourceStructType.toNonNullable)
+      fb += wa.BrIf(successLabel)
+
+      fb += wa.LocalGet(objParam)
+      fb += wa.GlobalGet(genGlobalID.forVTable(className))
+      fb += wa.Call(genFunctionID.classCastException)
+      SWasmGen.genForwardThrowAlwaysAsReturn(fb, List(wa.RefNull(watpe.HeapType.None)))
+    }
+
     fb += wa.LocalGet(objParam)
-    fb += wa.RefCast(resourceStructType)
+    if (resourceStructType != watpe.RefType.anyref)
+      fb += wa.RefCast(resourceStructType)
 
     fb.buildAndAddToModule()
   }
@@ -1838,9 +1855,8 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
   private def makeDebugName(namespace: UTF8String, typeRef: NonArrayTypeRef): OriginalName = {
     val encoded = typeRef match {
-      case typeRef: PrimRef              => UTF8String(typeRef.charCode.toString())
-      case ClassRef(className)           => className.encoded
-      case WitResourceTypeRef(className) => UTF8String("W") ++ className.encoded
+      case typeRef: PrimRef    => UTF8String(typeRef.charCode.toString())
+      case ClassRef(className) => className.encoded
     }
     OriginalName(namespace ++ encoded)
   }
@@ -1979,8 +1995,8 @@ object ClassEmitter {
     fb.setFunctionType(ctx.tableFunctionType(methodName))
 
     fb += wa.LocalGet(thisParam)
-    fb += wa.RefCast(watpe.RefType(genTypeID.forResourceClass(className)))
-    fb += wa.StructGet(genTypeID.forResourceClass(className), genFieldID.handle)
+    fb += wa.RefCast(watpe.RefType(genTypeID.forClass(className)))
+    fb += wa.StructGet(genTypeID.forClass(className), genFieldID.handle)
 
     fb.buildAndAddToModule()
     functionID
@@ -2004,31 +2020,28 @@ object ClassEmitter {
     fb.setResultType(watpe.Int32)
     fb.setFunctionType(ctx.tableFunctionType(methodName))
 
-    val resourceStructTypeID = genTypeID.forResourceClass(className)
+    val resourceStructTypeID = genTypeID.forClass(className)
     val thisResourceLocal = fb.addLocal("thisResource", watpe.RefType(resourceStructTypeID))
-    val thatResourceLocal =
-      fb.addLocal("thatResource", watpe.RefType.nullable(watpe.HeapType(resourceStructTypeID)))
+    val thatResourceLocal = fb.addLocal("thatResource", watpe.RefType(resourceStructTypeID))
 
     fb += wa.LocalGet(thisParam)
     fb += wa.RefCast(watpe.RefType(resourceStructTypeID))
     fb += wa.LocalSet(thisResourceLocal)
 
     fb += wa.LocalGet(thatParam)
-    fb += wa.RefCast(watpe.RefType.nullable(watpe.HeapType(resourceStructTypeID)))
-    fb += wa.LocalTee(thatResourceLocal)
-
-    // If cast fails, return false
-    fb += wa.RefIsNull
+    fb += wa.RefTest(watpe.RefType(resourceStructTypeID))
     fb.ifThenElse(watpe.Int32) {
-      fb += wa.I32Const(0)
-    } {
-      // this.handle == that.handle
+      fb += wa.LocalGet(thatParam)
+      fb += wa.RefCast(watpe.RefType(resourceStructTypeID))
+      fb += wa.LocalSet(thatResourceLocal)
+
       fb += wa.LocalGet(thisResourceLocal)
       fb += wa.StructGet(resourceStructTypeID, genFieldID.handle)
       fb += wa.LocalGet(thatResourceLocal)
-      fb += wa.RefAsNonNull
       fb += wa.StructGet(resourceStructTypeID, genFieldID.handle)
       fb += wa.I32Eq
+    } {
+      fb += wa.I32Const(0)
     }
 
     fb.buildAndAddToModule()

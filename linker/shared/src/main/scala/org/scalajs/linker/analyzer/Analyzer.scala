@@ -49,7 +49,7 @@ import Platform._
 
 import Analysis._
 import Infos.{NamespacedMethodName, ReachabilityInfo, ReachabilityInfoInClass}
-import org.scalajs.ir.ClassKind.NativeWasmComponentResourceClass
+import org.scalajs.ir.ClassKind.WasmComponentResourceClass
 
 final class Analyzer(config: CommonPhaseConfig, initial: Boolean,
     checkIRFor: Option[CheckingPhase], failOnError: Boolean, irLoader: IRLoader) {
@@ -652,13 +652,16 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
             }
           }
 
-        case NativeWasmComponentResourceClass =>
+        case WasmComponentResourceClass =>
           superClass match {
+            case Some(superCl) if superCl eq objectClassInfo =>
+              superClass
             case Some(superCl) =>
               _errors ::= InvalidSuperClass(superCl, this, from)
+              Some(objectClassInfo)
             case None =>
+              Some(objectClassInfo)
           }
-          Some(objectClassInfo)
       }
     }
 
@@ -669,7 +672,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
         case ClassKind.Class | ClassKind.ModuleClass |
             ClassKind.HijackedClass | ClassKind.Interface =>
           ClassKind.Interface
-        case ClassKind.NativeWasmComponentResourceClass =>
+        case ClassKind.WasmComponentResourceClass =>
           ClassKind.Interface
         case ClassKind.JSClass | ClassKind.JSModuleClass |
             ClassKind.NativeJSClass | ClassKind.NativeJSModuleClass |
