@@ -31,6 +31,24 @@ cargo install wit-bindgen-scala --version 0.1.0-rc.1
   - [cargo component](https://github.com/bytecodealliance/cargo-component)
     - `cargo component >= 0.18.0` may not work(?)
 
+## WIT resources carried by libraries
+
+`wit-bindgen-scala` and the Scala.js sbt plugin have an implicit contract for
+carrying WIT through library dependencies. The plugin passes
+`Compile / resourceManaged / META-INF / scalajs-wit` as `--wit-out-dir`, and
+the generator writes resources using this layout:
+
+```text
+<wit-out-dir>/<input>/
+├── world
+├── world.wit
+└── deps/
+    └── <package>/
+        └── package.wit
+```
+
+The `world` text file contains the name of the selected world.
+
 ## Examples
 - [helloworld-wasi](./examples/helloworld-wasi/)
 - [helloworld-component-model](./examples/helloworld-component-model/)

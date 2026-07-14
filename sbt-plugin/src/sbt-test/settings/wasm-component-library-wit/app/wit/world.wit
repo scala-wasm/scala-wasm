@@ -1,0 +1,5 @@
+package test:app;
+
+world app {
+  export wasi:cli/run@0.2.0;
+}

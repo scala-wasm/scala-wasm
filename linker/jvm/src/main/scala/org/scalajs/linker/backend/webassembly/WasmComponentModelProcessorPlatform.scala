@@ -14,11 +14,12 @@ package org.scalajs.linker.backend.webassembly
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
-import scala.sys.process._
+import scala.sys.process.{Process, ProcessLogger}
 
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
+import org.scalajs.linker.interface.WasmComponentWitInput
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
 
@@ -30,8 +31,7 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
   override def processComponentModel(
       outputDirectory: OutputDirectoryImpl,
       wasmFileName: String,
-      witDirectory: Path,
-      worldName: Option[String],
+      witInputs: Seq[WasmComponentWitInput],
       autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
@@ -54,26 +54,26 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           val wasmFilePath = tempFile.toString
 
-          // Step 1: wasm-tools component embed (in-place)
-          val baseEmbedCmd = Seq(
-            "wasm-tools",
-            "component",
-            "embed",
-            witDirectory.toString,
-            wasmFilePath,
-            "-o",
-            wasmFilePath
-          )
-          // Add world name if specified, otherwise wasm-tools will auto-detect
-          val embedCmd1 = worldName match {
-            case Some(world) => baseEmbedCmd ++ Seq("-w", world, "--encoding", "utf16")
-            case None        => baseEmbedCmd ++ Seq("--encoding", "utf16")
+          def embedWit(input: WasmComponentWitInput): Unit = {
+            val baseEmbedCmd = Seq(
+              "wasm-tools",
+              "component",
+              "embed",
+              input.directory,
+              wasmFilePath,
+              "-o",
+              wasmFilePath
+            )
+            val worldArgs = input.world.toSeq.flatMap(world => Seq("-w", world))
+            val embedCmd = baseEmbedCmd ++ worldArgs ++ Seq("--encoding", "utf16")
+            runCommand(embedCmd, s"wasm-tools component embed")
           }
 
-          logger.info(s"Embedding user WIT for $wasmFileName")
+          // Step 1: wasm-tools component embed (in-place)
+          for (input <- witInputs)
+            embedWit(input)
 
-          runCommand(embedCmd1, "wasm-tools component embed")
-
+          // TODO: don't automatically embed WASI WITs.
           // Step 2: wasm-tools component embed (WASI WIT) - if enabled
           wasiWitDir.foreach { wasiDir =>
             val embedCmd2 = Seq(

@@ -36,6 +36,14 @@ abstract class Linker private[interface] () {
       output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report]
 
+  def link(irFiles: Seq[IRFile],
+      moduleInitializers: Seq[ModuleInitializer],
+      componentWitInputs: Seq[WasmComponentWitInput],
+      output: OutputDirectory, logger: Logger)(
+      implicit ec: ExecutionContext): Future[Report] = {
+    link(irFiles, moduleInitializers, output, logger)
+  }
+
   @deprecated("Use the overload taking an OutputDirectory instead", "1.3.0")
   final def link(irFiles: Seq[IRFile],
       moduleInitializers: Seq[ModuleInitializer],

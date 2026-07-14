@@ -46,6 +46,14 @@ object ClearableLinker {
       linkerOp(_.link(irFiles, moduleInitializers, output, logger))
     }
 
+    override def link(irFiles: Seq[IRFile],
+        moduleInitializers: Seq[ModuleInitializer],
+        componentWitInputs: Seq[WasmComponentWitInput],
+        output: OutputDirectory, logger: Logger)(
+        implicit ec: ExecutionContext): Future[Report] = {
+      linkerOp(_.link(irFiles, moduleInitializers, componentWitInputs, output, logger))
+    }
+
     def clear(): Unit =
       _linker = None
 

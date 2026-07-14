@@ -208,7 +208,12 @@ object ScalaJSPlugin extends AutoPlugin {
     val scalaJSIR = TaskKey[Attributed[Seq[IRFile]]](
         "scalaJSIR", "All the *.sjsir files on the classpath", CTask)
 
-    val scalaJSGenerateWitBindings = TaskKey[Seq[File]](
+    final case class GeneratedWitBindings(
+        sources: Seq[File],
+        resources: Seq[File]
+    )
+
+    val scalaJSGenerateWitBindings = TaskKey[GeneratedWitBindings](
         "scalaJSGenerateWitBindings",
         "Generate Scala bindings from WIT files using wit-bindgen-scala",
         CTask)
@@ -264,6 +269,11 @@ object ScalaJSPlugin extends AutoPlugin {
         "scalaJSWitBindgenWith",
         "Mappings for --with option of wit-bindgen-scala to re-use pre-generated bindings (e.g. \"wasi:io\" -> \"scala.scalajs.wasi.io\")",
         CSetting)
+
+    val scalaJSComponentWitInputs = TaskKey[Seq[WasmComponentWitInput]](
+        "scalaJSComponentWitInputs",
+        "WIT inputs carried by dependencies for Wasm Component linking",
+        CTask)
 
     val scalaJSStage = SettingKey[Stage]("scalaJSStage",
         "The optimization stage at which run and test are executed", APlusSetting)

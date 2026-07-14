@@ -1,0 +1,5 @@
+package test:clock;
+
+world clock {
+  import wasi:clocks/monotonic-clock@0.2.0;
+}

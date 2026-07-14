@@ -139,7 +139,7 @@ jobs:
         with:
           tool: wasmtime@44.0.2,wasm-tools,wac-cli,cargo-component
       - name: Install wit-bindgen-scala
-        run: cargo install wit-bindgen-scala --version 0.1.0-rc.1
+        run: cargo install --git https://github.com/scala-wasm/wit-bindgen-scala --branch wit-out wit-bindgen-scala
       - name: helloworldWASI${{ matrix.suffix }}/run
         run: sbt "$SBT_SET_COMMAND" helloworldWASI${{ matrix.suffix }}/run
       - name: Build rust-exports
@@ -205,7 +205,7 @@ jobs:
         with:
           tool: wasmtime@44.0.2,wasm-tools,wac-cli
       - name: Install wit-bindgen-scala
-        run: cargo install wit-bindgen-scala --version 0.1.0-rc.1
+        run: cargo install --git https://github.com/scala-wasm/wit-bindgen-scala --branch wit-out wit-bindgen-scala
       - name: sbtPlugin2_12/scripted
         run: sbt sbtPlugin2_12/scripted
       - name: sbtPlugin3/scripted

@@ -14,8 +14,7 @@ package org.scalajs.linker.backend.webassembly
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import java.nio.file.Path
-
+import org.scalajs.linker.interface.WasmComponentWitInput
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
 
@@ -27,8 +26,7 @@ private final class WasmComponentModelProcessorStub extends WasmComponentModelPr
   override def processComponentModel(
       outputDirectory: OutputDirectoryImpl,
       wasmFileName: String,
-      witDirectory: Path,
-      worldName: Option[String],
+      witInputs: Seq[WasmComponentWitInput],
       autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {

@@ -16,7 +16,7 @@ import scala.concurrent._
 
 import org.scalajs.logging._
 
-import org.scalajs.linker.interface.{IRFile, OutputDirectory, Report}
+import org.scalajs.linker.interface.{IRFile, OutputDirectory, Report, WasmComponentWitInput}
 
 /** A backend of a standard Scala.js linker.
  *
@@ -53,5 +53,12 @@ abstract class LinkerBackend {
    */
   def emit(moduleSet: ModuleSet, output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report]
+
+  def emit(moduleSet: ModuleSet,
+      componentWitInputs: Seq[WasmComponentWitInput],
+      output: OutputDirectory, logger: Logger)(
+      implicit ec: ExecutionContext): Future[Report] = {
+    emit(moduleSet, output, logger)
+  }
 
 }

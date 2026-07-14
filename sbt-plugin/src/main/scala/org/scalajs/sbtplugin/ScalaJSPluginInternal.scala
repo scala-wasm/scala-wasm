@@ -59,6 +59,54 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
   import ScalaJSPlugin.autoImport.{ModuleKind => _, _}
 
+  private final val ComponentWitResourceDir = "META-INF/scalajs-wit"
+
+  private def discoverComponentWitInputs(classpath: Seq[File]): Seq[WasmComponentWitInput] = {
+    def readWorld(witDir: File): String = {
+      val worldFile = witDir / "world"
+      if (!worldFile.isFile)
+        throw new MessageOnlyException(s"Missing WIT world file: $worldFile")
+
+      val world = IO.read(worldFile).trim
+      if (world.isEmpty)
+        throw new MessageOnlyException(s"Empty WIT world file: $worldFile")
+
+      world
+    }
+
+    def inputsInDirectory(dir: File): Seq[WasmComponentWitInput] = {
+      val root = dir / ComponentWitResourceDir
+      if (root.isDirectory) {
+        root.listFiles().toSeq.filter(_.isDirectory).map { witDir =>
+          WasmComponentWitInput(
+              witDir.getAbsolutePath, Some(readWorld(witDir)))
+        }
+      } else {
+        Nil
+      }
+    }
+
+    def inputsInJar(jar: File): Seq[WasmComponentWitInput] = {
+      if (!jar.isFile || !jar.getName.endsWith(".jar")) {
+        Nil
+      } else {
+        val tempDir = Files.createTempDirectory("scalajs-component-wit").toFile
+        val extracted =
+          IO.unzip(jar, tempDir, GlobFilter(s"$ComponentWitResourceDir/**/*")).toSeq
+        if (extracted.isEmpty) {
+          Nil
+        } else {
+          inputsInDirectory(tempDir)
+        }
+      }
+    }
+
+    classpath.flatMap { entry =>
+      if (entry.isDirectory) inputsInDirectory(entry)
+      else inputsInJar(entry)
+    }
+  }
+
   @tailrec
   final private def registerResource[T <: AnyRef](
       l: AtomicReference[List[T]], r: T): r.type = {
@@ -317,6 +365,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
          */
         val s = streams.value
         val irInfo = (key / scalaJSIR).value
+        val componentWitInputs = scalaJSComponentWitInputs.value
         val moduleInitializers = scalaJSModuleInitializers.value
         val reportFile = s.cacheDirectory / "linking-report.bin"
         val outputDir = (key / scalaJSLinkerOutputDirectory).value
@@ -366,7 +415,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
             val report = try {
               enhanceIRVersionNotSupportedException {
-                await(log)(linker.link(ir, moduleInitializers, out, tlog)(_))
+                await(log)(linker.link(ir, moduleInitializers,
+                    componentWitInputs, out, tlog)(_))
               }
             } catch {
               case e: LinkingException =>
@@ -458,7 +508,12 @@ private[sbtplugin] object ScalaJSPluginInternal {
   )
 
   val scalaJSConfigSettings: Seq[Setting[_]] = Seq(
-      incOptions ~= scalaJSPatchIncOptions
+      incOptions ~= scalaJSPatchIncOptions,
+
+      scalaJSComponentWitInputs := Def.uncached {
+        implicit val fc: FileConverter = fileConverter.value
+        discoverComponentWitInputs(PluginCompat.toFiles(fullClasspath.value))
+      }
   ) ++ (
     scalaJSStageSettings(Stage.FastOpt, fastLinkJS, fastLinkJSOutput, fastOptJS) ++
       scalaJSStageSettings(Stage.FullOpt, fullLinkJS, fullLinkJSOutput, fullOptJS)
@@ -781,57 +836,71 @@ private[sbtplugin] object ScalaJSPluginInternal {
         val witPackage = scalaJSWitPackage.value
         val witBindgenWith = scalaJSWitBindgenWith.value
         val targetDir = (Compile / sourceManaged).value / "wit-bindgen"
+        val witOutDir = (Compile / resourceManaged).value / ComponentWitResourceDir
         val s = streams.value
         val log = s.log
 
         // Only run when component model is enabled
         if (linkerConfig.moduleKind != ModuleKind.WasmComponent) {
-          Seq.empty[File]
+          GeneratedWitBindings(Nil, Nil)
         } else if (!witDir.exists()) {
           log.debug(s"WIT directory $witDir does not exist, skipping wit-bindgen-scala")
-          Seq.empty[File]
+          GeneratedWitBindings(Nil, Nil)
         } else {
           val witFiles = (witDir ** "*.wit").get().toSet
 
           if (witFiles.isEmpty) {
             log.debug(s"No WIT files found in $witDir")
-            Seq.empty[File]
+            GeneratedWitBindings(Nil, Nil)
           } else {
             checkWitBindgenScalaAvailable(log)
 
             val cacheDir = s.cacheDirectory / "wit-bindgen-scala"
-            val generatedFiles = {
-              FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
-                log.info(s"Generating Scala bindings from WIT files in $witDir")
+            FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
+              log.info(s"Generating Scala bindings from WIT files in $witDir")
 
-                IO.createDirectory(targetDir)
+              IO.createDirectory(targetDir)
+              IO.createDirectory(witOutDir)
 
-                val baseCmd = Seq("wit-bindgen-scala",
-                    witDir.absolutePath, "--out-dir", targetDir.absolutePath)
-                val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
-                val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
-                val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) => Seq("--with", s"$k=$v") }
-                val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
+              val baseCmd = Seq(
+                  "wit-bindgen-scala",
+                  witDir.absolutePath,
+                  "--out-dir",
+                  targetDir.absolutePath,
+                  "--wit-out-dir",
+                  witOutDir.absolutePath)
+              val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
+              val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
+              val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) => Seq("--with", s"$k=$v") }
+              val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
 
-                log.info(s"Running: ${fullCmd.mkString(" ")}")
+              log.info(s"Running: ${fullCmd.mkString(" ")}")
 
-                val processLogger = ProcessLogger(log.info(_), log.info(_))
-                val exitCode = Process(fullCmd).!(processLogger)
-                if (exitCode != 0) {
-                  throw new MessageOnlyException(
-                      s"wit-bindgen-scala failed with exit code $exitCode"
-                  )
-                }
-                (targetDir ** "*.scala").get().toSet
-              }(witFiles)
-            }
+              val processLogger = ProcessLogger(log.info(_), log.info(_))
+              val exitCode = Process(fullCmd).!(processLogger)
+              if (exitCode != 0) {
+                throw new MessageOnlyException(
+                    s"wit-bindgen-scala failed with exit code $exitCode"
+                )
+              }
+              ((targetDir ** "*.scala").get() ++
+                (witOutDir ** "*").get().filter(_.isFile)).toSet
+            }(witFiles)
 
-            generatedFiles.toSeq
+            GeneratedWitBindings(
+                sources = (targetDir ** "*.scala").get(),
+                resources = (witOutDir ** "*").get().filter(_.isFile))
           }
         }
       },
 
-      Compile / sourceGenerators += scalaJSGenerateWitBindings.taskValue
+      Compile / sourceGenerators += Def.task {
+        scalaJSGenerateWitBindings.value.sources
+      }.taskValue,
+
+      Compile / resourceGenerators += Def.task {
+        scalaJSGenerateWitBindings.value.resources
+      }.taskValue
   )
 
   val scalaJSCompileSettings: Seq[Setting[_]] = (

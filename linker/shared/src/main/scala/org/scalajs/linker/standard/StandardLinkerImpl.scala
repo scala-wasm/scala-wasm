@@ -38,6 +38,14 @@ private final class StandardLinkerImpl private (
       moduleInitializers: Seq[ModuleInitializer],
       output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report] = {
+    link(irFiles, moduleInitializers, componentWitInputs = Nil, output, logger)
+  }
+
+  override def link(irFiles: Seq[IRFile],
+      moduleInitializers: Seq[ModuleInitializer],
+      componentWitInputs: Seq[WasmComponentWitInput],
+      output: OutputDirectory, logger: Logger)(
+      implicit ec: ExecutionContext): Future[Report] = {
     if (!_linking.compareAndSet(false, true)) {
       throw new IllegalStateException("Linker used concurrently")
     }
@@ -50,7 +58,7 @@ private final class StandardLinkerImpl private (
             irFiles ++ backend.injectedIRFiles, moduleInitializers,
             backend.symbolRequirements, logger)
       }
-      .flatMap(linkingUnit => backend.emit(linkingUnit, output, logger))
+      .flatMap(linkingUnit => backend.emit(linkingUnit, componentWitInputs, output, logger))
       .andThen { case t if t.isFailure => _valid = false }
       .andThen { case t => _linking.set(false) }
   }

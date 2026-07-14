@@ -63,6 +63,13 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
 
   def emit(moduleSet: ModuleSet, output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report] = {
+    emit(moduleSet, componentWitInputs = Nil, output, logger)
+  }
+
+  override def emit(moduleSet: ModuleSet,
+      componentWitInputs: Seq[WasmComponentWitInput],
+      output: OutputDirectory, logger: Logger)(
+      implicit ec: ExecutionContext): Future[Report] = {
     moduleSet.modules match {
       case Nil =>
         val outputImpl = OutputDirectoryImpl.fromOutputDirectory(output)
@@ -73,7 +80,7 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
           }
         } yield new ReportImpl(Nil)
       case onlyModule :: Nil =>
-        emit(onlyModule, moduleSet.globalInfo, output, logger)
+        emit(onlyModule, moduleSet.globalInfo, componentWitInputs, output, logger)
       case modules =>
         throw new UnsupportedOperationException(
             "The WebAssembly backend does not support multiple modules. Found: " +
@@ -82,6 +89,7 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
   }
 
   private def emit(onlyModule: ModuleSet.Module, globalInfo: LinkedGlobalInfo,
+      componentWitInputs: Seq[WasmComponentWitInput],
       output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report] = {
     val moduleID = onlyModule.id.id
@@ -175,8 +183,7 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
             componentModelProcessor.processComponentModel(
               outputImpl,
               wasmFileName,
-              witDirPath,
-              worldName,
+              WasmComponentWitInput(witDirStr, worldName) +: componentWitInputs,
               coreSpec.wasmFeatures.autoIncludeWasiImports,
               logger
             ).recover {
