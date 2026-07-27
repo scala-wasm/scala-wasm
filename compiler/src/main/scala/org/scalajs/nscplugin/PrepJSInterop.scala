@@ -169,7 +169,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
       checkJSCallingConventionAnnots(sym)
 
-      if (sym.hasAnnotation(WitVariantAnnotation))
+      if (sym.hasAnnotation(WitVariantAnnotation) || sym.hasAnnotation(WitEnumAnnotation))
         checkWitVariantTrait(tree.pos, sym)
       else if (sym.hasAnnotation(WitRecordAnnotation))
         checkWitRecord(sym)
@@ -843,7 +843,10 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           // Validate parameter types and check for repeated/default parameters
           val paramTypes = if (sym.tpe.paramss.isEmpty) Nil else sym.tpe.paramss.head
           for (param <- paramTypes) {
-            if (isScalaRepeatedParamType(param.tpe)) {
+            if (!hasWitName(param)) {
+              reporter.error(param.pos,
+                  s"Parameter '${param.name}' must have a @WitName annotation")
+            } else if (isScalaRepeatedParamType(param.tpe)) {
               reporter.error(pos,
                   s"$annot methods may not have repeated parameters")
             } else if (param.hasFlag(reflect.internal.Flags.DEFAULTPARAM)) {
@@ -944,14 +947,17 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
           if (hasResourceMethodAnnotation) {
             val methodType = member.tpe
-            val paramTypes =
-              if (methodType.paramss.isEmpty) Nil else methodType.paramss.head.map(_.tpe)
+            val params =
+              if (methodType.paramss.isEmpty) Nil else methodType.paramss.head
             val returnType = methodType.resultType
 
-            paramTypes.foreach { paramType =>
-              if (!isComponentModelCompatible(paramType)) {
+            params.foreach { param =>
+              if (!hasWitName(param)) {
+                reporter.error(param.pos,
+                    s"Parameter '${param.name}' in method '${member.name}' must have a @WitName annotation")
+              } else if (!isComponentModelCompatible(param.tpe)) {
                 reporter.error(member.pos,
-                    s"Parameter type '${paramType}' in method '${member.name}' is not compatible with Component Model")
+                    s"Parameter type '${param.tpe}' in method '${member.name}' is not compatible with Component Model")
               }
             }
 
@@ -993,6 +999,15 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
                   "@WitResourceConstructor can only be used on apply method")
             }
 
+            val params =
+              if (member.tpe.paramss.isEmpty) Nil else member.tpe.paramss.head
+            params.foreach { param =>
+              if (!hasWitName(param)) {
+                reporter.error(param.pos,
+                    s"Parameter '${param.name}' in method '${member.name}' must have a @WitName annotation")
+              }
+            }
+
             // Public methods in companion must have @WitResourceConstructor or @WitResourceStaticMethod
             if (!hasConstructorAnnot &&
                 !hasStaticMethodAnnot &&
@@ -1027,6 +1042,11 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
     }
 
     private def validateWitVariantCase(caseSym: Symbol): Unit = {
+      if (!hasWitName(caseSym)) {
+        reporter.error(caseSym.pos,
+            s"Component variant case '${caseSym.name}' must have a @WitName annotation")
+      }
+
       if (caseSym.isModuleClass) {
         // Regular object (enum case without payload)
       } else if (caseSym.isClass && caseSym.isFinal && !caseSym.isTrait) {
@@ -1096,6 +1116,7 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         dealiased.typeArgs.forall(isComponentModelCompatible)
       } else if (sym.hasAnnotation(WitRecordAnnotation) ||
           sym.hasAnnotation(WitVariantAnnotation) ||
+          sym.hasAnnotation(WitEnumAnnotation) ||
           sym.hasAnnotation(WitFlagsAnnotation) ||
           sym.hasAnnotation(WitResourceImportAnnotation)) {
         true
@@ -1117,13 +1138,19 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         val params = primaryCtor.paramss.flatten
         for (param <- params) {
           val fieldType = param.tpe
-          if (!isComponentModelCompatible(fieldType)) {
+          if (!hasWitName(param)) {
+            reporter.error(param.pos,
+                s"Field '${param.name}' must have a @WitName annotation")
+          } else if (!isComponentModelCompatible(fieldType)) {
             reporter.error(param.pos,
                 s"Field '${param.name}' has type '${fieldType}' which is not compatible with Component Model")
           }
         }
       }
     }
+
+    private def hasWitName(sym: Symbol): Boolean =
+      sym.hasAnnotation(WitNameAnnotation)
 
     private def checkWitFlags(sym: Symbol): Unit = {
       if (!sym.isClass || sym.isTrait || sym.isModuleClass) {
@@ -1154,14 +1181,24 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
               s"@WitFlags class parameter must be named 'value', found '${param.name.decoded}'")
         }
 
-        sym.getAnnotation(WitFlagsAnnotation).flatMap(_.intArg(0)) match {
-          case Some(numFlags) if numFlags > 0 =>
-          case Some(numFlags)                 =>
-            reporter.error(sym.pos,
-                s"@WitFlags numFlags parameter must be positive, found $numFlags")
+        sym.getAnnotation(WitFlagsAnnotation) match {
+          case Some(annot) =>
+            if (jsInterop.witScopeArg(annot, 0).isEmpty) {
+              reporter.error(sym.pos,
+                  "The scope argument to @WitFlags must be a literal WitScope expression")
+            }
+            if (annot.stringArg(1).isEmpty) {
+              reporter.error(sym.pos,
+                  "The name argument to @WitFlags must be a literal string")
+            }
+            if (jsInterop.literalStringArrayArg(annot, 2).isEmpty) {
+              reporter.error(annot.args.lift(2).fold(sym.pos)(_.pos),
+                  "The flagNames argument to @WitFlags must be a literal " +
+                  "Array(...) of literal strings")
+            }
           case None =>
             reporter.error(sym.pos,
-                "@WitFlags annotation must specify the number of flags as a parameter")
+                "@WitFlags annotation not found")
         }
       }
     }

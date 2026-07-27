@@ -5,6 +5,7 @@ import WellKnownNames._
 import org.scalajs.ir.{Types => jstpe}
 
 object WasmInterfaceTypes {
+
   sealed trait WasmInterfaceType
 
   sealed trait ValType extends WasmInterfaceType {
@@ -96,10 +97,17 @@ object WasmInterfaceTypes {
   }
 
   /** label won't be used in load/store with memory or stack, used for Analyzer */
-  final case class FieldType(label: FieldName, tpe: ValType)
+  final case class FieldType(label: FieldName, name: String, tpe: ValType)
+
+  object FieldType {
+    def apply(label: FieldName, tpe: ValType): FieldType =
+      FieldType(label, "", tpe)
+  }
 
   /** className is required for loading data back to Scala class */
-  final case class RecordType(className: ClassName, fields: List[FieldType]) extends FundamentalType {
+  final case class RecordTypeRef(className: ClassName, scope: WitScope,
+      name: String)
+      extends FundamentalType {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
@@ -108,11 +116,12 @@ object WasmInterfaceTypes {
       jstpe.ClassType(ClassName("scala.scalajs.wit.Tuple" + ts.size), true, false)
   }
 
-  final case class CaseType(className: ClassName, tpe: Option[ValType]) {
+  final case class CaseType(className: ClassName, name: String, tpe: Option[ValType]) {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
-  final case class VariantType(className: ClassName, cases: List[CaseType])
+  final case class VariantTypeRef(className: ClassName, scope: WitScope,
+      name: String)
       extends FundamentalType {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
@@ -121,25 +130,58 @@ object WasmInterfaceTypes {
     def toIRType(): jstpe.Type = jstpe.ClassType(ComponentResultClass, true, false)
   }
 
-  final case class EnumType(labels: List[String]) extends SpecializedType {
-    override def toIRType(): jstpe.Type = ???
+  final case class EnumTypeRef(className: ClassName, scope: WitScope,
+      name: String)
+      extends SpecializedType {
+    override def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
   final case class OptionType(tpe: ValType) extends SpecializedType {
     def toIRType(): jstpe.Type = jstpe.ClassType(juOptionalClass, true, false)
   }
 
-  final case class FlagsType(className: ClassName, numFields: Int) extends FundamentalType {
+  final case class FlagsTypeRef(className: ClassName, scope: WitScope,
+      name: String)
+      extends FundamentalType {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, nullable = true, exact = false)
   }
 
-  final case class ResourceType(className: ClassName) extends FundamentalType {
+  /** A WIT resource declaration, without handle ownership.
+   *
+   *  For example, `streams/input-stream` in:
+   *
+   *  ```
+   *  package wasi:io@0.2.0;
+   *  interface streams {
+   *    resource input-stream;
+   *  }
+   *  ```
+   */
+  final case class ResourceRef(className: ClassName, scope: WitScope, name: String)
+
+  /** A WIT resource handle value type (`own<r>` or `borrow<r>`). */
+  final case class ResourceType(resource: ResourceRef, ownership: ResourceOwnership)
+      extends FundamentalType {
+    def className: ClassName = resource.className
+    def scope: WitScope = resource.scope
+    def name: String = resource.name
+
     def toIRType(): jstpe.Type = jstpe.ClassType(className, nullable = true, exact = false)
+  }
+
+  object ResourceType {
+    def apply(className: ClassName, scope: WitScope, name: String,
+        ownership: ResourceOwnership): ResourceType = {
+      ResourceType(ResourceRef(className, scope, name), ownership)
+    }
   }
 
   // ExternTypes
-  final case class FuncType(paramTypes: List[ValType], resultType: Option[ValType])
-      extends ExternType
+  final case class ParamType(name: String, tpe: ValType)
+
+  final case class FuncType(params: List[ParamType], resultType: Option[ValType]) extends ExternType {
+    def paramTypes: List[ValType] = params.map(_.tpe)
+  }
 
   // utilities
 
@@ -155,147 +197,20 @@ object WasmInterfaceTypes {
     case StringType                 => jstpe.ClassRef(BoxedStringClass)
     case ListType(elemType, length) =>
       jstpe.ArrayTypeRef.of(toTypeRef(elemType))
-    case RecordType(className, fields) => jstpe.ClassRef(className)
+    case RecordTypeRef(className, _, _) => jstpe.ClassRef(className)
     case TupleType(ts) => jstpe.ClassRef(ClassName("scala.scalajs.wit.Tuple" + ts.size))
-    case VariantType(className, cases) => jstpe.ClassRef(className)
-    case ResultType(ok, err)           => jstpe.ClassRef(ComponentResultClass)
-    case EnumType(labels)              => ???
-    case OptionType(tpe)               => jstpe.ClassRef(ClassName("java.util.Optional"))
-    case FlagsType(className, _)       => jstpe.ClassRef(className)
-    case ResourceType(className)       => jstpe.ClassRef(className)
+    case VariantTypeRef(className, _, _) => jstpe.ClassRef(className)
+    case ResultType(ok, err)             => jstpe.ClassRef(ComponentResultClass)
+    case EnumTypeRef(className, _, _)    => jstpe.ClassRef(className)
+    case OptionType(tpe)                 => jstpe.ClassRef(ClassName("java.util.Optional"))
+    case FlagsTypeRef(className, _, _)   => jstpe.ClassRef(className)
+    case ResourceType(resource, _)       => jstpe.ClassRef(resource.className)
   }
 
   def makeCtorName(tpe: Option[ValType]): MethodName = {
     tpe match {
       case None    => MethodName.constructor(Nil)
       case Some(t) => MethodName.constructor(List(toTypeRef(t)))
-    }
-  }
-
-  /** @see
-   *   [[https://github.com/WebAssembly/component-model/blob/main/design/mvp/CanonicalABI.md#despecialization]]
-   */
-  def despecialize(t: ValType): FundamentalType = t match {
-    case st: SpecializedType => st match {
-
-        case TupleType(ts) =>
-          val className = ClassName("scala.scalajs.wit.Tuple" + ts.size)
-          RecordType(
-            className,
-            ts.zipWithIndex.map { case (t, i) =>
-              FieldType(FieldName(className, SimpleFieldName(s"_${i + 1}")), t)
-            }
-          )
-
-        case EnumType(labels) =>
-          VariantType(???, labels.map(l => CaseType(???, None)))
-
-        case OptionType(t) =>
-          VariantType(
-            juOptionalClass,
-            List(
-              CaseType(juOptionalClass, None),
-              CaseType(juOptionalClass, Some(t))
-            )
-          )
-
-        case ResultType(ok, err) =>
-          VariantType(
-            ComponentResultClass,
-            List(
-              CaseType(ComponentResultOkClass, ok),
-              CaseType(ComponentResultErrClass, err)
-            )
-          )
-      }
-
-    case ft: FundamentalType => ft
-  }
-
-  def elemSize(tpe: Option[ValType]): Int = tpe match {
-    case None        => 0
-    case Some(value) => elemSize(value)
-  }
-
-  def elemSize(tpe: ValType): Int = {
-    despecialize(tpe) match {
-      case BoolType | U8Type | S8Type  => 1
-      case U16Type | S16Type           => 2
-      case U32Type | S32Type | F32Type => 4
-      case U64Type | S64Type | F64Type => 8
-      case CharType                    => 4
-      case StringType                  => 8
-      case ListType(elemType, length)  =>
-        length match {
-          case None        => 8
-          case Some(value) => elemSize(elemType) * value
-        }
-      case RecordType(_, fields) =>
-        val size = fields.foldLeft(0) { case (ptr, f) =>
-          alignTo(ptr, alignment(f.tpe)) + elemSize(f.tpe)
-        }
-        alignTo(size, alignment(tpe))
-
-      case VariantType(_, cases) =>
-        val indexSize = alignTo(elemSize(discriminantType(cases)), maxCaseAlignment(cases))
-        val size = indexSize + cases.map(c => elemSize(c.tpe)).max
-        alignTo(size, alignment(tpe))
-      case FlagsType(_, n) =>
-        assert(n > 0)
-        assert(n <= 32)
-        if (n <= 8) 1
-        else if (n <= 16) 2
-        else 4
-      case ResourceType(className) => 4
-    }
-  }
-
-  def alignment(tpe: ValType): Int = {
-    despecialize(tpe) match {
-      case BoolType | U8Type | S8Type  => 1
-      case U16Type | S16Type           => 2
-      case U32Type | S32Type | F32Type => 4
-      case U64Type | S64Type | F64Type => 8
-      case CharType                    => 4
-      case StringType                  => 4
-      case ListType(elemType, length)  =>
-        length match {
-          case None    => 4
-          case Some(_) => alignment(elemType)
-        }
-      case RecordType(_, fields) =>
-        fields.map(f => alignment(f.tpe)).max
-      case VariantType(_, cases) =>
-        val maxCaseAlign = maxCaseAlignment(cases)
-        val caseIndexAlign = alignment(discriminantType(cases))
-        if (maxCaseAlign > caseIndexAlign) maxCaseAlign else caseIndexAlign
-      case FlagsType(_, n) =>
-        assert(n > 0)
-        assert(n <= 32)
-        if (n <= 8) 1
-        else if (n <= 16) 2
-        else 4
-      case ResourceType(className) => 4
-    }
-  }
-
-  // def align_to(ptr, alignment):
-  // return math.ceil(ptr / alignment) * alignment
-  private def alignTo(ptr: Int, alignment: Int): Int =
-    ((ptr + alignment - 1) / alignment) * alignment
-
-  def maxCaseAlignment(cases: List[CaseType]): Int =
-    cases.map(c => c.tpe.map(alignment).getOrElse(1)).max
-
-  def discriminantType(cases: Seq[_]): PrimValType = {
-    val n = cases.length
-    require(0 < n && n < (1L << 32), "Number of cases must be within range.")
-    (math.ceil(math.log(n) / math.log(2) / 8)).toInt match {
-      case 0 => U8Type
-      case 1 => U8Type
-      case 2 => U16Type
-      case 3 => U32Type
-      case _ => throw new AssertionError(s"Number of cases must be within the 2^32.")
     }
   }
 

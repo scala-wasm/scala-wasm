@@ -17,6 +17,18 @@ import scala.annotation.meta._
 /** Types, methods and values for interoperability with Wasm Component Model libraries. */
 package object wit {
 
+  /** Marks a WIT resource handle as borrowed in a Component Model signature.
+   *
+   *  `Borrow[R]` is to tell Scala.js compiler to emit `borrow<r>` where
+   *  `R` represents own resource type.
+   *  For example, `Borrow[InputStream]` corresponds to:
+   *
+   *  {{{
+   *  read: func(s: borrow<input-stream>);
+   *  }}}
+   */
+  type Borrow[T] = T
+
   /** Denotes a method body as imported from Wasm Component. For use in facade types:
    *
    *  {{{

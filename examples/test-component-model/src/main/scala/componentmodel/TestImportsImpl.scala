@@ -14,12 +14,10 @@ import scala.scalajs.WitUtils.toEither
 import java.util.Optional
 
 object TestImportsImpl {
-  @WitExport("component:testing/test-imports", "run")
+  @WitExport(WitScope.unversioned("component", "testing", "test-imports"), "run")
   def run(): Unit = {
     def newCounterArray(size: Int): Array[Counter] =
       new Array[Counter](size)
-
-    val start = System.currentTimeMillis()
 
     // Test world-level function imports
     assert(5 == bareAdd(2, 3))
@@ -166,9 +164,6 @@ object TestImportsImpl {
 
     // Test Object methods on imported resources
     TestFunctions.testResourceObjectMethods()
-
-    // val end = System.currentTimeMillis()
-    // println(s"elapsed: ${(end - start).toInt} ms")
   }
 }
 

@@ -14,22 +14,7 @@ package scala.scalajs.wit.annotation
 
 import scala.annotation.meta._
 
-/** Represents bitflags in the Component Model
- *
- *  Must be used on a final case class with a single Int parameter named "value".
- *
- *  Example:
- *  {{{
- *  @WitFlags(3)
- *  final case class MyFlags(value: Int) { ... }
- *  object MyFlags {
- *    val Flag0 = MyFlags(1 << 0)
- *    val Flag1 = MyFlags(1 << 1)
- *    val Flag2 = MyFlags(1 << 2)
- *  }
- *  }}}
- *
- *  @param numFlags The number of flags in this flags type
- */
 @field @getter @setter
-class WitFlags(val numFlags: Int) extends scala.annotation.StaticAnnotation
+class WitFlags private () extends scala.annotation.StaticAnnotation {
+  def this(scope: WitScope, name: String, flagNames: Array[String]) = this()
+}

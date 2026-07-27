@@ -83,6 +83,15 @@ trait JSDefinitions {
     lazy val WitRecordAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitRecord")
     lazy val WitVariantAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitVariant")
     lazy val WitFlagsAnnotation  = getRequiredClass("scala.scalajs.wit.annotation.WitFlags")
+    lazy val WitEnumAnnotation   = getRequiredClass("scala.scalajs.wit.annotation.WitEnum")
+    lazy val WitNameAnnotation   = getRequiredClass("scala.scalajs.wit.annotation.WitName")
+
+    lazy val WitBorrowAlias = getTypeMember(ScalaJSWitPackageModule, newTermName("Borrow"))
+    lazy val WitScopeModule = getRequiredModule("scala.scalajs.wit.annotation.WitScope")
+    lazy val WitScope_apply = getMemberMethod(WitScopeModule, nme.apply)
+    lazy val WitScope_unversioned = getMemberMethod(WitScopeModule, newTermName("unversioned"))
+    lazy val WitScope_root = getMemberMethod(WitScopeModule, newTermName("root"))
+    lazy val WitScope_inline = getMemberMethod(WitScopeModule, newTermName("inline"))
     lazy val WitImplementationAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitImplementation")
     lazy val WitExportInterfaceAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitExportInterface")
 

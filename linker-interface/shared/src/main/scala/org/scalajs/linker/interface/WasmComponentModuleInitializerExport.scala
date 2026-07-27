@@ -12,12 +12,13 @@
 
 package org.scalajs.linker.interface
 
+import org.scalajs.ir.WitScope
+
 import Fingerprint.FingerprintBuilder
 
 /** The Wasm Component export name used to invoke the module initializers.
  *
- *  This only describes which export name to use. It does not generate WIT
- *  declarations, the selected WIT world must declare an export.
+ *  The linker includes this export in its generated WIT world.
  *
  *  For Wasm modules, we generate initializers in `_start` function, that runs
  *  when the module is instantiated. In the Component Model, calling WIT functions
@@ -26,19 +27,21 @@ import Fingerprint.FingerprintBuilder
  *  invoked from the configured component export instead of `_start`.
  */
 final class WasmComponentModuleInitializerExport private (
-    val moduleName: String,
+    val scope: WitScope,
     val functionName: String,
     val resultType: WasmComponentModuleInitializerExport.ResultType
 ) {
   require(functionName.nonEmpty, "functionName must not be empty")
 
-  def exportName: String =
-    if (moduleName.isEmpty) functionName
-    else s"$moduleName#$functionName"
+  def exportName: String = scope match {
+    case WitScope.Root             => functionName
+    case iface: WitScope.Interface => s"${iface.witId}#$functionName"
+    case WitScope.Inline(name)     => s"$name#$functionName"
+  }
 
   override def equals(that: Any): Boolean = that match {
     case that: WasmComponentModuleInitializerExport =>
-      this.moduleName == that.moduleName &&
+      this.scope == that.scope &&
       this.functionName == that.functionName &&
       this.resultType == that.resultType
     case _ =>
@@ -46,17 +49,17 @@ final class WasmComponentModuleInitializerExport private (
   }
 
   override def hashCode(): Int =
-    (moduleName, functionName, resultType).##
+    (scope, functionName, resultType).##
 
   override def toString(): String =
-    s"WasmComponentModuleInitializerExport($moduleName, $functionName, $resultType)"
+    s"WasmComponentModuleInitializerExport($scope, $functionName, $resultType)"
 }
 
 object WasmComponentModuleInitializerExport {
 
-  def apply(moduleName: String, functionName: String,
+  def apply(scope: WitScope, functionName: String,
       resultType: ResultType): WasmComponentModuleInitializerExport = {
-    new WasmComponentModuleInitializerExport(moduleName, functionName, resultType)
+    new WasmComponentModuleInitializerExport(scope, functionName, resultType)
   }
 
   /** WIT result types for a module-initializer export. */
@@ -82,7 +85,7 @@ object WasmComponentModuleInitializerExport {
       extends Fingerprint[WasmComponentModuleInitializerExport] {
     override def fingerprint(componentExport: WasmComponentModuleInitializerExport): String = {
       new FingerprintBuilder("WasmComponentModuleInitializerExport")
-        .addField("moduleName", componentExport.moduleName)
+        .addField("scope", componentExport.scope.toString)
         .addField("functionName", componentExport.functionName)
         .addField("resultType", componentExport.resultType)
         .build()

@@ -5,8 +5,8 @@
 
 package echo
 
-import scala.scalajs.wit.annotation._
 import scala.scalajs.wit
+import scala.scalajs.wit.annotation._
 
 import scala.scalajs.WitUtils._
 import scala.collection.mutable
@@ -14,8 +14,9 @@ import scala.collection.mutable
 import scala.scalajs.wasi.http.types._
 
 object Server {
-  @WitExport("wasi:http/incoming-handler@0.2.0", "handle")
-  def handle(request: IncomingRequest, outParam: ResponseOutparam): Unit = {
+  @WitExport(WitScope("wasi", "http", "incoming-handler", "0.2.0"), "handle")
+  def handle(@WitName("request") request: IncomingRequest,
+      @WitName("response-out") outParam: ResponseOutparam): Unit = {
     val inputBody = readRequestBody(request)
 
     val headers: Headers = Fields()

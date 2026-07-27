@@ -138,7 +138,7 @@ private[linker] object LambdaSynthesizer {
     new ClassInfo(className, ClassKind.Class, Some(SyntheticClassKind.Lambda(descriptor)),
         nonExistent = false, Some(descriptor.superClass), descriptor.interfaces,
         jsNativeLoadSpec = None, referencedFieldClasses = Map.empty, methodInfos,
-        jsNativeMembers = Map.empty, witNativeMembers = Map.empty,
+        jsNativeMembers = Map.empty, witTypeDef = None, witNativeMembers = Map.empty,
         jsMethodProps = Nil, topLevelExports = Nil)
   }
 
@@ -204,6 +204,7 @@ private[linker] object LambdaSynthesizer {
       jsConstructor = None,
       jsMethodProps = Nil,
       jsNativeMembers = Nil,
+      witTypeDef = None,
       witNativeMembers = Nil,
       topLevelExportDefs = Nil
     )(OptimizerHints.empty.withInline(true))

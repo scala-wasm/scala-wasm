@@ -15,4 +15,6 @@ package scala.scalajs.wit.annotation
 import scala.annotation.meta._
 
 @field @getter @setter
-class WitRecord extends scala.annotation.StaticAnnotation
+class WitRecord private () extends scala.annotation.StaticAnnotation {
+  def this(scope: WitScope, name: String) = this()
+}

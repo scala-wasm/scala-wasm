@@ -1,9 +1,6 @@
 # Scala version: 2.12 or 2.13 (default: 2.13)
 SCALA_VERSION ?= 2.13
 
-fetch:
-	wkg wit fetch
-
 build:
 	cd rust-exports; cargo component build --target wasm32-wasip2 -r
 	cd rust-run; cargo component build --target wasm32-wasip2 -r
@@ -18,4 +15,4 @@ run: compose
 clean:
 	rm -f scala.wasm out.wasm
 
-.PHONY: fetch build compose run clean
+.PHONY: build compose run clean

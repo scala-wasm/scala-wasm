@@ -21,6 +21,9 @@ import org.scalajs.ir.{
   Trees => js,
   Types => jstpe,
   WasmInterfaceTypes => wit,
+  WitScope,
+  ResourceOwnership,
+  WitTypeDef,
   ClassKind,
   Position
 }
@@ -80,26 +83,32 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  def genWitNativeMemberDef(flags: js.MemberFlags, tree: DefDef, moduleName: String,
-      name: js.WitFunctionName): js.WitNativeMemberDef = {
+  def genWitNativeMemberDef(flags: js.MemberFlags, tree: DefDef,
+      scope: WitScope, name: js.WitFunctionName): js.WitNativeMemberDef = {
     implicit val pos = tree.pos
     val sym = tree.symbol
     withNewLocalNameScope {
-      val (paramTypes, resultType) = witMethodSignatureOf(sym)
-      val baseParams = paramTypes.map(toWIT(_))
+      val (paramInfos, resultType) = witMethodSignatureOf(sym)
+      val baseParams = witParamsOf(paramInfos)
       val params = name match {
         case _:js.WitFunctionName.Function |
             _:js.WitFunctionName.ResourceConstructor |
             _:js.WitFunctionName.ResourceStaticMethod => baseParams
         case _:js.WitFunctionName.ResourceMethod |
             _:js.WitFunctionName.ResourceDrop =>
-          wit.ResourceType(encodeClassName(sym.owner)) +: baseParams
+          // WIT resource methods have an implicit self handle, make it explicit in the IR.
+          // methods borrow self, while drop consumes an owned self.
+          val ownership = name match {
+            case _: js.WitFunctionName.ResourceDrop => ResourceOwnership.Own
+            case _                                  => ResourceOwnership.Borrow
+          }
+          wit.ParamType("", resourceTypeOf(sym.owner, ownership)) +: baseParams
       }
       val witFuncType = wit.FuncType(
         params,
         toResultWIT(resultType)
       )
-      js.WitNativeMemberDef(flags, moduleName, name,
+      js.WitNativeMemberDef(flags, scope, name,
           encodeMethodSym(sym), witFuncType)
     }
   }
@@ -109,20 +118,19 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     val sym = tree.symbol
 
     val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic)
-    val (paramTypes, resultType) = witMethodSignatureOf(sym)
+    val (paramInfos, resultType) = witMethodSignatureOf(sym)
     for {
       methodAnnot <- sym.getAnnotation(WitResourceStaticMethodAnnotation)
       resourceAnnot <- sym.owner.companionClass.getAnnotation(WitResourceImportAnnotation)
       methodName <- methodAnnot.stringArg(0)
-      moduleName <- resourceAnnot.stringArg(0)
+      scope <- jsInterop.witScopeArg(resourceAnnot, 0)
       resourceName <- resourceAnnot.stringArg(1)
     } yield {
       val name = js.WitFunctionName.ResourceStaticMethod(
           func = methodName, resource = resourceName)
       withNewLocalNameScope {
-        val params = paramTypes.map(toWIT(_))
-        val ft = wit.FuncType(params, toResultWIT(resultType))
-        js.WitNativeMemberDef(flags, moduleName, name, encodeMethodSym(sym), ft)
+        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType))
+        js.WitNativeMemberDef(flags, scope, name, encodeMethodSym(sym), ft)
       }
     }
   }
@@ -132,19 +140,18 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     val sym = tree.symbol
 
     val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic)
-    val (paramTypes, resultType) = witMethodSignatureOf(sym)
+    val (paramInfos, resultType) = witMethodSignatureOf(sym)
 
     for {
       methodAnnot <- sym.getAnnotation(WitResourceConstructorAnnotation)
       resourceAnnot <- sym.owner.companionClass.getAnnotation(WitResourceImportAnnotation)
-      moduleName <- resourceAnnot.stringArg(0)
+      scope <- jsInterop.witScopeArg(resourceAnnot, 0)
       resourceName <- resourceAnnot.stringArg(1)
     } yield {
       val name = js.WitFunctionName.ResourceConstructor(resourceName)
       withNewLocalNameScope {
-        val params = paramTypes.map(toWIT(_))
-        val ft = wit.FuncType(params, toResultWIT(resultType))
-        js.WitNativeMemberDef(flags, moduleName, name, encodeMethodSym(sym), ft)
+        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType))
+        js.WitNativeMemberDef(flags, scope, name, encodeMethodSym(sym), ft)
       }
     }
   }
@@ -152,13 +159,13 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
   def genWitExportDef(info: jsInterop.WitExportInfo, sym: Symbol,
       methodDef: js.MethodDef): js.WitExportDef = {
     withNewLocalNameScope {
-      val (paramTypes, resultType) = witMethodSignatureOf(sym)
+      val (paramInfos, resultType) = witMethodSignatureOf(sym)
       val signature = wit.FuncType(
-        paramTypes.map(toWIT(_)),
+        witParamsOf(paramInfos),
         toResultWIT(resultType)
       )
       js.WitExportDef(
-        info.moduleName,
+        info.scope,
         js.WitFunctionName.Function(info.name),
         methodDef,
         signature
@@ -166,13 +173,65 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  private def witMethodSignatureOf(sym: Symbol): (List[Type], Type) = {
+  private final class WitParamInfo(val witName: String, val tpe: Type)
+
+  private def witMethodSignatureOf(sym: Symbol): (List[WitParamInfo], Type) = {
     exitingPhase(currentRun.typerPhase) {
       val methodType = sym.tpe
-      val params =
+      val params = {
         if (methodType.paramss.isEmpty) Nil
-        else methodType.paramss.head.map(_.tpe)
+        else {
+          methodType.paramss.head.map { p =>
+            new WitParamInfo(witNameOf(p), p.tpe)
+          }
+        }
+      }
       (params, methodType.resultType)
+    }
+  }
+
+  private def witParamsOf(params: List[WitParamInfo]): List[wit.ParamType] = {
+    params.map { param =>
+      wit.ParamType(param.witName, toWIT(param.tpe))
+    }
+  }
+
+  def genWitTypeDef(sym: Symbol): Option[WitTypeDef] = {
+    val tsym = exitingPhase(currentRun.typerPhase)(sym)
+    if (tsym.hasAnnotation(WitFlagsAnnotation)) {
+      val annot = tsym.getAnnotation(WitFlagsAnnotation).get
+      val className = encodeClassName(tsym)
+      val ((scope, name), names) = witFlagsInfo(tsym, annot)
+      Some(WitTypeDef.Flags(className, scope, name, names))
+    } else if (isWasmWitRecordClass(tsym)) {
+      val className = encodeClassName(tsym)
+      val fields = exitingPhase(currentRun.typerPhase) {
+        tsym.primaryConstructor.paramss.flatten.map { param =>
+          val scalaName = param.name.dropLocal.toString()
+          val witName = witNameOf(param)
+          (scalaName, witName, param.tpe)
+        }
+      }
+      val irFields = fields.map { case (scalaName, witName, fieldType) =>
+        val label = Names.FieldName(className, Names.SimpleFieldName(scalaName))
+        wit.FieldType(label, witName, toWIT(fieldType))
+      }
+      val (scope, name) = witIdOf(tsym, WitRecordAnnotation)
+      Some(WitTypeDef.Record(className, scope, name, irFields))
+    } else if (isWasmWitResourceType(tsym)) {
+      Some(WitTypeDef.Resource(resourceRefOf(tsym)))
+    } else if (tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed) {
+      val cases = witEnumCasesOf(tsym)
+      val (scope, name) = witIdOf(tsym, WitEnumAnnotation)
+      val className = encodeClassName(tsym)
+      Some(WitTypeDef.Enum(className, scope, name, cases))
+    } else if (tsym.hasAnnotation(WitVariantAnnotation) && tsym.isSealed) {
+      val cases = witVariantCasesOf(tsym)
+      val (scope, name) = witIdOf(tsym, WitVariantAnnotation)
+      val className = encodeClassName(tsym)
+      Some(WitTypeDef.Variant(className, scope, name, cases))
+    } else {
+      None
     }
   }
 
@@ -195,74 +254,70 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  private def toWIT(tpe: Type): wit.ValType = {
-    val widenedTpe = exitingPhase(currentRun.typerPhase)(tpe.dealiasWiden)
+  // Read `Borrow[T]` as `borrow<resource>`
+  private def borrowToWIT(tpe: Type): Option[wit.ValType] = {
+    if (tpe.typeSymbolDirect != WitBorrowAlias) {
+      None
+    } else {
+      val arg = tpe.typeArgs.headOption.getOrElse {
+        throw new AssertionError(s"Borrow without a type argument in $tpe")
+      }
+      toWIT(arg) match {
+        case res: wit.ResourceType =>
+          Some(res.copy(ownership = ResourceOwnership.Borrow))
+        case other =>
+          throw new AssertionError(
+              s"Borrow[_] is not applicable to $other (in $tpe)")
+      }
+    }
+  }
 
-    unsigned2WIT.get(widenedTpe.typeSymbolDirect).orElse {
-      toWITMaybeArray(widenedTpe)
+  private def toWIT(tpe: Type): wit.ValType = {
+    val directTpe = exitingPhase(currentRun.typerPhase)(tpe)
+    val dealiasedTpe = exitingPhase(currentRun.typerPhase)(directTpe.dealias)
+
+    unsigned2WIT.get(directTpe.typeSymbolDirect).orElse {
+      borrowToWIT(directTpe)
     }.orElse {
-      primitiveIRWIT.get(toIRType(widenedTpe))
+      toWITMaybeArray(dealiasedTpe)
+    }.orElse {
+      primitiveIRWIT.get(toIRType(dealiasedTpe))
     }.getOrElse {
-      widenedTpe.typeSymbol match {
+      dealiasedTpe.typeSymbol match {
         case tsym if isWasmComponentTupleClass(tsym) =>
-          wit.TupleType(widenedTpe.baseType(tsym).typeArgs.map(toWIT(_)))
+          wit.TupleType(dealiasedTpe.baseType(tsym).typeArgs.map(toWIT(_)))
 
         case tsym if tsym.hasAnnotation(WitFlagsAnnotation) =>
-          // Read numFlags from annotation parameter
-          val numFlags = tsym.getAnnotation(WitFlagsAnnotation)
-            .flatMap(_.intArg(0))
-            .getOrElse {
-              throw new AssertionError(s"@WitFlags on $tsym missing numFlags parameter")
-            }
+          val annot = tsym.getAnnotation(WitFlagsAnnotation).get
           val className = encodeClassName(tsym)
-          wit.FlagsType(className, numFlags)
+          val ((scope, name), _) = witFlagsInfo(tsym, annot)
+          wit.FlagsTypeRef(className, scope, name)
 
         case tsym if isWasmWitRecordClass(tsym) =>
           val className = encodeClassName(tsym)
-          val fields = exitingPhase(currentRun.typerPhase) {
-            tsym.primaryConstructor.paramss.flatten.map { param =>
-              (param.name.dropLocal.toString(), param.tpe)
-            }
-          }.map { case (fieldName, fieldType) =>
-            val label = Names.FieldName(className, Names.SimpleFieldName(fieldName))
-            wit.FieldType(label, toWIT(fieldType))
-          }
-          wit.RecordType(className, fields)
+          val (scope, name) = witIdOf(tsym, WitRecordAnnotation)
+          wit.RecordTypeRef(className, scope, name)
 
         case tsym if isWasmWitResourceType(tsym) =>
-          wit.ResourceType(encodeClassName(tsym))
+          // A bare WIT resource type is shorthand for `own<resource>`.
+          resourceTypeOf(tsym, ResourceOwnership.Own)
 
         case tsym if tsym.isSubClass(ComponentResultClass) && tsym.isSealed =>
-          val List(ok, err) = widenedTpe.baseType(ComponentResultClass).typeArgs
+          val List(ok, err) = dealiasedTpe.baseType(ComponentResultClass).typeArgs
           wit.ResultType(toResultWIT(ok), toResultWIT(err))
 
         case tsym if tsym.fullName == "java.util.Optional" =>
-          val List(t) = widenedTpe.baseType(tsym).typeArgs
+          val List(t) = dealiasedTpe.baseType(tsym).typeArgs
           wit.OptionType(toWIT(t))
 
+        case tsym if tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed =>
+          val _ = witEnumCasesOf(tsym) // validates that there are no payload cases
+          val (scope, name) = witIdOf(tsym, WitEnumAnnotation)
+          wit.EnumTypeRef(encodeClassName(tsym), scope, name)
+
         case tsym if tsym.hasAnnotation(WitVariantAnnotation) && tsym.isSealed =>
-          // Sort by declaration order, we need to know which index
-          // corresponds to which type.
-          // Make sure code generator declare children by index order.
-          // assert(tsym.isClass)
-          val cases = tsym.sealedChildren.toList.sortBy(_.pos.line) map { child =>
-            // assert(child.isFinal)
-            // assert(child.isClass)
-            val valueType = witVariantValueTypeOf(child)
-            val caseTyp = if (toIRType(valueType) == jstpe.VoidType) {
-              None
-            } else {
-              Some(toWIT(valueType))
-            }
-            wit.CaseType(
-              encodeClassName(child),
-              caseTyp
-            )
-          }
-          wit.VariantType(
-            encodeClassName(tsym),
-            cases
-          )
+          val (scope, name) = witIdOf(tsym, WitVariantAnnotation)
+          wit.VariantTypeRef(encodeClassName(tsym), scope, name)
         case _ => throw new AssertionError(s"invalid tpe: $tpe")
       }
     }
@@ -281,20 +336,88 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  private lazy val ScalaJSWitUnsignedPackageModule =
-    rootMirror.getPackageObject("scala.scalajs.wit.unsigned")
+  private def resourceTypeOf(sym: Symbol, ownership: ResourceOwnership): wit.ResourceType =
+    wit.ResourceType(resourceRefOf(sym), ownership)
 
-  private lazy val WitUnsigned_UByte =
-    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))
+  private def resourceRefOf(sym: Symbol): wit.ResourceRef = {
+    val (scope, name) = sym.getAnnotation(WitResourceImportAnnotation).flatMap { annotation =>
+      for {
+        scope <- jsInterop.witScopeArg(annotation, 0)
+        name <- annotation.stringArg(1)
+      } yield (scope, name)
+    }.getOrElse {
+      throw new AssertionError(
+          s"@WitResourceImport on $sym requires a literal WitScope and a literal name")
+    }
+    wit.ResourceRef(encodeClassName(sym), scope, name)
+  }
 
-  private lazy val WitUnsigned_UShort =
-    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UShort"))
+  private def witIdOf(tsym: Symbol, annotation: Symbol): (WitScope, String) = {
+    val annotationName = "@" + annotation.name
+    tsym.getAnnotation(annotation).flatMap { annot =>
+      for {
+        scope <- jsInterop.witScopeArg(annot, 0)
+        name <- annot.stringArg(1)
+      } yield (scope, name)
+    }.getOrElse {
+      throw new AssertionError(
+          s"$annotationName on $tsym requires a literal WitScope and a literal name")
+    }
+  }
 
-  private lazy val WitUnsigned_UInt =
-    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UInt"))
+  private def witEnumCasesOf(tsym: Symbol): List[wit.CaseType] = {
+    // Sort by declaration order, we need to know which index corresponds to which type.
+    tsym.sealedChildren.toList.sortBy(_.pos.line) map { child =>
+      if (!child.isModuleClass) {
+        throw new AssertionError(
+            s"@WitEnum on $tsym is not valid: it has payload cases")
+      }
+      wit.CaseType(
+        encodeClassName(child),
+        witNameOf(child),
+        None
+      )
+    }
+  }
 
-  private lazy val WitUnsigned_ULong =
-    getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("ULong"))
+  private def witVariantCasesOf(tsym: Symbol): List[wit.CaseType] = {
+    // Sort by declaration order, we need to know which index corresponds to which type.
+    tsym.sealedChildren.toList.sortBy(_.pos.line) map { child =>
+      val valueType = witVariantValueTypeOf(child)
+      val caseTyp =
+        if (toIRType(valueType) == jstpe.VoidType) None
+        else Some(toWIT(valueType))
+      wit.CaseType(
+        encodeClassName(child),
+        witNameOf(child),
+        caseTyp
+      )
+    }
+  }
+
+  private def witNameOf(sym: Symbol): String = {
+    sym.getAnnotation(WitNameAnnotation).flatMap(_.stringArg(0)).getOrElse {
+      throw new AssertionError(s"missing literal @WitName on $sym")
+    }
+  }
+
+  private def witFlagsInfo(tsym: Symbol,
+      annot: AnnotationInfo): ((WitScope, String), List[String]) = {
+    val id = {
+      for {
+        scope <- jsInterop.witScopeArg(annot, 0)
+        name <- annot.stringArg(1)
+      } yield (scope, name)
+    }.getOrElse {
+      throw new AssertionError(
+          s"@WitFlags on $tsym requires a literal WitScope and a literal name")
+    }
+    val names = jsInterop.literalStringArrayArg(annot, 2).getOrElse {
+      throw new AssertionError(
+          s"@WitFlags on $tsym requires a literal Array of literal strings")
+    }
+    (id, names)
+  }
 
   private lazy val unsigned2WIT: Map[Symbol, wit.ValType] = Map(
     WitUnsigned_UByte -> wit.U8Type,

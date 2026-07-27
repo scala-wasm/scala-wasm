@@ -46,4 +46,6 @@ import scala.annotation.meta._
  *  }}}
  */
 @field @getter @setter
-class WitVariant extends scala.annotation.StaticAnnotation
+class WitVariant private () extends scala.annotation.StaticAnnotation {
+  def this(scope: WitScope, name: String) = this()
+}

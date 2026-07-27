@@ -1,11 +1,11 @@
 package scala.scalajs.wasi.io
 
-import scala.scalajs.wit.annotation.{WitResourceDrop, WitResourceImport, WitResourceMethod}
+import scala.scalajs.wit.annotation.{WitResourceDrop, WitResourceImport, WitResourceMethod, WitScope}
 import scala.scalajs.wit.native
 
 package object error {
 
-  @WitResourceImport("wasi:io/error@0.2.0", "error")
+  @WitResourceImport(WitScope("wasi", "io", "error", "0.2.0"), "error")
   final class Error private () extends Object {
     @WitResourceMethod("to-debug-string")
     def toDebugString(): String = native
