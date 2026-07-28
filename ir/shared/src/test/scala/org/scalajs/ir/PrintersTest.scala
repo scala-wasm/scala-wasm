@@ -1341,7 +1341,7 @@ class PrintersTest {
           |    5
           |  }
           |  static native p;Ljava.lang.Object loadfrom global:foo
-          |  static component getStdout;I importfrom "wasi:io/streams" "get-stdout"
+          |  static wit getStdout;I importfrom "wasi:io/streams" "get-stdout"
           |  export top[moduleID="main"] module "Foo"
           |}
         """,
@@ -1355,9 +1355,10 @@ class PrintersTest {
             List(JSMethodDef(MemberFlags.empty, StringLiteral("o"), Nil, None, i(5))(NoOptHints, UNV)),
             List(JSNativeMemberDef(MemberFlags.empty.withNamespace(Static), MethodName("p", Nil, O),
                 JSNativeLoadSpec.Global("foo", Nil))),
-            Nil,
-            // List(WitNativeMemberDef(MemberFlags.empty.withNamespace(Static), MethodName("getStdout", Nil, I),
-            //     "wasi:io/streams", "get-stdout")),
+            List(WitNativeMemberDef(MemberFlags.empty.withNamespace(Static),
+                "wasi:io/streams", WitFunctionName.Function("get-stdout"),
+                MethodName("getStdout", Nil, I),
+                WasmInterfaceTypes.FuncType(Nil, Some(WasmInterfaceTypes.U32Type)))),
             List(TopLevelModuleExportDef("main", "Foo")))(
             NoOptHints))
   }

@@ -25,13 +25,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
     import scala.scalajs.wit.unsigned._
     """
 
-  @Test def resourceImportMustBeOnTrait: Unit = {
+  @Test def resourceImportMustBeOnFinalClass: Unit = {
     """
     @WitResourceImport("test:module", "resource")
     class MyResource
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitResourceImport is allowed for traits
+      |newSource1.scala:7: error: @WitResourceImport is allowed for final classes
       |    class MyResource
       |          ^
     """
@@ -41,56 +41,66 @@ class WitInteropTest extends DirectTest with TestHelpers {
     object MyResource
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitResourceImport is allowed for traits
+      |newSource1.scala:7: error: @WitResourceImport is allowed for final classes
       |    object MyResource
       |           ^
+    """
+
+    """
+    @WitResourceImport("test:module", "resource")
+    trait MyResource
+    """ hasErrors
+    """
+      |newSource1.scala:7: error: @WitResourceImport is allowed for final classes
+      |    trait MyResource
+      |          ^
     """
   }
 
   @Test def resourceImportCannotBeSealed: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    sealed trait MyResource
+    sealed final class MyResource private () extends Object
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitResourceImport traits cannot be sealed
-      |    sealed trait MyResource
-      |                 ^
+      |newSource1.scala:7: error: illegal combination of modifiers: final and sealed for: class MyResource
+      |    sealed final class MyResource private () extends Object
+      |                       ^
     """
   }
 
   @Test def resourceMethodsMustHaveAnnotation: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
-      def doSomething(): Unit
+    final class MyResource private () extends Object {
+      def doSomething(): Unit = ???
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: Method 'doSomething' in @WitResourceImport trait must be annotated with @WitResourceMethod or @WitResourceDrop
-      |      def doSomething(): Unit
+      |newSource1.scala:8: error: Method 'doSomething' in @WitResourceImport class must be annotated with @WitResourceMethod or @WitResourceDrop
+      |      def doSomething(): Unit = ???
       |          ^
     """
 
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
-      def method1(): Unit
-      def method2(x: Int): String
+    final class MyResource private () extends Object {
+      def method1(): Unit = ???
+      def method2(x: Int): String = ???
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: Method 'method1' in @WitResourceImport trait must be annotated with @WitResourceMethod or @WitResourceDrop
-      |      def method1(): Unit
+      |newSource1.scala:8: error: Method 'method1' in @WitResourceImport class must be annotated with @WitResourceMethod or @WitResourceDrop
+      |      def method1(): Unit = ???
       |          ^
-      |newSource1.scala:9: error: Method 'method2' in @WitResourceImport trait must be annotated with @WitResourceMethod or @WitResourceDrop
-      |      def method2(x: Int): String
+      |newSource1.scala:9: error: Method 'method2' in @WitResourceImport class must be annotated with @WitResourceMethod or @WitResourceDrop
+      |      def method2(x: Int): String = ???
       |          ^
     """
 
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceMethod("annotated")
       def annotated(): Unit = wm.native
 
@@ -98,7 +108,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:11: error: Method 'unannotated' in @WitResourceImport trait must be annotated with @WitResourceMethod or @WitResourceDrop
+      |newSource1.scala:11: error: Method 'unannotated' in @WitResourceImport class must be annotated with @WitResourceMethod or @WitResourceDrop
       |      def unannotated(): Unit = wm.native
       |          ^
     """
@@ -109,7 +119,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCompatible
 
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceMethod("invalid")
       def invalidMethod(x: NotCompatible): Unit = wm.native
     }
@@ -126,7 +136,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCompatible
 
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceMethod("invalid")
       def invalidMethod(): NotCompatible = wm.native
     }
@@ -141,7 +151,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceCompanionObjectMethodsMustHaveAnnotation: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceMethod("do-something")
       def doSomething(): Unit = wm.native
     }
@@ -150,7 +160,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:12: error: Public method 'invalidMethod' in companion object of @WitResourceImport trait must be annotated with @WitResourceConstructor or @WitResourceStaticMethod
+      |newSource1.scala:12: error: Public method 'invalidMethod' in companion object of @WitResourceImport class must be annotated with @WitResourceConstructor or @WitResourceStaticMethod
       |      def invalidMethod(): Unit = ???
       |          ^
     """
@@ -159,7 +169,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceDropMustHaveNoParametersAndReturnUnit: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceDrop
       def close(x: Int): Unit = wm.native
     }
@@ -172,7 +182,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceDrop
       def close(): Int = wm.native
     }
@@ -187,7 +197,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceCanHaveAtMostOneDropMethod: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceDrop
       def close(): Unit = wm.native
 
@@ -196,16 +206,16 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitResourceImport trait can have at most one @WitResourceDrop method, found 2
-      |    trait MyResource {
-      |          ^
+      |newSource1.scala:7: error: @WitResourceImport class can have at most one @WitResourceDrop method, found 2
+      |    final class MyResource private () extends Object {
+      |                ^
     """
   }
 
   @Test def resourceConstructorOnlyInCompanionObject: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceConstructor
       def create(): MyResource = wm.native
     }
@@ -220,7 +230,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceStaticMethodOnlyInCompanionObject: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource {
+    final class MyResource private () extends Object {
       @WitResourceStaticMethod("factory")
       def factory(): MyResource = wm.native
     }
@@ -235,7 +245,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceConstructorMustBeOnApply: Unit = {
     """
     @WitResourceImport("test:module", "resource")
-    trait MyResource
+    final class MyResource private () extends Object
     object MyResource {
       @WitResourceConstructor
       def create(): MyResource = wm.native
@@ -248,27 +258,27 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
   }
 
-  @Test def resourceAnnotationsOnlyInResourceImportTraits: Unit = {
+  @Test def resourceAnnotationsOnlyInResourceImportClasses: Unit = {
     """
-    trait NotAResource {
+    final class NotAResource private () extends Object {
       @WitResourceMethod("invalid")
       def method(): Unit = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceMethod("invalid") is allowed in trait annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceMethod("invalid") is allowed in final class annotated with @WitResourceImport
       |      def method(): Unit = wm.native
       |          ^
     """
 
     """
-    trait NotAResource {
+    final class NotAResource private () extends Object {
       @WitResourceDrop
       def drop(): Unit = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceDrop is allowed in trait annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceDrop is allowed in final class annotated with @WitResourceImport
       |      def drop(): Unit = wm.native
       |          ^
     """
@@ -282,7 +292,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceConstructor is allowed in companion object of trait annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceConstructor is allowed in companion object of class annotated with @WitResourceImport
       |      def apply(): String = ???
       |          ^
     """
@@ -294,7 +304,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceStaticMethod("foo") is allowed in companion object of trait annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceStaticMethod("foo") is allowed in companion object of class annotated with @WitResourceImport
       |      def foo(): String = ???
       |          ^
     """
@@ -303,7 +313,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceValidExample: Unit = {
     """
     @WitResourceImport("test:io/streams", "input-stream")
-    trait InputStream {
+    final class InputStream private () extends Object {
       @WitResourceMethod("read")
       def read(len: ULong): wm.Result[Array[UByte], String] = wm.native
 
@@ -313,9 +323,10 @@ class WitInteropTest extends DirectTest with TestHelpers {
       @WitResourceDrop
       def close(): Unit = wm.native
     }
+    object InputStream {}
 
     @WitResourceImport("test:io/streams", "output-stream")
-    trait OutputStream {
+    final class OutputStream private () extends Object {
       @WitResourceMethod("write")
       def write(data: Array[UByte]): wm.Result[Unit, String] = wm.native
 
@@ -370,7 +381,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:9: error: Component variant case 'NotACase' must be a case class or case object
+      |newSource1.scala:9: error: Component variant case 'NotACase' must be a final class or object
       |      class NotACase extends MyVariant
       |            ^
     """
@@ -443,7 +454,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCaseClass(x: Int, y: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitRecord can only be used on case classes
+      |newSource1.scala:7: error: @WitRecord class must be final
       |    class NotCaseClass(x: Int, y: Int)
       |          ^
     """
@@ -453,7 +464,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     trait NotCaseClass
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitRecord can only be used on case classes
+      |newSource1.scala:7: error: @WitRecord can only be used on classes
       |    trait NotCaseClass
       |          ^
     """
@@ -463,7 +474,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     object NotCaseClass
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitRecord can only be used on case classes
+      |newSource1.scala:7: error: @WitRecord can only be used on classes
       |    object NotCaseClass
       |           ^
     """
@@ -475,7 +486,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     case class NotFinal(x: Int, y: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitRecord case class must be final
+      |newSource1.scala:7: error: @WitRecord class must be final
       |    case class NotFinal(x: Int, y: Int)
       |               ^
     """
@@ -531,7 +542,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCaseClass(value: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags can only be used on case classes
+      |newSource1.scala:7: error: @WitFlags class must be final
       |    class NotCaseClass(value: Int)
       |          ^
     """
@@ -541,7 +552,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     trait NotCaseClass
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags can only be used on case classes
+      |newSource1.scala:7: error: @WitFlags can only be used on classes
       |    trait NotCaseClass
       |          ^
     """
@@ -553,7 +564,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     case class NotFinal(value: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class must be final
+      |newSource1.scala:7: error: @WitFlags class must be final
       |    case class NotFinal(value: Int)
       |               ^
     """
@@ -565,7 +576,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     final case class ValueClass(value: Int) extends AnyVal
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class must NOT extend AnyVal. Use a regular case class instead.
+      |newSource1.scala:7: error: @WitFlags class must NOT extend AnyVal. Use a regular class instead.
       |    final case class ValueClass(value: Int) extends AnyVal
       |                     ^
     """
@@ -577,7 +588,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     final case class NoParameters()
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class must have exactly one parameter, found 0
+      |newSource1.scala:7: error: @WitFlags class must have exactly one parameter, found 0
       |    final case class NoParameters()
       |                     ^
     """
@@ -587,7 +598,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     final case class TwoParameters(value: Int, other: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class must have exactly one parameter, found 2
+      |newSource1.scala:7: error: @WitFlags class must have exactly one parameter, found 2
       |    final case class TwoParameters(value: Int, other: Int)
       |                     ^
     """
@@ -599,7 +610,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     final case class WrongType(value: String)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class parameter must be of type Int, found 'String'
+      |newSource1.scala:7: error: @WitFlags class parameter must be of type Int, found 'String'
       |    final case class WrongType(value: String)
       |                               ^
     """
@@ -609,7 +620,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     final case class WrongName(data: Int)
     """ hasErrors
     """
-      |newSource1.scala:7: error: @WitFlags case class parameter must be named 'value', found 'data'
+      |newSource1.scala:7: error: @WitFlags class parameter must be named 'value', found 'data'
       |    final case class WrongName(data: Int)
       |                               ^
     """
@@ -808,17 +819,6 @@ class WitInteropTest extends DirectTest with TestHelpers {
       |newSource1.scala:9: error: scala.scalajs.wit.annotation.WitImport("test:module", "local-func") is not allowed on local definitions
       |        def localFunc(x: Int): Int = wm.native
       |            ^
-    """
-  }
-
-  @Test def witImportCannotBeOnConstructor: Unit = {
-    """
-    class MyClass @WitImport("test:module", "ctor")() {}
-    """ hasErrors
-    """
-      |newSource1.scala:7: error: scala.scalajs.wit.annotation.WitImport("test:module", "ctor") is not allowed on constructor
-      |
-      |   ^
     """
   }
 

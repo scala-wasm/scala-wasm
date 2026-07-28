@@ -1129,7 +1129,13 @@ object Printers {
 
         case WitNativeMemberDef(flags, module, name,
                 method, tpe) =>
-          // TODO
+          print(flags.namespace.prefixString)
+          print("wit ")
+          print(method)
+          print(" importfrom \"")
+          printEscapeJS(module, out)
+          print("\" ")
+          printWitFunctionName(name)
       }
     }
 
@@ -1171,6 +1177,41 @@ object Printers {
           // print(resultType)
           // print(" = ")
           // print(methodDef)
+      }
+    }
+
+    def printWitFunctionName(name: WitFunctionName): Unit = {
+      import WitFunctionName._
+
+      name match {
+        case Function(func) =>
+          print("\"")
+          printEscapeJS(func, out)
+          print("\"")
+
+        case ResourceMethod(func, resource) =>
+          print("method \"")
+          printEscapeJS(resource, out)
+          print("\" \"")
+          printEscapeJS(func, out)
+          print("\"")
+
+        case ResourceStaticMethod(func, resource) =>
+          print("static method \"")
+          printEscapeJS(resource, out)
+          print("\" \"")
+          printEscapeJS(func, out)
+          print("\"")
+
+        case ResourceConstructor(resource) =>
+          print("constructor \"")
+          printEscapeJS(resource, out)
+          print("\"")
+
+        case ResourceDrop(resource) =>
+          print("drop \"")
+          printEscapeJS(resource, out)
+          print("\"")
       }
     }
 

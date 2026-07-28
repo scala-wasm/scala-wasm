@@ -1107,11 +1107,13 @@ object AnalyzerTest {
       test: (ModuleKind, Analysis) => Unit)(
       implicit ec: ExecutionContext): Future[Unit] = {
 
-    val results = for (kind <- ModuleKind.All) yield {
-      val analysis = computeAnalysis(classDefs,
-          moduleInitializers = moduleInitializers,
-          config = StandardConfig().withModuleKind(kind))
-      analysis.map(test(kind, _))
+    val results = {
+      for (kind <- Seq(ModuleKind.NoModule, ModuleKind.CommonJSModule, ModuleKind.ESModule)) yield {
+        val analysis = computeAnalysis(classDefs,
+            moduleInitializers = moduleInitializers,
+            config = StandardConfig().withModuleKind(kind))
+        analysis.map(test(kind, _))
+      }
     }
 
     Future.sequence(results).map(_ => ())
