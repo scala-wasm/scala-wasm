@@ -2166,23 +2166,15 @@ object Build {
       exampleSettings,
       name := "Echo Server - Scala.js WASI example",
       moduleName := "echo",
-      // TODO: Re-enable fatal warnings once wit-bindgen stops generating
-      // deprecated export interface sources.
-      Compile / scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings", "-Werror"))),
-      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
-      scalaJSWitWorld := Some("sample"),
-      scalaJSWitPackage := Some("echo"),
       scalaJSLinkerConfig := {
-        val witDir = scalaJSWitDirectory.value
-        val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
+             .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
+             .withWitWorld(Some("sample"))
          }
       },
   ).withScalaJSCompiler.dependsOnLibrary
@@ -2220,22 +2212,15 @@ object Build {
       name := "HelloWorld WASI",
       moduleName := "helloworld-wasi",
       scalaJSUseMainModuleInitializer := true,
-      // TODO: Re-enable fatal warnings once wit-bindgen stops generating
-      // deprecated export interface sources.
-      Compile / scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings", "-Werror"))),
-      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
-      scalaJSWitPackage := Some("helloworld"),
       scalaJSLinkerConfig := {
-        val witDir = scalaJSWitDirectory.value
-        val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
+             .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
+             .withWitWorld(Some("helloworld"))
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
@@ -2250,23 +2235,15 @@ object Build {
       name := "HelloWorld Component Model",
       moduleName := "helloworld-component-model",
       scalaJSUseMainModuleInitializer := true,
-      // TODO: Re-enable fatal warnings once wit-bindgen stops generating
-      // deprecated export interface sources.
-      Compile / scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings", "-Werror"))),
-      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
-      scalaJSWitWorld := Some("scala"),
-      scalaJSWitPackage := Some("helloworld"),
       scalaJSLinkerConfig := {
-        val witDir = scalaJSWitDirectory.value
-        val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
+             .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
+             .withWitWorld(Some("scala"))
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
@@ -2283,21 +2260,18 @@ object Build {
       // deprecated export interface sources.
       Compile / scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings", "-Werror"))),
       // MultiScalaProject creates subprojects with base directories at .2.12 and .2.13
-      scalaJSWitDirectory := baseDirectory.value.getParentFile / "wit",
       scalaJSWitWorld := Some("scala"),
-      scalaJSWitPackage := Some("componentmodel"),
       scalaJSLinkerConfig := {
-        val witDir = scalaJSWitDirectory.value
         val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withModuleKind(ModuleKind.WasmComponent)
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
-         .withWasmFeatures { prevFeatures =>
-           prevFeatures
-             .withWitDirectory(Some(witDir.getAbsolutePath))
-             .withWitWorld(witWorld)
-         }
+          .withWasmFeatures { prevFeatures =>
+            prevFeatures
+              .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
+              .withWitWorld(witWorld)
+          }
       },
   ).withScalaJSCompiler.dependsOnLibrary
 

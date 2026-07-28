@@ -138,8 +138,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: wasmtime@44.0.2,wasm-tools,wac-cli,cargo-component
-      - name: Install wit-bindgen-scala
-        run: cargo install wit-bindgen-scala --version 0.1.0-rc.1
       - name: helloworldWASI${{ matrix.suffix }}/run
         run: sbt "$SBT_SET_COMMAND" helloworldWASI${{ matrix.suffix }}/run
       - name: Build rust-exports
@@ -230,8 +228,6 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: wasmtime@44.0.2,wasm-tools,wac-cli
-      - name: Install wit-bindgen-scala
-        run: cargo install wit-bindgen-scala --version 0.1.0-rc.1
       - name: sbtPlugin2_12/scripted
         run: sbt sbtPlugin2_12/scripted
       - name: sbtPlugin3/scripted

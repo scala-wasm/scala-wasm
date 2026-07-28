@@ -28,19 +28,15 @@ lazy val runComponent = project
   .enablePlugins(ScalaJSPlugin)
   .settings(wasmtimeEnvSettings)
   .settings(
-      scalaJSWitDirectory := baseDirectory.value / "wit",
-      scalaJSWitWorld := Some("command"),
       Compile / scalaJSLinkerConfig := {
-        val witDir = scalaJSWitDirectory.value
-        val witWorld = scalaJSWitWorld.value
         (Compile / scalaJSLinkerConfig).value
           .withExperimentalUseWebAssembly(true)
           .withESFeatures(_.withESVersion(ESVersion.ES2022))
           .withModuleKind(ModuleKind.WasmComponent)
           .withWasmFeatures { features =>
             features
-              .withWitDirectory(Some(witDir.getAbsolutePath))
-              .withWitWorld(witWorld)
+              .withWitDirectory(Some((baseDirectory.value / "wit").getAbsolutePath))
+              .withWitWorld(Some("command"))
           }
       }
   )
