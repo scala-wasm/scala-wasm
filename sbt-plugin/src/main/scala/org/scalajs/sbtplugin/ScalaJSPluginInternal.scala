@@ -776,7 +776,7 @@ private[sbtplugin] object ScalaJSPluginInternal {
 
       scalaJSGenerateWitBindings := Def.uncached {
         val linkerConfig = scalaJSLinkerConfig.value
-        val witDir = scalaJSWitDirectory.value
+        val witDirOpt = scalaJSWitDirectory.?.value
         val witWorld = scalaJSWitWorld.value
         val witPackage = scalaJSWitPackage.value
         val witBindgenWith = scalaJSWitBindgenWith.value
@@ -787,46 +787,57 @@ private[sbtplugin] object ScalaJSPluginInternal {
         // Only run when component model is enabled
         if (linkerConfig.moduleKind != ModuleKind.WasmComponent) {
           Seq.empty[File]
-        } else if (!witDir.exists()) {
-          log.debug(s"WIT directory $witDir does not exist, skipping wit-bindgen-scala")
-          Seq.empty[File]
         } else {
-          val witFiles = (witDir ** "*.wit").get().toSet
+          witDirOpt match {
+            case None =>
+              log.debug("scalaJSWitDirectory is not set, skipping wit-bindgen-scala")
+              Seq.empty[File]
 
-          if (witFiles.isEmpty) {
-            log.debug(s"No WIT files found in $witDir")
-            Seq.empty[File]
-          } else {
-            checkWitBindgenScalaAvailable(log)
+            case Some(witDir) =>
+              if (!witDir.exists()) {
+                log.debug(s"WIT directory $witDir does not exist, skipping wit-bindgen-scala")
+                Seq.empty[File]
+              } else {
+                val witFiles = (witDir ** "*.wit").get().toSet
 
-            val cacheDir = s.cacheDirectory / "wit-bindgen-scala"
-            val generatedFiles = {
-              FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
-                log.info(s"Generating Scala bindings from WIT files in $witDir")
+                if (witFiles.isEmpty) {
+                  log.debug(s"No WIT files found in $witDir")
+                  Seq.empty[File]
+                } else {
+                  checkWitBindgenScalaAvailable(log)
 
-                IO.createDirectory(targetDir)
+                  val cacheDir = s.cacheDirectory / "wit-bindgen-scala"
+                  val generatedFiles = {
+                    FileFunction.cached(cacheDir, FilesInfo.lastModified, FilesInfo.exists) { _ =>
+                      log.info(s"Generating Scala bindings from WIT files in $witDir")
 
-                val baseCmd = Seq("wit-bindgen-scala",
-                    witDir.absolutePath, "--out-dir", targetDir.absolutePath)
-                val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
-                val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
-                val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) => Seq("--with", s"$k=$v") }
-                val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
+                      IO.createDirectory(targetDir)
 
-                log.info(s"Running: ${fullCmd.mkString(" ")}")
+                      val baseCmd = Seq("wit-bindgen-scala",
+                          witDir.absolutePath, "--out-dir", targetDir.absolutePath)
+                      val worldArgs = witWorld.toSeq.flatMap(w => Seq("--world", w))
+                      val packageArgs = witPackage.toSeq.flatMap(p => Seq("--base-package", p))
+                      val withArgs = witBindgenWith.toSeq.flatMap { case (k, v) =>
+                        Seq("--with", s"$k=$v")
+                      }
+                      val fullCmd = baseCmd ++ worldArgs ++ packageArgs ++ withArgs
 
-                val processLogger = ProcessLogger(log.info(_), log.info(_))
-                val exitCode = Process(fullCmd).!(processLogger)
-                if (exitCode != 0) {
-                  throw new MessageOnlyException(
-                      s"wit-bindgen-scala failed with exit code $exitCode"
-                  )
+                      log.info(s"Running: ${fullCmd.mkString(" ")}")
+
+                      val processLogger = ProcessLogger(log.info(_), log.info(_))
+                      val exitCode = Process(fullCmd).!(processLogger)
+                      if (exitCode != 0) {
+                        throw new MessageOnlyException(
+                            s"wit-bindgen-scala failed with exit code $exitCode"
+                        )
+                      }
+                      (targetDir ** "*.scala").get().toSet
+                    }(witFiles)
+                  }
+
+                  generatedFiles.toSeq
                 }
-                (targetDir ** "*.scala").get().toSet
-              }(witFiles)
-            }
-
-            generatedFiles.toSeq
+              }
           }
         }
       },

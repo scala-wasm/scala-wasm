@@ -341,7 +341,6 @@ object ScalaJSPlugin extends AutoPlugin {
 
         scalaJSLinkerConfig := StandardConfig(),
 
-        scalaJSWitDirectory := file("wit"),
         scalaJSWitWorld := None,
         scalaJSWitPackage := None,
         scalaJSWitBindgenWith := Map(
