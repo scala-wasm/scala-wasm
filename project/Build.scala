@@ -1068,14 +1068,14 @@ object Build {
             compiler, irProject, irProjectJS,
             linkerInterface, linkerInterfaceJS, linker, linkerJS,
             testAdapter,
-            javalibintf,
+            javalibintf, wasmlibintf,
             javalibInternal, javalib, scalalibInternal, libraryAux, scalalib, library,
             testInterface, jUnitRuntime, testBridge, jUnitPlugin, jUnitAsyncJS,
             jUnitAsyncJVM, jUnitTestOutputsJS, jUnitTestOutputsJVM,
             helloworld, helloworldWasm, helloworldWASI, helloworldComponentModel,
             testComponentModel,
             reversi, testingExample, testSuite, testSuiteJVM,
-            javalibExtDummies, testSuiteEx, testSuiteExJVM, testSuiteLinker,
+            wasmSystemWasi02, wasmSystemDummy, javalibExtDummies, testSuiteEx, testSuiteExJVM, testSuiteLinker,
             partest, partestSuite,
             scalaTestSuite
         ).flatMap(_.componentProjects)
@@ -1561,6 +1561,7 @@ object Build {
             testBridge.v2_12 / publishLocal,
             jUnitRuntime.v2_12 / publishLocal,
             irProjectJS.v2_12 / publishLocal,
+            wasmSystemWasi02.v2_12 / publishLocal,
 
             scalalib.v2_13 / publishLocal,
             library.v2_13 / publishLocal,
@@ -1568,6 +1569,7 @@ object Build {
             testBridge.v2_13 / publishLocal,
             jUnitRuntime.v2_13 / publishLocal,
             irProjectJS.v2_13 / publishLocal,
+            wasmSystemWasi02.v2_13 / publishLocal,
           )
 
           Def.sequential {
@@ -1630,6 +1632,59 @@ object Build {
       autoScalaLibrary := false,
   )
 
+  lazy val wasmlibintf: Project = Project(
+      id = "wasmlibintf", base = file("wasmlibintf")
+  ).settings(
+      commonSettings,
+      publishSettings(Some(VersionScheme.BreakOnMajor)),
+      name := "scalajs-wasmlib-intf",
+
+      mimaFailOnNoPrevious := false, // No previously published artifact yet
+
+      crossPaths := false,
+      autoScalaLibrary := false,
+  )
+
+  /** WASI 0.2 (Preview 2) implementation of the `WasmSystem` (ships only `.sjsir`) */
+  lazy val wasmSystemWasi02: MultiScalaProject = MultiScalaProject(
+      id = "wasmSystemWasi02", base = file("wasm-system-wasi02")
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      commonSettings,
+      fatalWarningsSettings,
+      publishSettings(Some(VersionScheme.BreakOnMajor)),
+      name := "WASI 0.2 WasmSystem provider",
+      moduleName := "scalajs-wasm-system-wasi02",
+
+      mimaFailOnNoPrevious := false,
+
+      // Ensure that .class files are not used in downstream projects
+      exportJars := true,
+      Compile / packageBin / mappings ~= {
+        _.filter(!_._2.endsWith(".class"))
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+  /** Dummy `WasmSystem` implementation used to link and run testSuite on WasmComponent. */
+  lazy val wasmSystemDummy: MultiScalaProject = MultiScalaProject(
+      id = "wasmSystemDummy", base = file("wasm-system-dummy")
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      commonSettings,
+      fatalWarningsSettings,
+      name := "Dummy WasmSystem implementation for tests",
+      Compile / publishArtifact := false,
+
+      // Ensure that .class files are not used in downstream projects
+      exportJars := true,
+      Compile / packageBin / mappings ~= {
+        _.filter(!_._2.endsWith(".class"))
+      },
+  ).withScalaJSCompiler.dependsOnLibrary
+
+
   /** The project that actually compiles the `javalib`, but which is not
    *  exposed.
    *
@@ -1691,7 +1746,7 @@ object Build {
           !path.endsWith("/java/util/concurrent/ThreadLocalRandom.scala")
         }
       },
-  ).withScalaJSCompiler2_12.dependsOnLibraryNoJar2_12
+  ).dependsOn(wasmlibintf % Provided).withScalaJSCompiler2_12.dependsOnLibraryNoJar2_12
 
   /** An empty project, without source nor dependencies, whose products are
    *  copied from `javalibInternal`.
@@ -2203,7 +2258,7 @@ object Build {
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
-  ).withScalaJSCompiler.dependsOnLibrary
+  ).withScalaJSCompiler.dependsOnLibrary.dependsOn(wasmSystemWasi02)
 
   lazy val helloworldComponentModel: MultiScalaProject = MultiScalaProject(
       id = "helloworldComponentModel", base = file("examples") / "helloworld-component-model"
@@ -2226,7 +2281,7 @@ object Build {
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
-  ).withScalaJSCompiler.dependsOnLibrary
+  ).withScalaJSCompiler.dependsOnLibrary.dependsOn(wasmSystemWasi02)
 
   lazy val testComponentModel: MultiScalaProject = MultiScalaProject(
       id = "testComponentModel", base = file("examples") / "test-component-model"
@@ -2252,7 +2307,7 @@ object Build {
               .withWitWorld(witWorld)
           }
       },
-  ).withScalaJSCompiler.dependsOnLibrary
+  ).withScalaJSCompiler.dependsOnLibrary.dependsOn(wasmSystemWasi02)
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(
       id = "reversi", base = file("examples") / "reversi"
@@ -2774,7 +2829,8 @@ object Build {
   ).zippedSettings(testSuiteLinker)(
       l => inConfig(Bootstrap)(testSuiteBootstrapSetting(l))
   ).withScalaJSCompiler.withScalaJSJUnitPlugin.dependsOnLibrary.dependsOn(
-      jUnitRuntime, testBridge % "test", jUnitAsyncJS % "test"
+      jUnitRuntime, testBridge % "test", jUnitAsyncJS % "test",
+      wasmSystemDummy % "test"
   )
 
   lazy val testSuiteJVM: MultiScalaProject = MultiScalaProject(

@@ -71,10 +71,14 @@ object System {
 
   @inline
   def currentTimeMillis(): scala.Long = {
-    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
-      WasmSystem.currentTimeMillis()
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.currentTimeMillis() // TODO: use wasmlibintf
     } {
-      js.Date.now().toLong
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.currentTimeMillis()
+      } {
+        js.Date.now().toLong
+      }
     }
   }
 
@@ -89,10 +93,14 @@ object System {
 
   @inline
   def nanoTime(): scala.Long = {
-    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
-      WasmSystem.nanoTime()
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.nanoTime() // TODO: use wasmlibintf
     } {
-      (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.nanoTime()
+      } {
+        (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+      }
     }
   }
 
@@ -464,16 +472,20 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
-      WasmSystem.print(line)
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.print(line) // TODO: use wasmlibintf
     } {
-      import js.DynamicImplicits.truthValue
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.print(line + "\n", isErr)
+      } {
+        import js.DynamicImplicits.truthValue
 
-      if (js.typeOf(global.console) != "undefined") {
-        if (isErr && global.console.error)
-          global.console.error(line)
-        else
-          global.console.log(line)
+        if (js.typeOf(global.console) != "undefined") {
+          if (isErr && global.console.error)
+            global.console.error(line)
+          else
+            global.console.log(line)
+        }
       }
     }
   }

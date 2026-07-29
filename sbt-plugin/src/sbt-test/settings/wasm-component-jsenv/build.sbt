@@ -28,6 +28,8 @@ lazy val runComponent = project
   .enablePlugins(ScalaJSPlugin)
   .settings(wasmtimeEnvSettings)
   .settings(
+      libraryDependencies +=
+        "io.github.scala-wasm" % "scalajs-wasm-system-wasi02_sjs1_2.12" % scalaJSVersion,
       Compile / scalaJSLinkerConfig := {
         (Compile / scalaJSLinkerConfig).value
           .withExperimentalUseWebAssembly(true)
@@ -46,6 +48,8 @@ lazy val testComponent = project
   .enablePlugins(ScalaJSPlugin, ScalaJSJUnitPlugin)
   .settings(wasmtimeEnvSettings)
   .settings(
+      libraryDependencies +=
+        "io.github.scala-wasm" % "scalajs-wasm-system-wasi02_sjs1_2.12" % scalaJSVersion,
       Test / scalaJSLinkerConfig ~= {
         _.withExperimentalUseWebAssembly(true)
           .withESFeatures(_.withESVersion(ESVersion.ES2022))
