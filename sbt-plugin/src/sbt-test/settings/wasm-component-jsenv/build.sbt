@@ -28,6 +28,8 @@ lazy val runComponent = project
   .enablePlugins(ScalaJSPlugin)
   .settings(wasmtimeEnvSettings)
   .settings(
+      libraryDependencies +=
+        "io.github.scala-wasm" %%% "scalajs-wasm-system-wasi02" % scalaJSVersion,
       Compile / scalaJSLinkerConfig := {
         (Compile / scalaJSLinkerConfig).value
           .withExperimentalUseWebAssembly(true)

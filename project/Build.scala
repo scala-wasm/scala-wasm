@@ -1561,6 +1561,7 @@ object Build {
             testBridge.v2_12 / publishLocal,
             jUnitRuntime.v2_12 / publishLocal,
             irProjectJS.v2_12 / publishLocal,
+            wasmSystemWasi02.v2_12 / publishLocal,
 
             scalalib.v2_13 / publishLocal,
             library.v2_13 / publishLocal,
@@ -1568,6 +1569,7 @@ object Build {
             testBridge.v2_13 / publishLocal,
             jUnitRuntime.v2_13 / publishLocal,
             irProjectJS.v2_13 / publishLocal,
+            wasmSystemWasi02.v2_13 / publishLocal,
           )
 
           Def.sequential {
