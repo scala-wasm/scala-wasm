@@ -32,7 +32,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
       wasmFileName: String,
       witDirectory: Path,
       worldName: Option[String],
-      autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
     checkWasmToolsInstalled()
@@ -40,12 +39,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
     outputDirectory.readFull(wasmFileName).flatMap { wasmContentBuffer =>
       Future {
         val tempFile = Files.createTempFile("scala-wasm-", ".wasm")
-
-        val wasiWitDir = if (autoIncludeWasiImports) {
-          Some(WasiWitExtractor.extractWasiWitToTempDir())
-        } else {
-          None
-        }
 
         try {
           val wasmContent = new Array[Byte](wasmContentBuffer.remaining())
@@ -74,27 +67,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           runCommand(embedCmd1, "wasm-tools component embed")
 
-          // Step 2: wasm-tools component embed (WASI WIT) - if enabled
-          wasiWitDir.foreach { wasiDir =>
-            val embedCmd2 = Seq(
-              "wasm-tools",
-              "component",
-              "embed",
-              wasiDir.toString,
-              wasmFilePath,
-              "-o",
-              wasmFilePath,
-              "-w",
-              "wasi-bindings",
-              "--encoding",
-              "utf16"
-            )
-
-            logger.info(s"Embedding WASI WIT for $wasmFileName")
-
-            runCommand(embedCmd2, "wasm-tools component embed (WASI)")
-          }
-
           /** Step 3: wasm-tools component new.
            *  Reads all component-type custom sections which is embedded by component embed,
            *  filter by core module requirements (unused WASI imports would be dropped), and merges them.
@@ -116,7 +88,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
           val modifiedWasm = Files.readAllBytes(tempFile)
           ByteBuffer.wrap(modifiedWasm)
         } finally {
-          wasiWitDir.foreach(WasiWitExtractor.deleteDirectory)
           Files.deleteIfExists(tempFile)
         }
       }.flatMap { modifiedWasmBuffer =>

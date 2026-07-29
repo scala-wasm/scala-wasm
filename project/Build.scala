@@ -2256,13 +2256,8 @@ object Build {
   ).settings(
       exampleSettings,
       name := "Testing module for component model",
-      // TODO: Re-enable fatal warnings once wit-bindgen stops generating
-      // deprecated export interface sources.
       Compile / scalacOptions ~= (_.filterNot(Set("-Xfatal-warnings", "-Werror"))),
-      // MultiScalaProject creates subprojects with base directories at .2.12 and .2.13
-      scalaJSWitWorld := Some("scala"),
       scalaJSLinkerConfig := {
-        val witWorld = scalaJSWitWorld.value
         scalaJSLinkerConfig.value
          .withPrettyPrint(true)
          .withModuleKind(ModuleKind.WasmComponent)
@@ -2270,7 +2265,7 @@ object Build {
           .withWasmFeatures { prevFeatures =>
             prevFeatures
               .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
-              .withWitWorld(witWorld)
+              .withWitWorld(Some("scala"))
           }
       },
   ).withScalaJSCompiler.dependsOnLibrary

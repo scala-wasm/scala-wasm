@@ -3,3 +3,9 @@ package wasi:cli@0.2.0;
 interface run {
   run: func() -> result;
 }
+
+interface stdout {
+  use wasi:io/streams@0.2.0.{output-stream};
+
+  get-stdout: func() -> output-stream;
+}

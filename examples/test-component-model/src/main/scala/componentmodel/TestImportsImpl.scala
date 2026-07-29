@@ -8,6 +8,7 @@ import componentmodel.component.testing.basics._
 import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
+import componentmodel.wasi.cli.stdout
 
 import scala.scalajs.WitUtils.toEither
 
@@ -167,8 +168,8 @@ object TestImportsImpl {
     // Test Object methods on imported resources
     TestFunctions.testResourceObjectMethods()
 
-    val end = System.currentTimeMillis()
-    println(s"elapsed: ${(end - start).toInt} ms")
+    // val end = System.currentTimeMillis()
+    // println(s"elapsed: ${(end - start).toInt} ms")
   }
 }
 

@@ -29,7 +29,6 @@ private final class WasmComponentModelProcessorStub extends WasmComponentModelPr
       wasmFileName: String,
       witDirectory: Path,
       worldName: Option[String],
-      autoIncludeWasiImports: Boolean,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
     Future.failed(new UnsupportedOperationException(
