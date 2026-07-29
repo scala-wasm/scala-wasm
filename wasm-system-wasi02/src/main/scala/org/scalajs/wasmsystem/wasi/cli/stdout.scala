@@ -1,6 +1,6 @@
-package helloworld.wasi.cli
+package org.scalajs.wasmsystem.wasi.cli
 
-import helloworld.wasi.io.streams.OutputStream
+import org.scalajs.wasmsystem.wasi.io.streams.OutputStream
 import scala.scalajs.wit.annotation.WitImport
 import scala.scalajs.wit.native
 

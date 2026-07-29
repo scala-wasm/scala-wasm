@@ -9,6 +9,7 @@ world scala {
 
   import greeter;
   import wasi:cli/stdout@0.2.0;
+  import wasi:cli/stderr@0.2.0;
 }
 
 world rust {

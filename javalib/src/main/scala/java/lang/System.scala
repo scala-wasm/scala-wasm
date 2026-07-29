@@ -71,7 +71,15 @@ object System {
 
   @inline
   def currentTimeMillis(): scala.Long = {
-    js.Date.now().toLong
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.currentTimeMillis()
+    } {
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.currentTimeMillis()
+      } {
+        js.Date.now().toLong
+      }
+    }
   }
 
   private object NanoTime {
@@ -85,7 +93,15 @@ object System {
 
   @inline
   def nanoTime(): scala.Long = {
-    (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.nanoTime()
+    } {
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.nanoTime()
+      } {
+        (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+      }
+    }
   }
 
   // arraycopy ----------------------------------------------------------------
@@ -456,13 +472,21 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    import js.DynamicImplicits.truthValue
+    LinkingInfo.linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.print(line)
+    } {
+      LinkingInfo.linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.print(line + "\n", isErr)
+      } {
+        import js.DynamicImplicits.truthValue
 
-    if (js.typeOf(global.console) != "undefined") {
-      if (isErr && global.console.error)
-        global.console.error(line)
-      else
-        global.console.log(line)
+        if (js.typeOf(global.console) != "undefined") {
+          if (isErr && global.console.error)
+            global.console.error(line)
+          else
+            global.console.log(line)
+        }
+      }
     }
   }
 }

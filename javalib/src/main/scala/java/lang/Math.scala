@@ -374,7 +374,15 @@ object Math {
   @inline def atan2(y: scala.Double, x: scala.Double): scala.Double = js.Math.atan2(y, x)
 
   @inline def random(): scala.Double = {
-    js.Math.random()
+    linkTimeIf(moduleKind == MinimalWasmModule) {
+      WasmSystem.random()
+    } {
+      linkTimeIf(moduleKind == WasmComponent) {
+        org.scalajs.wasmlibintf.WasmSystem.random()
+      } {
+        js.Math.random()
+      }
+    }
   }
 
   @inline def toDegrees(a: scala.Double): scala.Double = {

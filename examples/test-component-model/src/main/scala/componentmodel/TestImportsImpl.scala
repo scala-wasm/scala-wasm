@@ -8,7 +8,6 @@ import componentmodel.component.testing.basics._
 import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
-import componentmodel.wasi.cli.stdout
 
 import scala.scalajs.WitUtils.toEither
 

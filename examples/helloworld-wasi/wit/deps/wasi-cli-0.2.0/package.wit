@@ -9,3 +9,9 @@ interface stdout {
 
   get-stdout: func() -> output-stream;
 }
+
+interface stderr {
+  use wasi:io/streams@0.2.0.{output-stream};
+
+  get-stderr: func() -> output-stream;
+}
