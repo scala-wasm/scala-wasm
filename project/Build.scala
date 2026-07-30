@@ -1074,7 +1074,7 @@ object Build {
             testInterface, jUnitRuntime, testBridge, jUnitPlugin, jUnitAsyncJS,
             jUnitAsyncJVM, jUnitTestOutputsJS, jUnitTestOutputsJVM,
             helloworld, helloworldWasm, helloworldWASI, helloworldComponentModel,
-            echoserver, testComponentModel,
+            testComponentModel,
             reversi, testingExample, testSuite, testSuiteJVM,
             wasmSystemWasi02, wasmSystemDummy, javalibExtDummies, testSuiteEx, testSuiteExJVM, testSuiteLinker,
             partest, partestSuite,
@@ -2215,22 +2215,6 @@ object Build {
       scalaJSUseMainModuleInitializer := true,
       scalaJSLinkerConfig ~= {
         _.withPrettyPrint(true)
-      },
-  ).withScalaJSCompiler.dependsOnLibrary
-
-  lazy val echoserver: MultiScalaProject = MultiScalaProject(
-      id = "echoserver", base = file("examples") / "echo-server"
-  ).enablePlugins(
-      MyScalaJSPlugin
-  ).settings(
-      exampleSettings,
-      name := "Echo Server - Scala.js WASI example",
-      moduleName := "echo",
-      scalaJSLinkerConfig := {
-        scalaJSLinkerConfig.value
-         .withPrettyPrint(true)
-         .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
-         .withModuleKind(ModuleKind.WasmComponent)
       },
   ).withScalaJSCompiler.dependsOnLibrary
 

@@ -27,7 +27,6 @@ val jUnitTestOutputsJVM = Build.jUnitTestOutputsJVM
 val jUnitPlugin = Build.jUnitPlugin
 val jUnitAsyncJS = Build.jUnitAsyncJS
 val jUnitAsyncJVM = Build.jUnitAsyncJVM
-val echoserver = Build.echoserver
 val helloworld = Build.helloworld
 val helloworldWasm = Build.helloworldWasm
 val helloworldWASI = Build.helloworldWASI
