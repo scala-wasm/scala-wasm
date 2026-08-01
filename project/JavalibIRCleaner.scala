@@ -616,10 +616,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         (enclosingClassName == TypedArrayBufferBridge || enclosingClassName == TypedArrayBufferBridgeMod)
       }
 
-      def isWasmComponent = {
-        cls.nameString.startsWith("scala.scalajs.wit") ||
-        cls.nameString.startsWith("scala.scalajs.wasi")
-      }
+      def isWasmComponent =
+        cls.nameString.startsWith("scala.scalajs.wit")
 
       def isAnException: Boolean =
         isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself ||

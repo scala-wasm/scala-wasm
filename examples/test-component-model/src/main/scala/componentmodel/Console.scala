@@ -1,7 +1,7 @@
 package componentmodel
 
-import scala.scalajs.wasi.cli.stdout
-import scala.scalajs.wasi.clocks.wall_clock
+import componentmodel.wasi.cli.stdout
+import componentmodel.wasi.clocks.wall_clock
 import scala.scalajs.wit.Ok
 import scala.scalajs.wit.unsigned.UByte
 

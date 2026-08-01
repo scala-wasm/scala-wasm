@@ -1,6 +1,6 @@
 package helloworld
 
-import scala.scalajs.wasi.cli.stdout
+import helloworld.wasi.cli.stdout
 import scala.scalajs.wit.Ok
 import scala.scalajs.wit.unsigned.UByte
 
