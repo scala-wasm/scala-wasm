@@ -30,7 +30,6 @@ final class WasmFeatures private (
     _witDirectory: Option[String],
     _witWorld: Option[String],
     _moduleInitializerExport: Option[WasmComponentModuleInitializerExport],
-    _autoIncludeWasiImports: Boolean,
     _useJSPI: Boolean
 ) {
   import WasmFeatures._
@@ -41,7 +40,6 @@ final class WasmFeatures private (
       _witDirectory = None,
       _witWorld = None,
       _moduleInitializerExport = None,
-      _autoIncludeWasiImports = true,
       _useJSPI = false
     )
   }
@@ -73,12 +71,6 @@ final class WasmFeatures private (
    */
   val moduleInitializerExport = _moduleInitializerExport
 
-  /** Automatically include WASI imports when generating a WebAssembly component.
-   *
-   *  Default: `true`
-   */
-  val autoIncludeWasiImports = _autoIncludeWasiImports
-
   def withExceptionHandling(exceptionHandling: Boolean): WasmFeatures =
     copy(exceptionHandling = exceptionHandling)
 
@@ -92,9 +84,6 @@ final class WasmFeatures private (
       moduleInitializerExport: Option[WasmComponentModuleInitializerExport]): WasmFeatures = {
     copy(moduleInitializerExport = moduleInitializerExport)
   }
-
-  def withAutoIncludeWasiImports(autoIncludeWasiImports: Boolean): WasmFeatures =
-    copy(autoIncludeWasiImports = autoIncludeWasiImports)
 
   /** Enables JSPI, the JavaScript Promise Integration proposal.
    *
@@ -115,7 +104,6 @@ final class WasmFeatures private (
       this.witDirectory == that.witDirectory &&
       this.witWorld == that.witWorld &&
       this.moduleInitializerExport == that.moduleInitializerExport &&
-      this.autoIncludeWasiImports == that.autoIncludeWasiImports &&
       this.useJSPI == that.useJSPI
     case _ =>
       false
@@ -128,7 +116,6 @@ final class WasmFeatures private (
     acc = mix(acc, witDirectory.##)
     acc = mix(acc, witWorld.##)
     acc = mix(acc, moduleInitializerExport.##)
-    acc = mix(acc, autoIncludeWasiImports.##)
     acc = mixLast(acc, useJSPI.##)
     finalizeHash(acc, 6)
   }
@@ -139,7 +126,6 @@ final class WasmFeatures private (
        |  witDirectory = $witDirectory,
        |  witWorld = $witWorld,
        |  moduleInitializerExport = $moduleInitializerExport,
-       |  autoIncludeWasiImports = $autoIncludeWasiImports,
        |  useJSPI = $useJSPI
        |)""".stripMargin
   }
@@ -150,7 +136,6 @@ final class WasmFeatures private (
       witWorld: Option[String] = this.witWorld,
       moduleInitializerExport: Option[WasmComponentModuleInitializerExport] =
         this.moduleInitializerExport,
-      autoIncludeWasiImports: Boolean = this.autoIncludeWasiImports,
       useJSPI: Boolean = this.useJSPI
   ): WasmFeatures = {
     new WasmFeatures(
@@ -158,7 +143,6 @@ final class WasmFeatures private (
       _witDirectory = witDirectory,
       _witWorld = witWorld,
       _moduleInitializerExport = moduleInitializerExport,
-      _autoIncludeWasiImports = autoIncludeWasiImports,
       _useJSPI = useJSPI
     )
   }
@@ -174,7 +158,6 @@ object WasmFeatures {
    *  - `witDirectory`: `None`
    *  - `witWorld`: `None`
    *  - `moduleInitializerExport`: `None`
-   *  - `autoIncludeWasiImports`: true
    *  - `useJSPI`: false
    */
   val Defaults: WasmFeatures = new WasmFeatures()
@@ -187,7 +170,6 @@ object WasmFeatures {
         .addField("witDirectory", wasmFeatures.witDirectory)
         .addField("witWorld", wasmFeatures.witWorld)
         .addField("moduleInitializerExport", wasmFeatures.moduleInitializerExport)
-        .addField("autoIncludeWasiImports", wasmFeatures.autoIncludeWasiImports)
         .addField("useJSPI", wasmFeatures.useJSPI)
         .build()
     }

@@ -177,7 +177,6 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
               wasmFileName,
               witDirPath,
               worldName,
-              coreSpec.wasmFeatures.autoIncludeWasiImports,
               logger
             ).recover {
               case e: WasmToolsNotFoundException =>
