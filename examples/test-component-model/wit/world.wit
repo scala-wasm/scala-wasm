@@ -2,6 +2,8 @@ package component:testing;
 
 world scala {
   import wasi:clocks/wall-clock@0.2.0;
+  import wasi:cli/stdout@0.2.0;
+  import wasi:cli/stderr@0.2.0;
 
   import basics;
   import tests;

@@ -1,5 +1,5 @@
 import sbtcompat.PluginCompat._
-import org.scalajs.linker.interface.ESVersion
+import org.scalajs.linker.interface.{ESVersion, WasmComponentModuleInitializerExport}
 import org.scalajs.jsenv.wasmtime.WasmtimeEnv
 
 // TODO: currently we can't run tests using the wasmtime env,
@@ -50,9 +50,19 @@ lazy val testComponent = project
   .settings(
       libraryDependencies +=
         "io.github.scala-wasm" % "scalajs-wasm-system-wasi02_sjs1_2.12" % scalaJSVersion,
-      Test / scalaJSLinkerConfig ~= {
-        _.withExperimentalUseWebAssembly(true)
+      Test / scalaJSLinkerConfig := {
+        (Test / scalaJSLinkerConfig).value
+          .withExperimentalUseWebAssembly(true)
           .withESFeatures(_.withESVersion(ESVersion.ES2022))
           .withModuleKind(ModuleKind.WasmComponent)
+          .withWasmFeatures { features =>
+            features
+              .withWitDirectory(Some((baseDirectory.value / "wit").getAbsolutePath))
+              .withWitWorld(Some("test"))
+              .withModuleInitializerExport(Some(WasmComponentModuleInitializerExport(
+                  "wasi:cli/run@0.2.0",
+                  "run",
+                  WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)))
+          }
       }
   )

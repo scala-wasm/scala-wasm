@@ -1,0 +1,11 @@
+package scala-wasm:scripted-test;
+
+world test {
+  import scalajs:test-rpc/rpc;
+  import wasi:cli/stdout@0.2.0;
+  import wasi:cli/stderr@0.2.0;
+  import wasi:clocks/monotonic-clock@0.2.0;
+  import wasi:clocks/wall-clock@0.2.0;
+  import wasi:random/insecure@0.2.0;
+  export wasi:cli/run@0.2.0;
+}
