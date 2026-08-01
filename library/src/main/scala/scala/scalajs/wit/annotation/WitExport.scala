@@ -20,5 +20,5 @@ import scala.annotation.meta._
  */
 @field @getter @setter
 class WitExport private () extends scala.annotation.StaticAnnotation {
-  def this(moduleName: String, name: String) = this()
+  def this(scope: WitScope, name: String) = this()
 }

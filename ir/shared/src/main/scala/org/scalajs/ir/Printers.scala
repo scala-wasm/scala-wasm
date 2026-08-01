@@ -1127,13 +1127,13 @@ object Printers {
           print(" loadfrom ")
           print(jsNativeLoadSpec)
 
-        case WitNativeMemberDef(flags, module, name,
-                method, tpe) =>
+        case WitNativeMemberDef(flags, scope, name,
+                method, signature) =>
           print(flags.namespace.prefixString)
           print("wit ")
           print(method)
           print(" importfrom \"")
-          printEscapeJS(module, out)
+          printEscapeJS(WitScope.importModuleName(scope), out)
           print("\" ")
           printWitFunctionName(name)
       }
@@ -1165,7 +1165,7 @@ object Printers {
           printEscapeJS(exportName, out)
           print("\"")
 
-        case WitExportDef(moduleName, name, methodDef, signature) =>
+        case WitExportDef(scope, name, methodDef, signature) =>
           // TODO
           // var first = true
           // for (ty <- paramTypes) {

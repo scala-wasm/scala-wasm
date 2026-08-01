@@ -85,6 +85,14 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
       output: OutputDirectory, logger: Logger)(
       implicit ec: ExecutionContext): Future[Report] = {
     val moduleID = onlyModule.id.id
+    val generatedWit = {
+      if (coreSpec.moduleKind == ModuleKind.WasmComponent) {
+        Some(WitRenderer.render(onlyModule,
+            coreSpec.wasmFeatures.moduleInitializerExport))
+      } else {
+        None
+      }
+    }
 
     val emitterResult = emitter.emit(onlyModule, globalInfo, logger)
     val wasmModule = emitterResult.wasmModule
@@ -149,45 +157,19 @@ final class WebAssemblyLinkerBackend(config: LinkerBackendImpl.Config)
     }
 
     def processComponentModel()(implicit ec: ExecutionContext): Future[Unit] = {
-      val witDir = coreSpec.wasmFeatures.witDirectory
-      val worldName = coreSpec.wasmFeatures.witWorld
-
-      witDir match {
-        case None =>
-          Future.failed(new IllegalArgumentException(
-            """Component model is enabled but witDirectory is not set.
-              |
-              |Please configure the WIT directory in your build.sbt:
-              |  scalaJSWitDirectory := file("wit")
-              |  scalaJSWitWorld := Some("scala")  // optional, auto-detect if not specified
-              |""".stripMargin
-          ))
-
-        case Some(witDirStr) =>
-          val witDirPath = new java.io.File(witDirStr).toPath
-
-          if (!java.nio.file.Files.exists(witDirPath)) {
-            Future.failed(new IllegalArgumentException(
-              s"WIT directory does not exist: $witDirStr"
-            ))
-          } else {
-            // Process the wasm file in-place using wasm-tools
-            componentModelProcessor.processComponentModel(
-              outputImpl,
-              wasmFileName,
-              witDirPath,
-              worldName,
-              logger
-            ).recover {
-              case e: WasmToolsNotFoundException =>
-                throw e
-              case e: WasmToolsExecutionException =>
-                throw new Exception(
-                  s"Failed to process component model: ${e.getMessage}",
-                  e
-                )
-            }
-          }
+      componentModelProcessor.processComponentModel(
+        outputImpl,
+        wasmFileName,
+        generatedWit.get,
+        logger
+      ).recover {
+        case e: WasmToolsNotFoundException =>
+          throw e
+        case e: WasmToolsExecutionException =>
+          throw new Exception(
+            s"Failed to process component model: ${e.getMessage}",
+            e
+          )
       }
     }
 

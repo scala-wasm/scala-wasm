@@ -185,6 +185,7 @@ object JavaLangObject {
           })(OptimizerHints.empty, Unversioned)
       ),
       jsNativeMembers = Nil,
+      witTypeDef = None,
       witNativeMembers = Nil,
       topLevelExportDefs = Nil)(OptimizerHints.empty)
 

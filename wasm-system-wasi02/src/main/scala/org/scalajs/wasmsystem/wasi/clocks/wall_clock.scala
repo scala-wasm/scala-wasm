@@ -1,14 +1,16 @@
 package org.scalajs.wasmsystem.wasi.clocks
 
-import scala.scalajs.wit.annotation.{WitImport, WitRecord}
+import scala.scalajs.wit.annotation.{WitImport, WitName, WitRecord, WitScope}
 import scala.scalajs.wit.native
 import scala.scalajs.wit.unsigned.{UInt, ULong}
 
 package object wall_clock {
 
   /** A time and date in seconds plus nanoseconds. */
-  @WitRecord
-  final class Datetime(val seconds: ULong, val nanoseconds: UInt) {
+  @WitRecord(WitScope("wasi", "clocks", "wall-clock", "0.2.0"), "datetime")
+  final class Datetime(
+      @WitName("seconds") val seconds: ULong,
+      @WitName("nanoseconds") val nanoseconds: UInt) {
     override def equals(other: Any): Boolean = other match {
       case that: Datetime => this.seconds == that.seconds && this.nanoseconds == that.nanoseconds
       case _              => false
@@ -28,7 +30,7 @@ package object wall_clock {
     def apply(seconds: ULong, nanoseconds: UInt): Datetime = new Datetime(seconds, nanoseconds)
   }
 
-  @WitImport("wasi:clocks/wall-clock@0.2.0", "now")
+  @WitImport(WitScope("wasi", "clocks", "wall-clock", "0.2.0"), "now")
   def now(): Datetime = native
 
 }

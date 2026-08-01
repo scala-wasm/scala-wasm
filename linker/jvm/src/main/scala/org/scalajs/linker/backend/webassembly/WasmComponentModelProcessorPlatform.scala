@@ -17,7 +17,8 @@ import scala.concurrent.duration.Duration
 import scala.sys.process._
 
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Path}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Path, StandardCopyOption}
 
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
@@ -30,8 +31,7 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
   override def processComponentModel(
       outputDirectory: OutputDirectoryImpl,
       wasmFileName: String,
-      witDirectory: Path,
-      worldName: Option[String],
+      witContent: String,
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
     checkWasmToolsInstalled()
@@ -39,11 +39,15 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
     outputDirectory.readFull(wasmFileName).flatMap { wasmContentBuffer =>
       Future {
         val tempFile = Files.createTempFile("scala-wasm-", ".wasm")
+        val witDirectory = Files.createTempDirectory("scala-wasm-wit-")
 
         try {
           val wasmContent = new Array[Byte](wasmContentBuffer.remaining())
           wasmContentBuffer.get(wasmContent)
           Files.write(tempFile, wasmContent)
+
+          Files.write(witDirectory.resolve("world.wit"),
+              witContent.getBytes(StandardCharsets.UTF_8))
 
           val wasmFilePath = tempFile.toString
 
@@ -57,20 +61,16 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
             "-o",
             wasmFilePath
           )
-          // Add world name if specified, otherwise wasm-tools will auto-detect
-          val embedCmd1 = worldName match {
-            case Some(world) => baseEmbedCmd ++ Seq("-w", world, "--encoding", "utf16")
-            case None        => baseEmbedCmd ++ Seq("--encoding", "utf16")
+          val embedCmd1 = {
+            baseEmbedCmd ++ Seq("-w", WitRenderer.WorldName,
+                "--encoding", "utf16")
           }
 
-          logger.info(s"Embedding user WIT for $wasmFileName")
+          logger.info(s"Embedding linker-generated WIT for $wasmFileName")
 
           runCommand(embedCmd1, "wasm-tools component embed")
 
-          /** Step 3: wasm-tools component new.
-           *  Reads all component-type custom sections which is embedded by component embed,
-           *  filter by core module requirements (unused WASI imports would be dropped), and merges them.
-           */
+          // Step 2: wasm-tools component new
           val newCmd = Seq(
             "wasm-tools",
             "component",

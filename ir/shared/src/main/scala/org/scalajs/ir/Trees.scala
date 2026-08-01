@@ -1492,6 +1492,11 @@ object Trees {
       val jsConstructor: Option[JSConstructorDef],
       val jsMethodProps: List[JSMethodPropDef],
       val jsNativeMembers: List[JSNativeMemberDef],
+      /** WIT named type definition represented by this class.
+       *
+       *  Currently, only relevant for WIT record, variant, enum, flags and resource.
+       */
+      val witTypeDef: Option[WitTypeDef],
       val witNativeMembers: List[WitNativeMemberDef],
       val topLevelExportDefs: List[TopLevelExportDef]
   )(
@@ -1516,6 +1521,7 @@ object Trees {
         jsConstructor: Option[JSConstructorDef],
         jsMethodProps: List[JSMethodPropDef],
         jsNativeMembers: List[JSNativeMemberDef],
+        witTypeDef: Option[WitTypeDef],
         witNativeMembers: List[WitNativeMemberDef],
         topLevelExportDefs: List[TopLevelExportDef]
     )(
@@ -1523,7 +1529,7 @@ object Trees {
         implicit pos: Position): ClassDef = {
       new ClassDef(name, originalName, kind, jsClassCaptures, superClass,
           interfaces, jsSuperClass, jsNativeLoadSpec, fields, methods,
-          jsConstructor, jsMethodProps, jsNativeMembers,
+          jsConstructor, jsMethodProps, jsNativeMembers, witTypeDef,
           witNativeMembers, topLevelExportDefs)(
           optimizerHints)
     }
@@ -1600,7 +1606,8 @@ object Trees {
       extends MemberDef
 
   sealed case class WitNativeMemberDef(flags: MemberFlags,
-      moduleName: String, name: WitFunctionName, method: MethodIdent,
+      scope: WitScope, name: WitFunctionName,
+      method: MethodIdent,
       signature: WasmInterfaceTypes.FuncType)(
       implicit val pos: Position)
       extends MemberDef
@@ -1613,6 +1620,15 @@ object Trees {
     final case class ResourceStaticMethod(func: String, resource: String) extends WitFunctionName
     final case class ResourceConstructor(resource: String) extends WitFunctionName
     final case class ResourceDrop(resource: String) extends WitFunctionName
+
+    /** Core Wasm import/export name used by wasm-tools component embedding. */
+    def wasmName(name: WitFunctionName): String = name match {
+      case Function(func)                       => func
+      case ResourceMethod(func, resource)       => s"[method]$resource.$func"
+      case ResourceStaticMethod(func, resource) => s"[static]$resource.$func"
+      case ResourceConstructor(resource)        => s"[constructor]$resource"
+      case ResourceDrop(resource)               => s"[resource-drop]$resource"
+    }
   }
 
   // Top-level export defs
@@ -1630,19 +1646,9 @@ object Trees {
         val StringLiteral(name) = propName: @unchecked // unchecked is needed for Scala 3.2+
         name
 
-      case TopLevelFieldExportDef(_, name, _)   => name
-      case WitExportDef(moduleName, name, _, _) => name match {
-          case WitFunctionName.Function(func) =>
-            s"$moduleName#$func"
-          case WitFunctionName.ResourceMethod(func, resource) =>
-            s"$moduleName#[method]$resource.$func"
-          case WitFunctionName.ResourceStaticMethod(func, resource) =>
-            s"$moduleName#[static]$resource.$func"
-          case WitFunctionName.ResourceConstructor(resource) =>
-            s"$moduleName#[constructor]$resource"
-          case WitFunctionName.ResourceDrop(resource) =>
-            s"$moduleName#[resource-drop]$resource"
-        }
+      case TopLevelFieldExportDef(_, name, _) => name
+      case WitExportDef(scope, name, _, _)    =>
+        WitScope.exportName(scope, WitFunctionName.wasmName(name))
     }
 
     val isWitExport = this.isInstanceOf[WitExportDef]
@@ -1683,7 +1689,7 @@ object Trees {
    *  This is compiled to a static forwarder for component model export that contains
    *  Canonical ABI conversion and calls the method.
    */
-  sealed case class WitExportDef(moduleName: String,
+  sealed case class WitExportDef(scope: WitScope,
       name: WitFunctionName, methodDef: MethodDef,
       signature: WasmInterfaceTypes.FuncType)(
       implicit val pos: Position)

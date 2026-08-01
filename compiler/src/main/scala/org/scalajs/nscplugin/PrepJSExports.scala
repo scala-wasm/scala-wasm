@@ -12,6 +12,8 @@
 
 package org.scalajs.nscplugin
 
+import org.scalajs.ir.WitScope
+
 import scala.collection.mutable
 
 import scala.tools.nsc.Global
@@ -44,7 +46,7 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
     /** Export at the top-level. */
     case class TopLevel(moduleID: String) extends ExportDestination
 
-    case class WasmComponent(functionName: String) extends ExportDestination
+    case class WasmComponent(scope: WitScope) extends ExportDestination
 
     /** Export as a static member of the companion class. */
     case object Static extends ExportDestination
@@ -125,8 +127,8 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
       jsInterop.registerStaticExports(sym, static)
 
     val wasmComponent = exports.collect {
-      case info @ ExportInfo(moduleName, ExportDestination.WasmComponent(name)) =>
-        jsInterop.WitExportInfo(moduleName, name)(info.pos)
+      case info @ ExportInfo(name, ExportDestination.WasmComponent(scope)) =>
+        jsInterop.WitExportInfo(scope, name)(info.pos)
     }
 
     // TODO: Remove this trait no-op once wit-bindgen stops generating export
@@ -203,7 +205,13 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
           "Found a wasm component export without an explicit name at " + annot.pos)
 
       val name = {
-        if (hasExplicitName) {
+        if (isWitExport) {
+          annot.stringArg(1).getOrElse {
+            reporter.error(annot.args(1).pos,
+                s"The name argument to ${annot.symbol.name} must be a literal string")
+            "dummy"
+          }
+        } else if (hasExplicitName) {
           annot.stringArg(0).getOrElse {
             reporter.error(annot.args(0).pos,
                 s"The argument to ${annot.symbol.name} must be a literal string")
@@ -237,12 +245,13 @@ trait PrepJSExports[G <: Global with Singleton] { this: PrepJSInterop[G] =>
 
           ExportDestination.TopLevel(moduleID)
         } else if (isWitExport) {
-          val functionName = annot.stringArg(1).getOrElse {
-            reporter.error(annot.args(1).pos,
-                "functionName must be a literal string")
-            "" // dummy
+          val scope = jsInterop.witScopeArg(annot, 0).getOrElse {
+            reporter.error(annot.args(0).pos,
+                "The scope argument to @WitExport must be a literal " +
+                "WitScope expression")
+            WitScope.Root // dummy
           }
-          ExportDestination.WasmComponent(functionName)
+          ExportDestination.WasmComponent(scope)
         } else if (isStaticExport) {
           ExportDestination.Static
         } else {

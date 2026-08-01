@@ -679,6 +679,8 @@ object Serializers {
       writeClassIdents(interfaces)
       writeOptTree(jsSuperClass)
       writeJSNativeLoadSpec(jsNativeLoadSpec)
+      writeBoolean(witTypeDef.isDefined)
+      witTypeDef.foreach(writeWITTypeDef)
       writeMemberDefs(
           fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
           ::: witNativeMembers)
@@ -798,11 +800,11 @@ object Serializers {
           writeMethodIdent(name)
           writeJSNativeLoadSpec(Some(jsNativeLoadSpec))
 
-        case WitNativeMemberDef(flags, moduleName, name,
+        case WitNativeMemberDef(flags, scope, name,
                 method, signature) =>
           writeByte(TagWitNativeMemberDef)
           writeInt(MemberFlags.toBits(flags))
-          writeString(moduleName)
+          writeWitScope(scope)
           writeWitFunctionName(name)
           writeMethodIdent(method)
           writeWITType(signature)
@@ -834,9 +836,9 @@ object Serializers {
           writeByte(TagTopLevelFieldExportDef)
           writeString(moduleID); writeString(exportName); writeFieldIdentForEnclosingClass(field)
 
-        case WitExportDef(moduleName, name, methodDef, signature) =>
+        case WitExportDef(scope, name, methodDef, signature) =>
           writeByte(TagWitExportDef)
-          writeString(moduleName)
+          writeWitScope(scope)
           writeWitFunctionName(name)
           writeMemberDef(methodDef)
           writeWITType(signature)
@@ -991,6 +993,21 @@ object Serializers {
       tpes.foreach(writeType)
     }
 
+    def writeWitScope(scope: WitScope): Unit = scope match {
+      case WitScope.Interface(namespace, packageName, name, version) =>
+        buffer.writeByte(TagWitScopeInterface)
+        writeString(namespace)
+        writeString(packageName)
+        writeString(name)
+        buffer.writeBoolean(version.isDefined)
+        version.foreach(writeString)
+      case WitScope.Inline(name) =>
+        buffer.writeByte(TagWitScopeInline)
+        writeString(name)
+      case WitScope.Root =>
+        buffer.writeByte(TagWitScopeRoot)
+    }
+
     def writeWITType(tpe: wit.WasmInterfaceType): Unit = tpe match {
       case wit.BoolType                   => buffer.writeByte(TagWITBoolType)
       case wit.U8Type                     => buffer.writeByte(TagWITU8Type)
@@ -1010,32 +1027,27 @@ object Serializers {
         writeWITType(elemType)
         buffer.writeBoolean(length.isDefined)
         length.foreach(buffer.writeInt)
-      case wit.RecordType(className, fields) =>
+      case wit.RecordTypeRef(className, scope, name) =>
         buffer.writeByte(TagWITRecordType)
         writeName(className)
-        buffer.writeInt(fields.size)
-        for (f <- fields) {
-          writeFieldName(f.label)
-          writeWITType(f.tpe)
-        }
+        writeWitScope(scope)
+        writeString(name)
       case wit.TupleType(fields) =>
         buffer.writeByte(TagWITTupleType)
         buffer.writeInt(fields.size)
         for (f <- fields) {
           writeWITType(f)
         }
-      case wit.VariantType(className, cases) =>
+      case wit.VariantTypeRef(className, scope, name) =>
         buffer.writeByte(TagWITVariantType)
         writeName(className)
-        buffer.writeInt(cases.length)
-        for (c <- cases) {
-          writeName(c.className)
-          buffer.writeBoolean(c.tpe.isDefined)
-          c.tpe.foreach(writeWITType)
-        }
-      case wit.EnumType(_) =>
+        writeWitScope(scope)
+        writeString(name)
+      case wit.EnumTypeRef(className, scope, name) =>
         buffer.writeByte(TagWITEnumType)
-        ???
+        writeName(className)
+        writeWitScope(scope)
+        writeString(name)
       case wit.OptionType(t) =>
         buffer.writeByte(TagWITOptionType)
         writeWITType(t)
@@ -1045,17 +1057,27 @@ object Serializers {
         ok.foreach(writeWITType)
         buffer.writeBoolean(err.isDefined)
         err.foreach(writeWITType)
-      case wit.FlagsType(className, numFlags) =>
+      case wit.FlagsTypeRef(className, scope, name) =>
         buffer.writeByte(TagWITFlagsType)
         writeName(className)
-        buffer.writeInt(numFlags)
-      case wit.ResourceType(className) =>
+        writeWitScope(scope)
+        writeString(name)
+      case wit.ResourceType(resource, ownership) =>
         buffer.writeByte(TagWITResourceType)
-        writeName(className)
+        writeName(resource.className)
+        writeWitScope(resource.scope)
+        writeString(resource.name)
+        buffer.writeByte(ownership match {
+          case ResourceOwnership.Own    => 0
+          case ResourceOwnership.Borrow => 1
+        })
       case wit.FuncType(params, result) =>
         buffer.writeByte(TagWITFuncType)
         buffer.writeInt(params.length)
-        for (p <- params) writeWITType(p)
+        for (p <- params) {
+          writeString(p.name)
+          writeWITType(p.tpe)
+        }
         result match {
           case Some(result) =>
             buffer.writeBoolean(true)
@@ -1063,6 +1085,54 @@ object Serializers {
           case None =>
             buffer.writeBoolean(false)
         }
+    }
+
+    def writeWITTypeDef(tpe: WitTypeDef): Unit = tpe match {
+      case WitTypeDef.Record(className, scope, name, fields) =>
+        buffer.writeByte(TagWITRecordTypeDef)
+        writeName(className)
+        writeWitScope(scope)
+        writeString(name)
+        buffer.writeInt(fields.size)
+        for (f <- fields) {
+          writeFieldName(f.label)
+          writeString(f.name)
+          writeWITType(f.tpe)
+        }
+      case WitTypeDef.Variant(className, scope, name, cases) =>
+        buffer.writeByte(TagWITVariantTypeDef)
+        writeName(className)
+        writeWitScope(scope)
+        writeString(name)
+        buffer.writeInt(cases.length)
+        for (c <- cases) {
+          writeName(c.className)
+          writeString(c.name)
+          buffer.writeBoolean(c.tpe.isDefined)
+          c.tpe.foreach(writeWITType)
+        }
+      case WitTypeDef.Enum(className, scope, name, cases) =>
+        buffer.writeByte(TagWITEnumTypeDef)
+        writeName(className)
+        writeWitScope(scope)
+        writeString(name)
+        buffer.writeInt(cases.size)
+        for (c <- cases) {
+          writeName(c.className)
+          writeString(c.name)
+        }
+      case WitTypeDef.Flags(className, scope, name, names) =>
+        buffer.writeByte(TagWITFlagsTypeDef)
+        writeName(className)
+        writeWitScope(scope)
+        writeString(name)
+        buffer.writeInt(names.size)
+        names.foreach(writeString)
+      case WitTypeDef.Resource(resource) =>
+        buffer.writeByte(TagWITResourceTypeDef)
+        writeName(resource.className)
+        writeWitScope(resource.scope)
+        writeString(resource.name)
     }
 
     def writeTypeRef(typeRef: TypeRef): Unit = typeRef match {
@@ -1900,6 +1970,11 @@ object Serializers {
       val jsSuperClass = readOptTree()
 
       val jsNativeLoadSpec = readJSNativeLoadSpec()
+      val witTypeDef = {
+        if (!hacks.isWasmIR) None
+        else if (readBoolean()) Some(readWITTypeDef())
+        else None
+      }
 
       // Read member defs
       val fieldsBuilder = List.newBuilder[AnyFieldDef]
@@ -1956,7 +2031,7 @@ object Serializers {
 
       val classDef = ClassDef(name, originalName, kind, jsClassCaptures, superClass, parents,
           jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-          jsMethodProps, jsNativeMembers, witNativeMembers, topLevelExportDefs)(
+          jsMethodProps, jsNativeMembers, witTypeDef, witNativeMembers, topLevelExportDefs)(
           optimizerHints)
 
       if (hacks.useBelow(19))
@@ -2332,6 +2407,7 @@ object Serializers {
           jsConstructor,
           jsMethodProps,
           jsNativeMembers,
+          witTypeDef,
           witNativeMembers,
           topLevelExportDefs
         )(OptimizerHints.empty)(pos) // throws away the `@inline`
@@ -2531,11 +2607,11 @@ object Serializers {
 
     private def readWitNativeMemberDef()(implicit pos: Position): WitNativeMemberDef = {
       val flags = MemberFlags.fromBits(readInt())
-      val moduleName = readString()
+      val scope = readWitScope()
       val name = readWitFunctionName()
       val methodIdent = readMethodIdent()
       val signature = readWITFuncType()
-      WitNativeMemberDef(flags, moduleName, name, methodIdent, signature)
+      WitNativeMemberDef(flags, scope, name, methodIdent, signature)
     }
 
     /* #4442 and #4601: Patch Labeled, If, Match and TryCatch nodes in
@@ -2627,7 +2703,7 @@ object Serializers {
           TopLevelFieldExportDef(readModuleID(), readString(), readFieldIdentForEnclosingClass())
 
         case TagWitExportDef =>
-          val moduleName = readString()
+          val scope = readWitScope()
           val name = readWitFunctionName()
           // read methoddef
           val methodPos = readPosition()
@@ -2636,7 +2712,7 @@ object Serializers {
           val methodDef = readMethodDef(owner, ownerKind)(methodPos)
 
           val signature = readWITFuncType()
-          WitExportDef(moduleName, name, methodDef, signature)
+          WitExportDef(scope, name, methodDef, signature)
       }
     }
 
@@ -2731,9 +2807,27 @@ object Serializers {
       val tag = readByte()
       assert(tag == TagWITFuncType)
       wit.FuncType(
-        List.fill(readInt())(readWITType()),
+        List.fill(readInt()) {
+          val name = readString()
+          wit.ParamType(name, readWITType())
+        },
         if (readBoolean()) Some(readWITType()) else None
       )
+    }
+
+    private def readWitScope(): WitScope = {
+      readByte() match {
+        case TagWitScopeInterface =>
+          val namespace = readString()
+          val packageName = readString()
+          val name = readString()
+          val version = if (readBoolean()) Some(readString()) else None
+          WitScope.Interface(namespace, packageName, name, version)
+        case TagWitScopeInline =>
+          WitScope.Inline(readString())
+        case TagWitScopeRoot =>
+          WitScope.Root
+      }
     }
 
     private def readWITType(): wit.ValType = {
@@ -2763,21 +2857,20 @@ object Serializers {
           )
 
         case TagWITRecordType =>
-          wit.RecordType(
-            readClassName(),
-            List.fill(readInt())(wit.FieldType(readFieldName(), readWITType()))
-          )
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          wit.RecordTypeRef(className, scope, name)
         case TagWITVariantType =>
-          wit.VariantType(
-            readClassName(),
-            List.fill(readInt()) {
-              val className = readClassName()
-              val hasTpe = readBoolean()
-              val tpe = if (hasTpe) Some(readWITType()) else None
-              wit.CaseType(className, tpe)
-            }
-          )
-        case TagWITEnumType   => ???
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          wit.VariantTypeRef(className, scope, name)
+        case TagWITEnumType =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          wit.EnumTypeRef(className, scope, name)
         case TagWITOptionType =>
           wit.OptionType(readWITType())
         case TagWITResultType =>
@@ -2786,9 +2879,70 @@ object Serializers {
           wit.ResultType(ok, err)
         case TagWITFlagsType =>
           val className = readClassName()
-          val numFlags = readInt()
-          wit.FlagsType(className, numFlags)
-        case TagWITResourceType => wit.ResourceType(readClassName())
+          val scope = readWitScope()
+          val name = readString()
+          wit.FlagsTypeRef(className, scope, name)
+        case TagWITResourceType =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          val ownership = readByte() match {
+            case 0 => ResourceOwnership.Own
+            case 1 => ResourceOwnership.Borrow
+          }
+          wit.ResourceType(className, scope, name, ownership)
+      }
+    }
+
+    private def readWITTypeDef(): WitTypeDef = {
+      readByte() match {
+        case TagWITRecordTypeDef =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          WitTypeDef.Record(
+            className,
+            scope,
+            name,
+            List.fill(readInt()) {
+              val label = readFieldName()
+              val name = readString()
+              wit.FieldType(label, name, readWITType())
+            }
+          )
+        case TagWITVariantTypeDef =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          WitTypeDef.Variant(
+            className,
+            scope,
+            name,
+            List.fill(readInt()) {
+              val className = readClassName()
+              val name = readString()
+              val hasTpe = readBoolean()
+              val tpe = if (hasTpe) Some(readWITType()) else None
+              wit.CaseType(className, name, tpe)
+            }
+          )
+        case TagWITEnumTypeDef =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          WitTypeDef.Enum(className, scope, name, List.fill(readInt()) {
+            wit.CaseType(readClassName(), readString(), None)
+          })
+        case TagWITFlagsTypeDef =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          WitTypeDef.Flags(className, scope, name, List.fill(readInt())(readString()))
+        case TagWITResourceTypeDef =>
+          val className = readClassName()
+          val scope = readWitScope()
+          val name = readString()
+          WitTypeDef.Resource(wit.ResourceRef(className, scope, name))
       }
     }
 
@@ -3122,6 +3276,9 @@ object Serializers {
     /** Should we use the hacks to migrate from an IR version below `targetVersion`? */
     def useBelow(targetVersion: Int): Boolean =
       fromVersion < targetVersion
+
+    /** Whether this IR file was emitted by the scala-wasm fork. */
+    def isWasmIR: Boolean = sourceVersion.contains("+wasm")
   }
 
   /** Names needed for hacks. */

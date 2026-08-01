@@ -233,6 +233,7 @@ object Preprocessor {
       hasRuntimeTypeInfo,
       clazz.jsNativeLoadSpec,
       clazz.jsNativeMembers.map(m => m.name.name -> m.jsNativeLoadSpec).toMap,
+      clazz.witTypeDef,
       staticFieldMirrors,
       specialInstanceTypes,
       resolvedMethodInfos,

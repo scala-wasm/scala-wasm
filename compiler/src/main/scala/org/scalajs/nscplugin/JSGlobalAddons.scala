@@ -18,6 +18,8 @@ import scala.collection.mutable
 
 import org.scalajs.ir.Trees.JSNativeLoadSpec
 import org.scalajs.ir.{Trees => js}
+import org.scalajs.ir.WitScope
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 /** Additions to Global meaningful for the JavaScript backend
  *
@@ -119,7 +121,7 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
         val pos: Position)
         extends ExportInfo
 
-    case class WitExportInfo(moduleName: String, name: String)(
+    case class WitExportInfo(scope: WitScope, name: String)(
         val pos: Position)
         extends ExportInfo
 
@@ -285,6 +287,57 @@ trait JSGlobalAddons extends JSDefinitions with CompatComponent {
 
     def witExportOf(sym: Symbol): Option[WitExportInfo] =
       witExports.get(sym)
+
+    def witScopeArg(annot: AnnotationInfo, index: Int): Option[WitScope] = {
+      def literalString(tree: Tree): Option[String] = tree match {
+        case Literal(Constant(s: String)) => Some(s)
+        case _                            => None
+      }
+      annot.args.lift(index).flatMap {
+        case Apply(fun, args) if fun.symbol == WitScope_apply =>
+          args.map(literalString) match {
+            case List(Some(namespace), Some(packageName), Some(name), Some(version)) =>
+              Some(WitScope.Interface(namespace, packageName, name, Some(version)))
+            case _ =>
+              None
+          }
+        case Apply(fun, args) if fun.symbol == WitScope_unversioned =>
+          args.map(literalString) match {
+            case List(Some(namespace), Some(packageName), Some(name)) =>
+              Some(WitScope.Interface(namespace, packageName, name, None))
+            case _ =>
+              None
+          }
+        case Apply(fun, List(arg)) if fun.symbol == WitScope_inline =>
+          literalString(arg).map(WitScope.Inline(_))
+        case tree if tree.symbol == WitScope_root =>
+          Some(WitScope.Root)
+        case _ =>
+          None
+      }
+    }
+
+    def literalStringArrayArg(annot: AnnotationInfo,
+        index: Int): Option[List[String]] = {
+      def strings(elems: List[Tree]): Option[List[String]] = {
+        val values = elems.map {
+          case Literal(Constant(s: String)) => Some(s)
+          case _                            => None
+        }
+        if (values.forall(_.isDefined)) Some(values.map(_.get))
+        else None
+      }
+
+      annot.args.lift(index).flatMap {
+        case Apply(Apply(fun, elems), _)
+            if fun.symbol == ArrayModule_genericApply =>
+          strings(elems)
+        case Apply(fun, elems) if fun.symbol == ArrayModule_genericApply =>
+          strings(elems)
+        case _ =>
+          None
+      }
+    }
 
     def registerWitExport(sym: Symbol, info: WitExportInfo): Unit = {
       assert(!witExports.contains(sym), s"symbol exported twice: $sym")

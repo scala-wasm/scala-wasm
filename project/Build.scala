@@ -408,7 +408,8 @@ object Build {
 
   private val WasiCliRunModuleInitializerExport =
     WasmComponentModuleInitializerExport(
-        "wasi:cli/run@0.2.0",
+        org.scalajs.ir.WitScope.Interface(
+            "wasi", "cli", "run", Some("0.2.0")),
         "run",
         WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
 
@@ -2253,8 +2254,6 @@ object Build {
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
-             .withWitWorld(Some("helloworld"))
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
@@ -2276,8 +2275,6 @@ object Build {
          .withModuleKind(ModuleKind.WasmComponent)
          .withWasmFeatures { prevFeatures =>
            prevFeatures
-             .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
-             .withWitWorld(Some("scala"))
              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
           }
       },
@@ -2301,11 +2298,6 @@ object Build {
          .withPrettyPrint(true)
          .withModuleKind(ModuleKind.WasmComponent)
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
-          .withWasmFeatures { prevFeatures =>
-            prevFeatures
-              .withWitDirectory(Some((baseDirectory.value.getParentFile / "wit").getAbsolutePath))
-              .withWitWorld(witWorld)
-          }
       },
   ).withScalaJSCompiler.dependsOnLibrary.dependsOn(wasmSystemWasi02)
 

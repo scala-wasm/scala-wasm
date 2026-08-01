@@ -1,12 +1,11 @@
 package wasmcomponent
 
-import scala.scalajs.wit
-import scala.scalajs.wit.annotation._
+import wasmcomponent.wasi.random.random
 
 object Main {
-  @WitExport("wasi:cli/run@0.2.0", "run")
-  def run(): wit.Result[Unit, Unit] = {
-    println("WasmComponent run")
-    new wit.Ok(())
+  def main(args: Array[String]): Unit = {
+    val r = random.getRandomU64()
+    libio.Println.println("random: " + r)
+    libio.Println.println("clock: " + libclock.Clock.now())
   }
 }

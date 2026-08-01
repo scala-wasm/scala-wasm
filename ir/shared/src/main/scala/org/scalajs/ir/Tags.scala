@@ -236,6 +236,10 @@ private[ir] object Tags {
   final val TagJSNativeLoadSpecImportWithGlobalFallback = TagJSNativeLoadSpecImport + 1
 
   // Tags for Wasm Interface Types
+  final val TagWitScopeInterface = 0
+  final val TagWitScopeInline = TagWitScopeInterface + 1
+  final val TagWitScopeRoot = TagWitScopeInline + 1
+
   final val TagWITVoidType = 0
   final val TagWITBoolType = TagWITVoidType + 1
   final val TagWITU8Type = TagWITBoolType + 1
@@ -262,6 +266,11 @@ private[ir] object Tags {
   final val TagWITFlagsType = TagWITResultType + 1
   final val TagWITResourceType = TagWITFlagsType + 1
   final val TagWITFuncType = TagWITResourceType + 1
+  final val TagWITRecordTypeDef = TagWITFuncType + 1
+  final val TagWITVariantTypeDef = TagWITRecordTypeDef + 1
+  final val TagWITEnumTypeDef = TagWITVariantTypeDef + 1
+  final val TagWITFlagsTypeDef = TagWITEnumTypeDef + 1
+  final val TagWITResourceTypeDef = TagWITFlagsTypeDef + 1
 
   // Tags for wasm Component Function kind
 
