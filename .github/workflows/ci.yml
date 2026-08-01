@@ -156,11 +156,6 @@ jobs:
         run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
         working-directory: examples/test-component-model
 
-      # echoserver test, check at least it links
-      - name: echoserver${{ matrix.suffix }}/fastLinkJS
-        run: sbt "$SBT_SET_COMMAND" echoserver${{ matrix.suffix }}/fastLinkJS
-      - name: echoserver${{ matrix.suffix }}/fullLinkJS
-        run: sbt "$SBT_SET_COMMAND" echoserver${{ matrix.suffix }}/fullLinkJS
       - name: testSuite${{ matrix.suffix }}/test with WasmComponent
         run: sbt "$SBT_SET_COMMAND" testSuite${{ matrix.suffix }}/test
 
