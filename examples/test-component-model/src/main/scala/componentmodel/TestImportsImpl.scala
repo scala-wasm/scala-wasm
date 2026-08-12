@@ -167,6 +167,9 @@ object TestImportsImpl {
     // Test Object methods on imported resources
     TestFunctions.testResourceObjectMethods()
 
+    // Test AutoCloseable on imported resources
+    TestFunctions.testResourceAutoCloseable()
+
     val end = System.currentTimeMillis()
     println(s"elapsed: ${(end - start).toInt} ms")
   }
@@ -221,5 +224,26 @@ object TestFunctions {
     assert(cls1 == cls2)
     assert(cls1 == cls3)
     assert(cls2 == cls3)
+  }
+
+  def testResourceAutoCloseable(): Unit = {
+    // An imported resource whose @WitResourceDrop is `def close(): Unit` can mix
+    // in java.lang.AutoCloseable, so callers may manage its lifetime through the
+    // AutoCloseable interface (try-with-resources style). Kept cross-version
+    // safe: scala.util.Using is 2.13-only, so we use a plain try/finally here.
+
+    // The resource can be used polymorphically as an AutoCloseable.
+    val closeable: AutoCloseable = Counter(7)
+    closeable.close()
+
+    // try/finally releases the handle via close() (the resource drop) on both
+    // the normal and the exceptional path.
+    val counter = Counter(41)
+    try {
+      counter.up()
+      assert(42 == counter.valueOf())
+    } finally {
+      counter.close()
+    }
   }
 }

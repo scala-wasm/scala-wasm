@@ -346,6 +346,34 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """.hasNoWarns()
   }
 
+  @Test def resourceMayExtendAutoCloseable: Unit = {
+    """
+    @WitResourceImport("test:io/streams", "input-stream")
+    final class InputStream private () extends Object with AutoCloseable {
+      @WitResourceMethod("read")
+      def read(len: ULong): wm.Result[Array[UByte], String] = wm.native
+
+      @WitResourceDrop
+      def close(): Unit = wm.native
+    }
+    """.hasNoWarns()
+  }
+
+  @Test def resourceOnlyDropMayImplementAutoCloseableClose: Unit = {
+    """
+    @WitResourceImport("test:io/streams", "input-stream")
+    final class InputStream private () extends Object with AutoCloseable {
+      @WitResourceMethod("close")
+      def close(): Unit = wm.native
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:9: error: A @WitResourceMethod or @WitResourceDrop member cannot implement the inherited member java.lang.AutoCloseable.close
+      |      def close(): Unit = wm.native
+      |          ^
+    """
+  }
+
   // --- Component Variant Tests ---
 
   @Test def variantMustBeSealed: Unit = {

@@ -963,12 +963,20 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
                   s"Return type '${returnType}' in method '${member.name}' is not compatible with Component Model")
             }
 
-            // Check for overriding inherited members
+            // Check for overriding inherited members. A @WitResourceDrop
+            // `close(): Unit` is allowed to implement java.lang.AutoCloseable.close():
+            // the resource drop already provides exactly that method, which is what
+            // lets an imported resource mix in AutoCloseable. Any other override or
+            // implementation of an inherited member is still rejected.
             for (overridden <- member.allOverriddenSymbols.headOption) {
-              val verb = if (overridden.isDeferred) "implement" else "override"
-              reporter.error(member.pos,
-                  s"A @WitResourceMethod or @WitResourceDrop member cannot $verb the inherited member " +
-                  overridden.fullName)
+              val implementsAutoCloseable =
+                hasResourceDrop && overridden.owner == AutoCloseableClass
+              if (!implementsAutoCloseable) {
+                val verb = if (overridden.isDeferred) "implement" else "override"
+                reporter.error(member.pos,
+                    s"A @WitResourceMethod or @WitResourceDrop member cannot $verb the inherited member " +
+                    overridden.fullName)
+              }
             }
           }
 

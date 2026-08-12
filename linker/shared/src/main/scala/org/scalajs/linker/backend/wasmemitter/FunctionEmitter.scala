@@ -288,6 +288,7 @@ object FunctionEmitter {
   private val toStringMethodName = MethodName("toString", Nil, BoxedStringRef)
   private val equalsMethodName = MethodName("equals", List(ObjectRef), BooleanRef)
   private val compareToMethodName = MethodName("compareTo", List(ObjectRef), IntRef)
+  private val closeMethodName = MethodName("close", Nil, VoidRef)
 
   private val CharSequenceClass = ClassName("java.lang.CharSequence")
   private val ComparableClass = ClassName("java.lang.Comparable")
@@ -997,28 +998,45 @@ private class FunctionEmitter private (
         }
         val receiverClassInfo = ctx.getClassInfo(receiverClassName)
 
-        /* Hijacked classes do not receive tables at all, and `Apply`s on array
-         * types and WIT resource types are considered to be statically resolved
-         * by the `Analyzer`. Therefore, if the receiver's static type is a prim
-         * type, hijacked class, array type, or WIT resource type, we must use
-         * static dispatch instead.
-         * We can also use static dispatch for exact class types.
-         *
-         * This never happens when we use the optimizer, since it already turns
-         * any such `Apply` into an `ApplyStatically` (when it does not inline
-         * it altogether).
+        /* A `close(): Unit` call reaching this point on a WIT resource class is
+         * the resource drop being invoked through `java.lang.AutoCloseable.close()`.
+         * A direct call on the resource type is turned into a `WitFunctionApply` by
+         * the compiler (the callee carries `@WitResourceDrop`), but a polymorphic
+         * call through `AutoCloseable` resolves to the abstract `AutoCloseable.close`
+         * and stays a regular `Apply`. The resource has no vtable/itable slot for it,
+         * so we route it to the resource drop intrinsic instead. Implementing
+         * `AutoCloseable.close` is the only inherited member a resource drop is
+         * allowed to provide (enforced by `PrepJSInterop`), so there is no ambiguity
+         * with the resource's own `@WitResourceMethod`s.
          */
-        val useStaticDispatch = receiver.tpe match {
-          case _ if receiverClassInfo.kind == ClassKind.HijackedClass => true
-          case _: ArrayType                                           => true
-          case ClassType(_, _, exact)                                 => exact
-          case _                                                      => false
-        }
-        if (useStaticDispatch) {
-          genApplyStatically(ApplyStatically(
-              flags, receiver, receiverClassName, method, args)(tree.tpe)(tree.pos))
+        if (receiverClassInfo.kind == ClassKind.WasmComponentResourceClass &&
+            method.name == closeMethodName) {
+          genWitFunctionApply(WitFunctionApply(
+              Some(receiver), receiverClassName, method, args)(tree.tpe)(tree.pos))
         } else {
-          genApplyWithDispatch(tree, receiverClassInfo)
+          /* Hijacked classes do not receive tables at all, and `Apply`s on array
+           * types and WIT resource types are considered to be statically resolved
+           * by the `Analyzer`. Therefore, if the receiver's static type is a prim
+           * type, hijacked class, array type, or WIT resource type, we must use
+           * static dispatch instead.
+           * We can also use static dispatch for exact class types.
+           *
+           * This never happens when we use the optimizer, since it already turns
+           * any such `Apply` into an `ApplyStatically` (when it does not inline
+           * it altogether).
+           */
+          val useStaticDispatch = receiver.tpe match {
+            case _ if receiverClassInfo.kind == ClassKind.HijackedClass => true
+            case _: ArrayType                                           => true
+            case ClassType(_, _, exact)                                 => exact
+            case _                                                      => false
+          }
+          if (useStaticDispatch) {
+            genApplyStatically(ApplyStatically(
+                flags, receiver, receiverClassName, method, args)(tree.tpe)(tree.pos))
+          } else {
+            genApplyWithDispatch(tree, receiverClassInfo)
+          }
         }
     }
   }

@@ -7,7 +7,7 @@ package object countable {
 
   // Resources
   @WitResourceImport("component:testing/countable", "counter")
-  final class Counter private () extends Object {
+  final class Counter private () extends Object with AutoCloseable {
     @WitResourceMethod("up")
     def up(): Unit = wit.native
 
