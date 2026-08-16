@@ -1,6 +1,6 @@
 package wasmcomponent
 
-import scala.scalajs.wasi.cli.stdout
+import wasmcomponent.wasi.cli.stdout
 import scala.scalajs.wit.Ok
 import scala.scalajs.wit.unsigned.UByte
 
