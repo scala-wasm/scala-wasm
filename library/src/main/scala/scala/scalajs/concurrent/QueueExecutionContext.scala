@@ -68,7 +68,7 @@ object QueueExecutionContext {
     }
 
     def reportFailure(t: Throwable): Unit =
-      t.printStackTrace()
+      () // t.printStackTrace() // no standard output on Wasm without JS
   }
 
   private final class TimeoutsExecutionContext extends ExecutionContextExecutor {

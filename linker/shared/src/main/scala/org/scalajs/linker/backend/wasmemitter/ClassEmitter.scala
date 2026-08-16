@@ -1549,7 +1549,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
 
     // Emit the function
     if (coreSpec.moduleKind == ModuleKind.MinimalWasmModule &&
-        (className == SpecialNames.WasmSystemClass || className == SpecialNames.WasmScalajsComClass) &&
+        className == SpecialNames.WasmScalajsComClass &&
         namespace == MemberNamespace.Public && !methodName.isReflectiveProxy) {
       emitSpecialMethod(
         functionID,
@@ -1786,29 +1786,7 @@ class ClassEmitter(coreSpec: CoreSpec) {
     }
     fb.setResultTypes(transformResultType(resultType))
 
-    if (enclosingClassName == SpecialNames.WasmSystemClass) {
-      methodName.simpleName.nameString match {
-        case "print" =>
-          fb += wa.LocalGet(paramLocals(0))
-          fb += wa.RefAsNonNull
-          fb += wa.Call(genFunctionID.wasmString.getWholeChars)
-          fb += wa.Call(genFunctionID.wasmEssentials.print)
-
-        case "nanoTime" =>
-          fb += wa.Call(genFunctionID.wasmEssentials.nanoTime)
-          fb += wa.I64TruncSatF64S
-
-        case "currentTimeMillis" =>
-          fb += wa.Call(genFunctionID.wasmEssentials.currentTimeMillis)
-          fb += wa.I64TruncSatF64S
-
-        case "random" =>
-          fb += wa.Call(genFunctionID.wasmEssentials.random)
-
-        case _ =>
-          throw new AssertionError(s"Unknown WasmSystem method ${methodName.nameString}")
-      }
-    } else if (enclosingClassName == SpecialNames.WasmScalajsComClass) {
+    if (enclosingClassName == SpecialNames.WasmScalajsComClass) {
       methodName.simpleName.nameString match {
         case "send" =>
           fb += wa.LocalGet(paramLocals(0))

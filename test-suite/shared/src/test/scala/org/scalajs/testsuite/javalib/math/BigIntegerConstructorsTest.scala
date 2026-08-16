@@ -27,6 +27,9 @@ import org.junit.Assume._
 import org.scalajs.testsuite.utils.Platform
 import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
+
 class BigIntegerConstructorsTest {
 
   @Test def testConstructorBytesException(): Unit = {
@@ -143,26 +146,38 @@ class BigIntegerConstructorsTest {
   }
 
   @Test def testConstructorPrime(): Unit = {
-    val bitLen = 25
-    val rnd = new Random()
-    val aNumber = new BigInteger(bitLen, 80, rnd)
-    assertEquals(bitLen, aNumber.bitLength())
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+      val bitLen = 25
+      val rnd = new Random()
+      val aNumber = new BigInteger(bitLen, 80, rnd)
+      assertEquals(bitLen, aNumber.bitLength())
+    } {
+      assumeTrue("new Random() requires Math.random / JS interop", false)
+    }
   }
 
   @Test def testConstructorPrime2(): Unit = {
-    val bitLen = 2
-    val rnd = new Random()
-    val aNumber = new BigInteger(bitLen, 80, rnd)
-    assertEquals(bitLen, aNumber.bitLength())
-    val num = aNumber.intValue()
-    assertTrue(num == 2 || num == 3)
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+      val bitLen = 2
+      val rnd = new Random()
+      val aNumber = new BigInteger(bitLen, 80, rnd)
+      assertEquals(bitLen, aNumber.bitLength())
+      val num = aNumber.intValue()
+      assertTrue(num == 2 || num == 3)
+    } {
+      assumeTrue("new Random() requires Math.random / JS interop", false)
+    }
   }
 
   @Test def testConstructorRandom(): Unit = {
-    val bitLen = 75
-    val rnd: Random = new Random()
-    val aNumber = new BigInteger(bitLen, rnd)
-    assertTrue(aNumber.bitLength() <= bitLen)
+    linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+      val bitLen = 75
+      val rnd: Random = new Random()
+      val aNumber = new BigInteger(bitLen, rnd)
+      assertTrue(aNumber.bitLength() <= bitLen)
+    } {
+      assumeTrue("new Random() requires Math.random / JS interop", false)
+    }
   }
 
   @Test def testConstructorSignBytesException1(): Unit = {

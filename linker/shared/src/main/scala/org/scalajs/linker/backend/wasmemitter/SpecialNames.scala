@@ -48,9 +48,6 @@ object SpecialNames {
   val WasmRuntimeClass =
     ClassName("org.scalajs.linker.runtime.WasmRuntime")
 
-  val WasmSystemClass =
-    ClassName("java.lang.WasmSystem$")
-
   val JSRPCClass =
     ClassName("org.scalajs.testing.bridge.JSRPC$")
 

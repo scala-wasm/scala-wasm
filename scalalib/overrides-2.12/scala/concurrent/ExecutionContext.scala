@@ -177,7 +177,17 @@ object ExecutionContext {
    *
    *  @return the function for error reporting
    */
-  def defaultReporter: Throwable => Unit = _.printStackTrace()
+  def defaultReporter: Throwable => Unit = {
+    import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind, ModuleKind}
+    // On Wasm without JS there is no standard output, so the reporter is a no-op.
+    linkTimeIf[Throwable => Unit](
+        moduleKind == ModuleKind.MinimalWasmModule ||
+        moduleKind == ModuleKind.WasmComponent) {
+      { (_: Throwable) => () }
+    } {
+      _.printStackTrace()
+    }
+  }
 }
 
 
