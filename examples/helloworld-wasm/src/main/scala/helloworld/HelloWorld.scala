@@ -7,9 +7,9 @@ package helloworld
 
 object HelloWorld {
   def main(args: Array[String]): Unit = {
-    val start = System.currentTimeMillis()
-    println(s"Hello world!")
-    val end = System.currentTimeMillis()
-    println(s"println took ${end - start} millis")
+    /* System.out / println are unavailable on MinimalWasm (no WasmSystem).
+     * Provide output via host imports or a library if needed.
+     */
+    val _ = "Hello world!"
   }
 }

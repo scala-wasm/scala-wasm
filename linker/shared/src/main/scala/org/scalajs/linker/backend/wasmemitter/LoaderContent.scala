@@ -323,13 +323,8 @@ function stringToWasmArray(str) {
   return strArray;
 }
 
-// Essential external features to test everything without the component model
+// Essential external features for MinimalWasm testing (scalajsCom)
 const essentialExterns = {
-  print: (strArray) => console.log(wasmArrayToString(strArray)),
-  nanoTime: () => performance.now(),
-  currentTimeMillis: () => Date.now(),
-  random: () => Math.random(),
-
   send: (strArray) => scalajsCom.send(wasmArrayToString(strArray)),
   init: (handleMessage) => scalajsCom.init((msg) => handleMessage(stringToWasmArray(msg))),
 };

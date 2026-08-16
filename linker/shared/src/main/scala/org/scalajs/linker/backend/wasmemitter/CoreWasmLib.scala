@@ -684,11 +684,6 @@ final class CoreWasmLib(coreSpec: CoreSpec, globalInfo: LinkedGlobalInfo) {
       )
     }
 
-    addEssentialImport(genFunctionID.wasmEssentials.print, List(RefType(genTypeID.i16Array)), Nil)
-    addEssentialImport(genFunctionID.wasmEssentials.nanoTime, Nil, List(Float64))
-    addEssentialImport(genFunctionID.wasmEssentials.currentTimeMillis, Nil, List(Float64))
-    addEssentialImport(genFunctionID.wasmEssentials.random, Nil, List(Float64))
-
     addEssentialImport(
         genFunctionID.wasmEssentials.scalajsCom.send, List(RefType(genTypeID.i16Array)), Nil)
     addEssentialImport(genFunctionID.wasmEssentials.scalajsCom.init, List(RefType.func), Nil)

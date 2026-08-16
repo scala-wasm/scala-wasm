@@ -256,19 +256,6 @@ final class Emitter(config: Emitter.Config) {
     if (topLevelHandlerLabel.isDefined) {
       fb += wa.Return
       fb += wa.End
-
-      // TODO Print the toString() of the exception, if possible
-      val message = "Uncaught exception"
-      for (c <- message)
-        fb += wa.I32Const(c.toInt)
-      fb += wa.ArrayNewFixed(genTypeID.i16Array, message.length())
-
-      if (coreSpec.moduleKind == ModuleKind.WasmComponent)
-        fb += wa.Drop // TODO
-      else
-        fb += wa.Call(genFunctionID.wasmEssentials.print)
-
-      // In any case, fail the execution
       fb += wa.Unreachable
     }
 

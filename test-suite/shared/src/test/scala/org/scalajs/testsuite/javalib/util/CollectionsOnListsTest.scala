@@ -22,6 +22,8 @@ import org.scalajs.testsuite.utils.AssertThrows.assertThrows
 import org.scalajs.testsuite.utils.CollectionsTestBase
 
 import scala.reflect.ClassTag
+import scala.scalajs.LinkingInfo.{linkTimeIf, moduleKind}
+import scala.scalajs.LinkingInfo.ModuleKind.{MinimalWasmModule, WasmComponent}
 
 object CollectionsOnListTest extends CollectionsTestBase {
 
@@ -217,7 +219,10 @@ trait CollectionsOnListTest extends CollectionsOnCollectionsTest {
     def testShuffle(shuffle: ju.List[_] => Unit): Unit = {
       def test[E: ClassTag](toElem: Int => E): Unit = {
         val list = factory.empty[E]
-        ju.Collections.shuffle(list)
+        // No-arg shuffle needs Math.random; skip linking it on Wasm without JS.
+        linkTimeIf(moduleKind != MinimalWasmModule && moduleKind != WasmComponent) {
+          ju.Collections.shuffle(list)
+        }(())
         assertEquals(0, list.size)
         list.addAll(rangeOfElems(toElem))
         shuffle(list)
