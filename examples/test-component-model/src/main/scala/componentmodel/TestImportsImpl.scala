@@ -19,7 +19,7 @@ object TestImportsImpl {
     def newCounterArray(size: Int): Array[Counter] =
       new Array[Counter](size)
 
-    val start = System.currentTimeMillis()
+    val start = Console.currentTimeMillis()
 
     // Test world-level function imports
     assert(5 == bareAdd(2, 3))
@@ -167,8 +167,8 @@ object TestImportsImpl {
     // Test Object methods on imported resources
     TestFunctions.testResourceObjectMethods()
 
-    val end = System.currentTimeMillis()
-    println(s"elapsed: ${(end - start).toInt} ms")
+    val end = Console.currentTimeMillis()
+    Console.println(s"elapsed: ${(end - start).toInt} ms")
   }
 }
 
