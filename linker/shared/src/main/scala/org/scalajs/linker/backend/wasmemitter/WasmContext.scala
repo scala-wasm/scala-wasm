@@ -18,6 +18,7 @@ import scala.collection.mutable
 import scala.collection.mutable.LinkedHashMap
 
 import org.scalajs.ir.ClassKind
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.Names._
 import org.scalajs.ir.OriginalName
 import org.scalajs.ir.OriginalName.NoOriginalName
@@ -55,6 +56,12 @@ final class WasmContext(
 
   private val functionTypes = LinkedHashMap.empty[watpe.FunctionType, wanme.TypeID]
   private val tableFunctionTypes = mutable.HashMap.empty[MethodName, wanme.TypeID]
+
+  private val declaredComponentImports = mutable.HashSet.empty[(String, String)]
+
+  def registerComponentImport(module: String, name: String): Boolean =
+    declaredComponentImports.add((module, name))
+
   private val closureDataTypes = LinkedHashMap.empty[List[Type], wanme.TypeID]
   private val typedClosureTypes = LinkedHashMap.empty[ClosureType, (wanme.TypeID, wanme.TypeID)]
 
@@ -113,6 +120,11 @@ final class WasmContext(
 
   def getClassInfo(name: ClassName): ClassInfo =
     classInfo.getOrElse(name, throw new Error(s"Class not found: $name"))
+
+  def getWitTypeDef(name: ClassName): WitTypeDef = {
+    getClassInfo(name).witTypeDef.getOrElse(
+        throw new Error(s"WIT type definition not found for ${name.nameString}"))
+  }
 
   def inferTypeFromTypeRef(typeRef: TypeRef): Type = typeRef match {
     case PrimRef(tpe) =>
@@ -268,6 +280,7 @@ object WasmContext {
       val hasRuntimeTypeInfo: Boolean,
       val jsNativeLoadSpec: Option[JSNativeLoadSpec],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
+      val witTypeDef: Option[WitTypeDef],
       val staticFieldMirrors: Map[FieldName, List[String]],
       _specialInstanceTypes: Int, // should be `val` but there is a large Scaladoc for it below
       val resolvedMethodInfos: Map[MethodName, ConcreteMethodInfo],

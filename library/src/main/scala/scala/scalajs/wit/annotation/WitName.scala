@@ -12,9 +12,4 @@
 
 package scala.scalajs.wit.annotation
 
-import scala.annotation.meta._
-
-@field @getter @setter
-class WitResourceImport private () extends scala.annotation.StaticAnnotation {
-  def this(scope: WitScope, name: String) = this()
-}
+class WitName(val name: String) extends scala.annotation.StaticAnnotation

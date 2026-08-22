@@ -20,7 +20,7 @@ import Nullables._
 
 object ScalaJSVersions extends VersionChecks(
       current = "1.22.1-wasm.4-SNAPSHOT",
-      binaryEmitted = "1.22"
+      binaryEmitted = "1.22+wasm"
     ) {
   final val organization = "io.github.scala-wasm"
 }
@@ -85,8 +85,8 @@ class VersionChecks private[ir] (
 }
 
 private object VersionChecks {
-  private val fullRE = """^([0-9]+)\.([0-9]+)\.([0-9]+)(-.*)?$""".r
-  private val binaryRE = """^([0-9]+)\.([0-9]+)(-.*)?$""".r
+  private val fullRE = """^([0-9]+)\.([0-9]+)\.([0-9]+)(-[^+]+)?(\+.*)?$""".r
+  private val binaryRE = """^([0-9]+)\.([0-9]+)(-[^+]+)?(\+.*)?$""".r
 
   private def parseBinary(v: String): (Int, Int, Option[String]) = {
     val m = mustMatch(binaryRE, v)

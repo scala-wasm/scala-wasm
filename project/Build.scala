@@ -408,7 +408,8 @@ object Build {
 
   private val WasiCliRunModuleInitializerExport =
     WasmComponentModuleInitializerExport(
-        "wasi:cli/run@0.2.0",
+        org.scalajs.ir.WitScope.Interface(
+            "wasi", "cli", "run", Some("0.2.0")),
         "run",
         WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)
 

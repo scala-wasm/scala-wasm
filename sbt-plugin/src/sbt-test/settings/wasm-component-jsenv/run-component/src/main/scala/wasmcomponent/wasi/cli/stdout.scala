@@ -6,7 +6,9 @@ package object stdout {
   type OutputStream = wasmcomponent.wasi.io.streams.OutputStream
 
   // Functions
-  @scala.scalajs.wit.annotation.WitImport("wasi:cli/stdout@0.2.0", "get-stdout")
+  @scala.scalajs.wit.annotation.WitImport(
+      scala.scalajs.wit.annotation.WitScope("wasi", "cli", "stdout", "0.2.0"),
+      "get-stdout")
   def getStdout(): OutputStream = scala.scalajs.wit.native
 
 }

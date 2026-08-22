@@ -6,7 +6,7 @@ import scala.scalajs.wit.annotation._
 package object countable {
 
   // Resources
-  @WitResourceImport("component:testing/countable", "counter")
+  @WitResourceImport(WitScope.unversioned("component", "testing", "countable"), "counter")
   final class Counter private () extends Object {
     @WitResourceMethod("up")
     def up(): Unit = wit.native
@@ -23,20 +23,20 @@ package object countable {
 
   object Counter {
     @WitResourceConstructor
-    def apply(i: Int): Counter = wit.native
+    def apply(@WitName("i") i: Int): Counter = wit.native
 
     /** TODO: make a and b borrow<bounter>
      *  otherwise ownership moves, and cannot use a,b afterwards
      */
     @WitResourceStaticMethod("sum")
-    def sum(a: Counter, b: Counter): Counter = wit.native
+    def sum(@WitName("a") a: Counter, @WitName("b") b: Counter): Counter = wit.native
   }
 
   // Functions
-  @WitImport("component:testing/countable", "try-create-counter")
-  def tryCreateCounter(value: Int): wit.Result[Counter, String] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "countable"), "try-create-counter")
+  def tryCreateCounter(@WitName("value") value: Int): wit.Result[Counter, String] = wit.native
 
-  @WitImport("component:testing/countable", "maybe-get-counter")
+  @WitImport(WitScope.unversioned("component", "testing", "countable"), "maybe-get-counter")
   def maybeGetCounter(): java.util.Optional[Counter] = wit.native
 
 }

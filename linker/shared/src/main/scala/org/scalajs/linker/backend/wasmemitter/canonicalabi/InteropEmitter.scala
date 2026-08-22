@@ -1,8 +1,20 @@
+/*
+ * Scala.js (https://www.scala-js.org/)
+ *
+ * Copyright EPFL.
+ *
+ * Licensed under Apache License 2.0
+ * (https://www.apache.org/licenses/LICENSE-2.0).
+ *
+ * See the NOTICE file distributed with this work for
+ * additional information regarding copyright ownership.
+ */
+
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
 import org.scalajs.ir.{Names, OriginalName, Trees => js, WasmInterfaceTypes => wit}
+import org.scalajs.ir.WitScope
 import org.scalajs.ir.OriginalName.NoOriginalName
-import org.scalajs.ir.Trees.WitFunctionName._
 
 import org.scalajs.linker.standard.LinkedClass
 
@@ -23,46 +35,31 @@ import org.scalajs.linker.backend.wasmemitter.canonicalabi.ValueIterators.ValueI
 
 object InteropEmitter {
 
-  /** https://github.com/WebAssembly/component-model/blob/main/design/mvp/Explainer.md#import-and-export-definitions */
-  private def toWasmImportExportName(name: js.WitFunctionName): String = {
-    name match {
-      case Function(func)                       => func
-      case ResourceMethod(func, resource)       => s"[method]$resource.$func"
-      case ResourceStaticMethod(func, resource) => s"[static]$resource.$func"
-      case ResourceConstructor(resource)        => s"[constructor]$resource"
-      case ResourceDrop(resource)               => s"[resource-drop]$resource"
-    }
-  }
-
   def genComponentNativeInterop(clazz: LinkedClass, member: js.WitNativeMemberDef)(
       implicit ctx: WasmContext
   ): Unit = {
+    val importModuleName = WitScope.importModuleName(member.scope)
     val importFunctionID = genFunctionID.forComponentFunction(
-        member.moduleName, member.name)
-    val importName = toWasmImportExportName(member.name)
+        importModuleName, member.name)
+    val importName = js.WitFunctionName.wasmName(member.name)
     val loweredFuncType = Flatten.lowerFlattenFuncType(member.signature)
     genComponentAdapterFunction(clazz, member, importFunctionID)
 
-    // For world-level functions (moduleName is empty), use "$root" as the module namespace
-    // following the wasm-tools convention
-    val importModuleName = if (member.moduleName.isEmpty) "$root" else member.moduleName
-    val originalName = if (member.moduleName.isEmpty) {
-      s"$$root#$importName"
-    } else {
-      s"${member.moduleName}#$importName"
-    }
+    val originalName = s"$importModuleName#$importName"
 
-    ctx.moduleBuilder.addImport(
-      wamod.Import(
-        importModuleName,
-        importName,
-        wamod.ImportDesc.Func(
-          importFunctionID,
-          OriginalName(originalName),
-          ctx.moduleBuilder.functionTypeToTypeID(loweredFuncType.funcType)
+    if (ctx.registerComponentImport(importModuleName, importName)) {
+      ctx.moduleBuilder.addImport(
+        wamod.Import(
+          importModuleName,
+          importName,
+          wamod.ImportDesc.Func(
+            importFunctionID,
+            OriginalName(originalName),
+            ctx.moduleBuilder.functionTypeToTypeID(loweredFuncType.funcType)
+          )
         )
       )
-    )
+    }
   }
 
   private def genComponentAdapterFunction(clazz: LinkedClass, member: js.WitNativeMemberDef,
@@ -73,11 +70,12 @@ object InteropEmitter {
       clazz.className,
       member.method.name
     )
-    val importName = toWasmImportExportName(member.name)
+    val importName = js.WitFunctionName.wasmName(member.name)
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,
       functionID,
-      OriginalName(s"${member.moduleName}#$importName-adapter"),
+      OriginalName(
+          s"${WitScope.importModuleName(member.scope)}#$importName-adapter"),
       member.pos
     )
 
@@ -116,7 +114,7 @@ object InteropEmitter {
     loweredFuncType.returnOffset match {
       case Some(_) =>
         val returnPtr = fb.addLocal(NoOriginalName, watpe.Int32)
-        val returnSize = wit.elemSize(member.signature.resultType)
+        val returnSize = WitTypeOps.elemSize(member.signature.resultType)
         fb += wa.I32Const(returnSize)
         fb += wa.Call(genFunctionID.malloc)
         fb += wa.LocalTee(returnPtr)
@@ -153,13 +151,11 @@ object InteropEmitter {
       implicit ctx: WasmContext): Unit = {
     implicit val pos = exportDef.pos
 
-    // For world level functions (moduleName is empty), use just the function name
-    // Otherwise use the wasm-tools convention: moduleName#functionName
-    // see: https://github.com/WebAssembly/component-model/issues/422
-    val exportName = if (exportDef.moduleName.isEmpty) {
-      toWasmImportExportName(exportDef.name)
-    } else {
-      s"${exportDef.moduleName}#${toWasmImportExportName(exportDef.name)}"
+    // Core export naming follows the wasm-tools convention
+    // (see https://github.com/WebAssembly/component-model/issues/422).
+    val exportName = {
+      val funcName = js.WitFunctionName.wasmName(exportDef.name)
+      WitScope.exportName(exportDef.scope, funcName)
     }
     val method = exportDef.methodDef
 
@@ -189,7 +185,7 @@ object InteropEmitter {
       val returnOffsetOpt = flatFuncType.returnOffset match {
         case Some(offsetType) =>
           val returnOffsetID = fb.addLocal("ret_addr", watpe.Int32)
-          fb += wa.I32Const(wit.elemSize(exportDef.signature.resultType))
+          fb += wa.I32Const(WitTypeOps.elemSize(exportDef.signature.resultType))
           fb += wa.Call(genFunctionID.malloc)
           fb += wa.LocalTee(returnOffsetID)
           Some(returnOffsetID)

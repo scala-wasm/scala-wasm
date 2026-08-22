@@ -1,24 +1,33 @@
 package componentmodel.wasi.io
 
+import scala.scalajs.wit.annotation.{
+  WitImport,
+  WitName,
+  WitResourceDrop,
+  WitResourceImport,
+  WitResourceMethod,
+  WitScope
+}
+import scala.scalajs.wit.native
+import scala.scalajs.wit.unsigned.UInt
+
 package object poll {
 
-  // Resources
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/poll@0.2.0", "pollable")
+  @WitResourceImport(WitScope("wasi", "io", "poll", "0.2.0"), "pollable")
   final class Pollable private () extends Object {
-    @scala.scalajs.wit.annotation.WitResourceMethod("ready")
-    def ready(): Boolean = scala.scalajs.wit.native
+    @WitResourceMethod("ready")
+    def ready(): Boolean = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("block")
-    def block(): Unit = scala.scalajs.wit.native
+    @WitResourceMethod("block")
+    def block(): Unit = native
 
-    @scala.scalajs.wit.annotation.WitResourceDrop
-    def close(): Unit = scala.scalajs.wit.native
+    @WitResourceDrop
+    def close(): Unit = native
   }
 
   object Pollable {}
 
-  // Functions
-  @scala.scalajs.wit.annotation.WitImport("wasi:io/poll@0.2.0", "poll")
-  def poll(in: Array[Pollable]): Array[scala.scalajs.wit.unsigned.UInt] = scala.scalajs.wit.native
+  @WitImport(WitScope("wasi", "io", "poll", "0.2.0"), "poll")
+  def poll(@WitName("in") in: Array[Pollable]): Array[UInt] = native
 
 }

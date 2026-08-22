@@ -5,9 +5,6 @@ SCALA_MODULE := .$(SCALA_VERSION)/target/scala-$(SCALA_VERSION)/helloworld-compo
 RUST_MODULE := rust-greeter/target/wasm32-wasip1/release/rust_greeter.wasm
 OUT := out.wasm
 
-fetch:
-	wkg wit fetch
-
 build-rust:
 	cd rust-greeter; cargo component build -r
 
@@ -20,5 +17,5 @@ run: component
 clean:
 	rm -f $(OUT)
 
-.PHONY: fetch build-rust component run clean
+.PHONY: build-rust component run clean
 

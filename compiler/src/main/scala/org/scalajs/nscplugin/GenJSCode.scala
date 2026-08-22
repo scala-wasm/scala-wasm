@@ -678,25 +678,29 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
         if (isWitResourceClass && (dd.symbol.hasAnnotation(WitResourceMethodAnnotation) ||
               dd.symbol.hasAnnotation(WitResourceDropAnnotation))) {
           val annot = sym.getAnnotation(WitResourceImportAnnotation).get
-          val moduleName = annot.stringArg(0).get
+          val scope = jsInterop.witScopeArg(annot, 0).getOrElse {
+            abort(s"@WitResourceImport on $sym requires a literal WitScope argument")
+          }
           val resourceName = annot.stringArg(1).get
           val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.Public)
           if (dd.symbol.hasAnnotation(WitResourceMethodAnnotation)) {
             val methodAnnot = dd.symbol.getAnnotation(WitResourceMethodAnnotation).get
             val functionName = methodAnnot.stringArg(0).get
-            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, moduleName,
+            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, scope,
                 js.WitFunctionName.ResourceMethod(functionName, resourceName))
           } else {
-            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, moduleName,
+            witNativeMembersBuilder += genWitNativeMemberDef(flags, dd, scope,
                 js.WitFunctionName.ResourceDrop(resourceName))
           }
         } else if (dd.symbol.hasAnnotation(WitImportAnnotation)) {
           val annot = dd.symbol.getAnnotation(WitImportAnnotation).get
-          val moduleName = annot.stringArg(0).get
+          val scope = jsInterop.witScopeArg(annot, 0).getOrElse {
+            abort(s"@WitImport on ${dd.symbol} requires a literal WitScope argument")
+          }
           val functionName = annot.stringArg(1).get
           val flags = js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic)
           witNativeMembersBuilder +=
-            genWitNativeMemberDef(flags, dd, moduleName,
+            genWitNativeMemberDef(flags, dd, scope,
                 js.WitFunctionName.Function(functionName))
         } else if (isWasmWitResourceStaticMethod(dd.symbol)) {
           witNativeMembersBuilder ++= genWitResourceStaticMethodDef(dd)
@@ -790,6 +794,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
                 jsConstructor = None,
                 jsMethodProps = Nil,
                 jsNativeMembers = Nil,
+                witTypeDef = None,
                 witNativeMembers = Nil,
                 topLevelExportDefs = Nil
               )(js.OptimizerHints.empty)
@@ -841,6 +846,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsConstructor = None,
           memberExports,
           jsNativeMembers,
+          witTypeDef = genWitTypeDef(sym),
           witNativeMembers = witNativeMembersBuilder.result(),
           topLevelExportDefs ++ witExportDefsBuilder.result())(
           optimizerHints)
@@ -975,6 +981,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           Some(generatedCtor),
           jsMethodProps,
           jsNativeMembers = Nil,
+          witTypeDef = None,
           witNativeMembers = Nil,
           topLevelExports)(
           OptimizerHints.empty)
@@ -1026,7 +1033,8 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
             ClassKind.AbstractJSType, None, Some(parent), interfaces = Nil,
             jsSuperClass = None, jsNativeLoadSpec = None, fields = Nil,
             methods = origJsClass.methods, jsConstructor = None, jsMethodProps = Nil,
-            jsNativeMembers = Nil, Nil, topLevelExportDefs = Nil)(
+            jsNativeMembers = Nil, witTypeDef = None, witNativeMembers = Nil,
+            topLevelExportDefs = Nil)(
             origJsClass.optimizerHints)
       }
 
@@ -1203,7 +1211,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass,
           genClassInterfaces(sym, forJSClass = true), None, jsNativeLoadSpec,
-          Nil, Nil, None, Nil, Nil, Nil, Nil)(
+          Nil, Nil, None, Nil, Nil, None, Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -1225,7 +1233,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), ClassKind.Interface,
           None, None, interfaces, None, None, fields = Nil, methods = allMemberDefs,
-          None, Nil, Nil, Nil, Nil)(
+          None, Nil, Nil, genWitTypeDef(sym), Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -6901,6 +6909,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsConstructor = None,
           Nil,
           Nil,
+          None,
           Nil,
           Nil)(
           js.OptimizerHints.empty.withInline(true))

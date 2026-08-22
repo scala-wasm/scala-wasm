@@ -147,6 +147,7 @@ object DerivedClasses {
       jsConstructorDef = None,
       exportedMembers = Nil,
       jsNativeMembers = Nil,
+      witTypeDef = None,
       witNativeMembers = Nil,
       EOH,
       pos,

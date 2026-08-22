@@ -56,7 +56,8 @@ lazy val testComponent = project
               .withWitDirectory(Some((baseDirectory.value / "wit").getAbsolutePath))
               .withWitWorld(Some("test"))
               .withModuleInitializerExport(Some(WasmComponentModuleInitializerExport(
-                  "wasi:cli/run@0.2.0",
+                  org.scalajs.ir.WitScope.Interface(
+                      "wasi", "cli", "run", Some("0.2.0")),
                   "run",
                   WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)))
           }
