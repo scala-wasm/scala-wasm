@@ -24,7 +24,8 @@ import Identitities._
 import Modules._
 import Types._
 
-private sealed class BinaryWriter(module: Module, emitDebugInfo: Boolean) {
+private sealed class BinaryWriter(module: Module, emitDebugInfo: Boolean,
+    additionalCustomSections: List[(String, ByteBuffer)]) {
   import BinaryWriter._
 
   /** The big output buffer. */
@@ -123,6 +124,14 @@ private sealed class BinaryWriter(module: Module, emitDebugInfo: Boolean) {
       writeCustomSection("name")(writeNameCustomSection())
 
     emitSourceMapSection()
+
+    for ((sectionName, payload) <- additionalCustomSections) {
+      writeCustomSection(sectionName) {
+        val bytes = new Array[Byte](payload.remaining())
+        payload.get(bytes)
+        buf.rawByteArray(bytes)
+      }
+    }
 
     buf.result()
   }
@@ -621,14 +630,28 @@ object BinaryWriter {
   private final val SectionTag = 0x0d
 
   def write(module: Module, emitDebugInfo: Boolean): ByteBuffer =
-    new BinaryWriter(module, emitDebugInfo).write()
+    write(module, emitDebugInfo, additionalCustomSections = Nil)
+
+  def write(module: Module, emitDebugInfo: Boolean,
+      additionalCustomSections: List[(String, ByteBuffer)]): ByteBuffer = {
+    new BinaryWriter(module, emitDebugInfo, additionalCustomSections).write()
+  }
 
   def writeWithSourceMap(module: Module, emitDebugInfo: Boolean,
       sourceMapWriter: SourceMapWriter, sourceMapURI: String): ByteBuffer = {
-    new WithSourceMap(module, emitDebugInfo, sourceMapWriter, sourceMapURI).write()
+    writeWithSourceMap(module, emitDebugInfo, sourceMapWriter, sourceMapURI,
+        additionalCustomSections = Nil)
   }
 
-  private[BinaryWriter] final class Buffer {
+  def writeWithSourceMap(module: Module, emitDebugInfo: Boolean,
+      sourceMapWriter: SourceMapWriter, sourceMapURI: String,
+      additionalCustomSections: List[(String, ByteBuffer)]): ByteBuffer = {
+    new WithSourceMap(module, emitDebugInfo, sourceMapWriter, sourceMapURI,
+        additionalCustomSections).write()
+  }
+
+  /** Growable LEB128 / section buffer shared with component writers. */
+  private[webassembly] final class Buffer {
     private var buf: ByteBuffer =
       ByteBuffer.allocate(1024 * 1024).order(ByteOrder.LITTLE_ENDIAN)
 
@@ -762,8 +785,9 @@ object BinaryWriter {
   }
 
   private final class WithSourceMap(module: Module, emitDebugInfo: Boolean,
-      sourceMapWriter: SourceMapWriter, sourceMapURI: String)
-      extends BinaryWriter(module, emitDebugInfo) {
+      sourceMapWriter: SourceMapWriter, sourceMapURI: String,
+      additionalCustomSections: List[(String, ByteBuffer)])
+      extends BinaryWriter(module, emitDebugInfo, additionalCustomSections) {
 
     override protected def emitStartFuncPosition(pos: Position): Unit =
       sourceMapWriter.startNode(buf.currentGlobalOffset, pos)

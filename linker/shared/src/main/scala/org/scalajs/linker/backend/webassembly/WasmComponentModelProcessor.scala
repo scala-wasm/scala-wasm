@@ -14,19 +14,14 @@ package org.scalajs.linker.backend.webassembly
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import java.nio.file.Path
-
 import org.scalajs.linker.Nullables._
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
 
 private[backend] abstract class WasmComponentModelProcessor {
 
-  /** Process a core wasm module into a component model binary in-place.
-   *
-   *  This method performs operations in sequence:
-   *  1. Embeds WIT definitions from the specified directory using wasm-tools component embed (with utf16 encoding)
-   *  3. Converts the embedded module into a component using wasm-tools component new
+  /** Convert a core wasm module (with `component-type` custom section) into a
+   *  component binary in-place via `wasm-tools component new`.
    *
    *  @throws WasmToolsNotFoundException if wasm-tools is not installed
    *  @throws WasmToolsExecutionException if wasm-tools execution fails
@@ -34,8 +29,6 @@ private[backend] abstract class WasmComponentModelProcessor {
   def processComponentModel(
       outputDirectory: OutputDirectoryImpl,
       wasmFileName: String,
-      witDirectory: Path,
-      worldName: Option[String],
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit]
 }

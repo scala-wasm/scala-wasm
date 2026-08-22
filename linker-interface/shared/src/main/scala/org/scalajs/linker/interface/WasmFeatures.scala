@@ -64,9 +64,6 @@ final class WasmFeatures private (
 
   /** Wasm Component export that invokes the module initializers.
    *
-   *  This does not generate WIT declarations. The selected WIT world must
-   *  already declare the corresponding export.
-   *
    *  Default: `None`
    */
   val moduleInitializerExport = _moduleInitializerExport
@@ -74,9 +71,11 @@ final class WasmFeatures private (
   def withExceptionHandling(exceptionHandling: Boolean): WasmFeatures =
     copy(exceptionHandling = exceptionHandling)
 
+  @deprecated("No longer required to tell wit directory to linker", "1.23.0")
   def withWitDirectory(witDirectory: Option[String]): WasmFeatures =
     copy(witDirectory = witDirectory)
 
+  @deprecated("No longer required to tell wit world to linker", "1.23.0")
   def withWitWorld(witWorld: Option[String]): WasmFeatures =
     copy(witWorld = witWorld)
 

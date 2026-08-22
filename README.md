@@ -55,10 +55,6 @@ Build Wasm Component from Scala.
 $ sbt
 sbt:Scala.js> set Global/enableWasmEverywhere := true
 sbt:Scala.js> testComponentModel2_12/fastLinkJS
-
-$ cd examples/test-component-model
-$ wasm-tools component embed wit .2.12/target/scala-2.12/testing-module-for-component-model-fastopt/main.wasm -o main.wasm -w scala --encoding utf16
-$ wasm-tools component new main.wasm -o main.wasm
 ```
 
 Build Wasm Components from Rust.
@@ -72,10 +68,8 @@ $ cargo component build --target wasm32-wasip2 -r
 
 Compose Wasm Components and run.
 ```sh
-$ wac plug --plug rust-exports/target/wasm32-wasip1/release/rust_exports.wasm main.wasm -o scala.wasm
-$ wac plug --plug scala.wasm rust-run/target/wasm32-wasip1/release/rust_run.wasm -o out.wasm
-
-$ wasmtime -W function-references,gc out.wasm
+$ cd examples/test-component-model
+$ make run SCALA_VERSION=2.12
 ```
 
 ---
