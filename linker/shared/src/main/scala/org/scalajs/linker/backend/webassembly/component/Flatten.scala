@@ -1,6 +1,21 @@
+/*
+ * Scala.js (https://www.scala-js.org/)
+ *
+ * Copyright EPFL.
+ *
+ * Licensed under Apache License 2.0
+ * (https://www.apache.org/licenses/LICENSE-2.0).
+ *
+ * See the NOTICE file distributed with this work for
+ * additional information regarding copyright ownership.
+ */
+
 package org.scalajs.linker.backend.webassembly.component
 
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
+import org.scalajs.linker.backend.wasmemitter.WasmContext
+import org.scalajs.ir.WellKnownNames._
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 object Flatten {
@@ -22,7 +37,8 @@ object Flatten {
     assert(!(returnOffset.isDefined && returnOffset.get != watpe.Int32))
   }
 
-  def lowerFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
+  def lowerFlattenFuncType(funcType: wit.FuncType)(
+      implicit ctx: WasmContext): FlatFuncType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
     val flatResultTypes = funcType.resultType.toList.flatMap(flattenType)
 
@@ -46,7 +62,8 @@ object Flatten {
     )
   }
 
-  def liftFlattenFuncType(funcType: wit.FuncType): FlatFuncType = {
+  def liftFlattenFuncType(funcType: wit.FuncType)(
+      implicit ctx: WasmContext): FlatFuncType = {
     val flatParamTypes = funcType.paramTypes.flatMap(flattenType)
     val flatResultTypes = funcType.resultType.toList.flatMap(flattenType)
 
@@ -70,8 +87,8 @@ object Flatten {
     )
   }
 
-  def flattenType(tpe: wit.ValType): List[watpe.Type] = {
-    wit.despecialize(tpe) match {
+  def flattenType(tpe: wit.ValType)(implicit ctx: WasmContext): List[watpe.Type] = {
+    tpe match {
       case wit.BoolType                           => List(watpe.Int32)
       case wit.U8Type | wit.U16Type | wit.U32Type => List(watpe.Int32)
       case wit.S8Type | wit.S16Type | wit.S32Type => List(watpe.Int32)
@@ -81,29 +98,54 @@ object Flatten {
       case wit.CharType                           => List(watpe.Int32)
       case wit.StringType                         => List(watpe.Int32, watpe.Int32)
       case t: wit.ListType                        => flattenList(t)
-      case t: wit.RecordType                      => flattenRecord(t)
-      case t: wit.VariantType                     => flattenVariant(t)
-      case _: wit.FlagsType                       => List(watpe.Int32)
-      case _: wit.ResourceType                    => List(watpe.Int32)
+      case wit.TupleType(fields)                  => fields.flatMap(flattenType)
+      case t: wit.RecordTypeRef                   => flattenRecord(t)
+      case t: wit.VariantTypeRef                  => flattenVariant(t)
+      case wit.ResultType(ok, err)                => flattenVariantCases(resultCases(ok, err))
+      case wit.EnumTypeRef(className)             =>
+        val WitTypeDef.Enum(_, _, _, cases) = ctx.getWitTypeDef(className): @unchecked
+        flattenVariantCases(cases)
+      case wit.OptionType(t)   => List(watpe.Int32) ++ flattenVariants(List(t))
+      case _: wit.FlagsTypeRef => List(watpe.Int32)
+      case _: wit.ResourceType => List(watpe.Int32)
     }
   }
 
-  private def flattenList(t: wit.ListType): List[watpe.Type] = {
+  private def flattenList(t: wit.ListType)(implicit ctx: WasmContext): List[watpe.Type] = {
     t.length match {
       case Some(length) => List.fill(length)(flattenType(t.elemType)).flatten
       case None         => List(watpe.Int32, watpe.Int32)
     }
   }
 
-  private def flattenRecord(t: wit.RecordType): List[watpe.Type] =
-    t.fields.flatMap(f => flattenType(f.tpe))
+  private def flattenRecord(t: wit.RecordTypeRef)(
+      implicit ctx: WasmContext): List[watpe.Type] = {
+    val WitTypeDef.Record(_, _, _, fields) = ctx.getWitTypeDef(t.className): @unchecked
+    fields.flatMap(f => flattenType(f.tpe))
+  }
 
-  def flattenVariant(t: wit.VariantType): List[watpe.Type] = {
-    val variantTypes = t.cases.flatMap { case wit.CaseType(_, tpe) => tpe }
+  def flattenVariant(t: wit.VariantTypeRef)(
+      implicit ctx: WasmContext): List[watpe.Type] = {
+    val WitTypeDef.Variant(_, _, _, cases) = ctx.getWitTypeDef(t.className): @unchecked
+    flattenVariantCases(cases)
+  }
+
+  private def flattenVariantCases(cases: List[wit.CaseType])(
+      implicit ctx: WasmContext): List[watpe.Type] = {
+    val variantTypes = cases.flatMap { case wit.CaseType(_, _, tpe) => tpe }
     List(watpe.Int32) ++ flattenVariants(variantTypes)
   }
 
-  def flattenVariants(variants: List[wit.ValType]): List[watpe.Type] = {
+  private def resultCases(ok: Option[wit.ValType],
+      err: Option[wit.ValType]): List[wit.CaseType] = {
+    List(
+      wit.CaseType(ComponentResultOkClass, "ok", ok),
+      wit.CaseType(ComponentResultErrClass, "err", err)
+    )
+  }
+
+  def flattenVariants(variants: List[wit.ValType])(
+      implicit ctx: WasmContext): List[watpe.Type] = {
     variants.foldLeft(List.empty[watpe.Type]) { case (acc, variant) =>
       val flattened = flattenType(variant)
       val joined = acc.zip(flattened).map { case (a, b) => join(a, b) }

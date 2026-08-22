@@ -128,6 +128,8 @@ private[analyzer] object InfoLoader {
       val jsNativeMembers = classDef.jsNativeMembers
         .map(m => m.name.name -> m.jsNativeLoadSpec).toMap
 
+      val witTypeDef = classDef.witTypeDef.map(generator.generateWitTypeDef(_))
+
       val witNativeMembers = classDef.witNativeMembers
         .map(m => m.method.name -> generator.generateWitNativeMember(m)).toMap
 
@@ -135,7 +137,7 @@ private[analyzer] object InfoLoader {
           nonExistent = false, classDef.superClass.map(_.name),
           classDef.interfaces.map(_.name), classDef.jsNativeLoadSpec,
           referencedFieldClasses, prevMethodInfos, jsNativeMembers,
-          witNativeMembers, exportedMembers, topLevelExports)
+          witTypeDef, witNativeMembers, exportedMembers, topLevelExports)
     }
 
     /** Returns true if the cache has been used and should be kept. */

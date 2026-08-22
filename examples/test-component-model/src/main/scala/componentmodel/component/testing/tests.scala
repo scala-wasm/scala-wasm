@@ -6,8 +6,8 @@ import scala.scalajs.wit.annotation._
 package object tests {
 
   // Type definitions
-  @WitRecord
-  final class Point(val x: Int, val y: Int) {
+  @WitRecord(WitScope.unversioned("component", "testing", "tests"), "point")
+  final class Point(@WitName("x") val x: Int, @WitName("y") val y: Int) {
     override def equals(other: Any): Boolean = other match {
       case that: Point => this.x == that.x && this.y == that.y
       case _           => false
@@ -28,11 +28,12 @@ package object tests {
     def unapply(arg: Point): Some[(Int, Int)] = Some((arg.x, arg.y))
   }
 
-  @WitVariant
+  @WitVariant(WitScope.unversioned("component", "testing", "tests"), "c1")
   sealed trait C1
 
   object C1 {
-    final class A(val value: Int) extends C1 {
+    @WitName("a")
+    final class A(@WitName("value") val value: Int) extends C1 {
       override def equals(other: Any): Boolean = other match {
         case that: A => this.value == that.value
         case _       => false
@@ -49,7 +50,8 @@ package object tests {
       def unapply(arg: A): Some[Int] = Some(arg.value)
     }
 
-    final class B(val value: Float) extends C1 {
+    @WitName("b")
+    final class B(@WitName("value") val value: Float) extends C1 {
       override def equals(other: Any): Boolean = other match {
         case that: B => this.value == that.value
         case _       => false
@@ -67,11 +69,12 @@ package object tests {
     }
   }
 
-  @WitVariant
+  @WitVariant(WitScope.unversioned("component", "testing", "tests"), "z1")
   sealed trait Z1
 
   object Z1 {
-    final class A(val value: Int) extends Z1 {
+    @WitName("a")
+    final class A(@WitName("value") val value: Int) extends Z1 {
       override def equals(other: Any): Boolean = other match {
         case that: A => this.value == that.value
         case _       => false
@@ -88,29 +91,34 @@ package object tests {
       def unapply(arg: A): Some[Int] = Some(arg.value)
     }
 
+    @WitName("b")
     object B extends Z1 {
       override def toString(): String = "B"
     }
   }
 
-  @WitVariant
+  @WitEnum(WitScope.unversioned("component", "testing", "tests"), "e1")
   sealed trait E1
 
   object E1 {
+    @WitName("a")
     object A extends E1 {
       override def toString(): String = "A"
     }
 
+    @WitName("b")
     object B extends E1 {
       override def toString(): String = "B"
     }
 
+    @WitName("c")
     object C extends E1 {
       override def toString(): String = "C"
     }
   }
 
-  @WitFlags(8)
+  @WitFlags(WitScope.unversioned("component", "testing", "tests"), "f1",
+      Array("b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7"))
   final class F1(val value: Int) {
     def |(other: F1): F1 = new F1(value | other.value)
     def &(other: F1): F1 = new F1(value & other.value)
@@ -142,7 +150,9 @@ package object tests {
     val b7 = new F1(1 << 7)
   }
 
-  @WitFlags(16)
+  @WitFlags(WitScope.unversioned("component", "testing", "tests"), "f2",
+      Array("b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7",
+          "b8", "b9", "b10", "b11", "b12", "b13", "b14", "b15"))
   final class F2(val value: Int) {
     def |(other: F2): F2 = new F2(value | other.value)
     def &(other: F2): F2 = new F2(value & other.value)
@@ -182,7 +192,11 @@ package object tests {
     val b15 = new F2(1 << 15)
   }
 
-  @WitFlags(32)
+  @WitFlags(WitScope.unversioned("component", "testing", "tests"), "f3",
+      Array("b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7",
+          "b8", "b9", "b10", "b11", "b12", "b13", "b14", "b15",
+          "b16", "b17", "b18", "b19", "b20", "b21", "b22", "b23",
+          "b24", "b25", "b26", "b27", "b28", "b29", "b30", "b31"))
   final class F3(val value: Int) {
     def |(other: F3): F3 = new F3(value | other.value)
     def &(other: F3): F3 = new F3(value & other.value)
@@ -242,74 +256,82 @@ package object tests {
   /** roundtrip-basics0: func(a: tuple<u32, s32>)
    *    -> tuple<u32, s32>;
    */
-  @WitImport("component:testing/tests", "roundtrip-basics1")
-  def roundtripBasics1(a: wit.Tuple9[wit.unsigned.UByte, Byte, wit.unsigned.UShort, Short,
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-basics1")
+  def roundtripBasics1(
+      @WitName("a") a: wit.Tuple9[wit.unsigned.UByte, Byte, wit.unsigned.UShort, Short,
           wit.unsigned.UInt, Int, Float, Double, Char]): wit.Tuple9[wit.unsigned.UByte, Byte,
       wit.unsigned.UShort, Short, wit.unsigned.UInt, Int, Float, Double, Char] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-string")
-  def roundtripString(a: String): String = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-string")
+  def roundtripString(@WitName("a") a: String): String = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-point")
-  def roundtripPoint(a: Point): Point = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-point")
+  def roundtripPoint(@WitName("a") a: Point): Point = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-list-u16")
-  def roundtripListU16(a: Array[wit.unsigned.UShort]): Array[wit.unsigned.UShort] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-list-u16")
+  def roundtripListU16(@WitName("a") a: Array[wit.unsigned.UShort]): Array[wit.unsigned.UShort] =
+    wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-list-point")
-  def roundtripListPoint(a: Array[Point]): Array[Point] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-list-point")
+  def roundtripListPoint(@WitName("a") a: Array[Point]): Array[Point] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-list-variant")
-  def roundtripListVariant(a: Array[C1]): Array[C1] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-list-variant")
+  def roundtripListVariant(@WitName("a") a: Array[C1]): Array[C1] = wit.native
 
-  @WitImport("component:testing/tests", "test-c1")
-  def testC1(a: C1): Unit = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "test-c1")
+  def testC1(@WitName("a") a: C1): Unit = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-c1")
-  def roundtripC1(a: C1): C1 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-c1")
+  def roundtripC1(@WitName("a") a: C1): C1 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-z1")
-  def roundtripZ1(a: Z1): Z1 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-z1")
+  def roundtripZ1(@WitName("a") a: Z1): Z1 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-enum")
-  def roundtripEnum(a: E1): E1 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-enum")
+  def roundtripEnum(@WitName("a") a: E1): E1 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-tuple")
-  def roundtripTuple(a: wit.Tuple2[C1, Z1]): wit.Tuple2[C1, Z1] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-tuple")
+  def roundtripTuple(@WitName("a") a: wit.Tuple2[C1, Z1]): wit.Tuple2[C1, Z1] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-option")
-  def roundtripOption(a: java.util.Optional[String]): java.util.Optional[String] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option")
+  def roundtripOption(@WitName("a") a: java.util.Optional[String]): java.util.Optional[String] =
+    wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-double-option")
-  def roundtripDoubleOption(a: java.util.Optional[java.util.Optional[String]]): java.util.Optional[
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-double-option")
+  def roundtripDoubleOption(
+      @WitName("a") a: java.util.Optional[java.util.Optional[String]]): java.util.Optional[
       java.util.Optional[String]] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-f1")
-  def roundtripF1(a: F1): F1 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-f1")
+  def roundtripF1(@WitName("a") a: F1): F1 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-f2")
-  def roundtripF2(a: F2): F2 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-f2")
+  def roundtripF2(@WitName("a") a: F2): F2 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-f3")
-  def roundtripF3(a: F3): F3 = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-f3")
+  def roundtripF3(@WitName("a") a: F3): F3 = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-flags")
-  def roundtripFlags(a: wit.Tuple2[F1, F1]): wit.Tuple2[F1, F1] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-flags")
+  def roundtripFlags(@WitName("a") a: wit.Tuple2[F1, F1]): wit.Tuple2[F1, F1] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-result")
-  def roundtripResult(a: wit.Result[Unit, Unit]): wit.Result[Unit, Unit] = wit.native
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-result")
+  def roundtripResult(@WitName("a") a: wit.Result[Unit, Unit]): wit.Result[Unit, Unit] = wit.native
 
-  @WitImport("component:testing/tests", "roundtrip-string-error")
-  def roundtripStringError(a: wit.Result[Float, String]): wit.Result[Float, String] = wit.native
-
-  @WitImport("component:testing/tests", "roundtrip-enum-error")
-  def roundtripEnumError(a: wit.Result[C1, E1]): wit.Result[C1, E1] = wit.native
-
-  @WitImport("component:testing/tests", "roundtrip-tuple2")
-  def roundtripTuple2(a: wit.Tuple2[Int, String]): wit.Tuple2[Int, String] = wit.native
-
-  @WitImport("component:testing/tests", "roundtrip-tuple3")
-  def roundtripTuple3(a: wit.Tuple3[Int, String, Boolean]): wit.Tuple3[Int, String, Boolean] =
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-string-error")
+  def roundtripStringError(@WitName("a") a: wit.Result[Float, String]): wit.Result[Float, String] =
     wit.native
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-enum-error")
+  def roundtripEnumError(@WitName("a") a: wit.Result[C1, E1]): wit.Result[C1, E1] = wit.native
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-tuple2")
+  def roundtripTuple2(@WitName("a") a: wit.Tuple2[Int, String]): wit.Tuple2[Int, String] =
+    wit.native
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-tuple3")
+  def roundtripTuple3(
+      @WitName("a") a: wit.Tuple3[Int, String, Boolean]): wit.Tuple3[Int, String, Boolean] = {
+    wit.native
+  }
 
 }

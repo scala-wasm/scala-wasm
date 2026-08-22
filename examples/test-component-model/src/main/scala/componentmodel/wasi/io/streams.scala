@@ -1,17 +1,27 @@
 package componentmodel.wasi.io
 
+import componentmodel.wasi.io.error.Error
+import componentmodel.wasi.io.poll.Pollable
+import scala.scalajs.wit.Result
+import scala.scalajs.wit.annotation.{
+  WitName,
+  WitResourceDrop,
+  WitResourceImport,
+  WitResourceMethod,
+  WitScope,
+  WitVariant
+}
+import scala.scalajs.wit.native
+import scala.scalajs.wit.unsigned.{UByte, ULong}
+
 package object streams {
 
-  // Type definitions
-  type Error = componentmodel.wasi.io.error.Error
-
-  type Pollable = componentmodel.wasi.io.poll.Pollable
-
-  @scala.scalajs.wit.annotation.WitVariant
+  @WitVariant(WitScope("wasi", "io", "streams", "0.2.0"), "stream-error")
   sealed trait StreamError
 
   object StreamError {
-    final class LastOperationFailed(val value: Error) extends StreamError {
+    @WitName("last-operation-failed")
+    final class LastOperationFailed(@WitName("value") val value: Error) extends StreamError {
       override def equals(other: Any): Boolean = other match {
         case that: LastOperationFailed => this.value == that.value
         case _                         => false
@@ -28,86 +38,73 @@ package object streams {
       def unapply(arg: LastOperationFailed): Some[Error] = Some(arg.value)
     }
 
+    @WitName("closed")
     object Closed extends StreamError {
       override def toString(): String = "Closed"
     }
   }
 
-  // Resources
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "input-stream")
+  @WitResourceImport(WitScope("wasi", "io", "streams", "0.2.0"), "input-stream")
   final class InputStream private () extends Object {
-    @scala.scalajs.wit.annotation.WitResourceMethod("read")
-    def read(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("read")
+    def read(@WitName("len") len: ULong): Result[Array[UByte], StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-read")
-    def blockingRead(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        Array[scala.scalajs.wit.unsigned.UByte], StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("blocking-read")
+    def blockingRead(@WitName("len") len: ULong): Result[Array[UByte], StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("skip")
-    def skip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("skip")
+    def skip(@WitName("len") len: ULong): Result[ULong, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-skip")
-    def blockingSkip(len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("blocking-skip")
+    def blockingSkip(@WitName("len") len: ULong): Result[ULong, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
-    def subscribe(): Pollable = scala.scalajs.wit.native
+    @WitResourceMethod("subscribe")
+    def subscribe(): Pollable = native
 
-    @scala.scalajs.wit.annotation.WitResourceDrop
-    def close(): Unit = scala.scalajs.wit.native
+    @WitResourceDrop
+    def close(): Unit = native
   }
 
   object InputStream {}
 
-  @scala.scalajs.wit.annotation.WitResourceImport("wasi:io/streams@0.2.0", "output-stream")
+  @WitResourceImport(WitScope("wasi", "io", "streams", "0.2.0"), "output-stream")
   final class OutputStream private () extends Object {
-    @scala.scalajs.wit.annotation.WitResourceMethod("check-write")
-    def checkWrite(): scala.scalajs.wit.Result[scala.scalajs.wit.unsigned.ULong, StreamError] =
-      scala.scalajs.wit.native
+    @WitResourceMethod("check-write")
+    def checkWrite(): Result[ULong, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("write")
-    def write(contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit,
-        StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("write")
+    def write(@WitName("contents") contents: Array[UByte]): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-write-and-flush")
+    @WitResourceMethod("blocking-write-and-flush")
     def blockingWriteAndFlush(
-        contents: Array[scala.scalajs.wit.unsigned.UByte]): scala.scalajs.wit.Result[Unit,
-        StreamError] = scala.scalajs.wit.native
+        @WitName("contents") contents: Array[UByte]): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("flush")
-    def flush(): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("flush")
+    def flush(): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-flush")
-    def blockingFlush(): scala.scalajs.wit.Result[Unit, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("blocking-flush")
+    def blockingFlush(): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("subscribe")
-    def subscribe(): Pollable = scala.scalajs.wit.native
+    @WitResourceMethod("subscribe")
+    def subscribe(): Pollable = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("write-zeroes")
-    def writeZeroes(
-        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = {
-      scala.scalajs.wit.native
-    }
+    @WitResourceMethod("write-zeroes")
+    def writeZeroes(@WitName("len") len: ULong): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-write-zeroes-and-flush")
+    @WitResourceMethod("blocking-write-zeroes-and-flush")
     def blockingWriteZeroesAndFlush(
-        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[Unit, StreamError] = {
-      scala.scalajs.wit.native
-    }
+        @WitName("len") len: ULong): Result[Unit, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("splice")
-    def splice(src: InputStream, len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("splice")
+    def splice(@WitName("src") src: InputStream,
+        @WitName("len") len: ULong): Result[ULong, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceMethod("blocking-splice")
-    def blockingSplice(src: InputStream,
-        len: scala.scalajs.wit.unsigned.ULong): scala.scalajs.wit.Result[
-        scala.scalajs.wit.unsigned.ULong, StreamError] = scala.scalajs.wit.native
+    @WitResourceMethod("blocking-splice")
+    def blockingSplice(@WitName("src") src: InputStream,
+        @WitName("len") len: ULong): Result[ULong, StreamError] = native
 
-    @scala.scalajs.wit.annotation.WitResourceDrop
-    def close(): Unit = scala.scalajs.wit.native
+    @WitResourceDrop
+    def close(): Unit = native
   }
 
   object OutputStream {}

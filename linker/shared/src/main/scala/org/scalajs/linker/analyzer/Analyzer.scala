@@ -726,6 +726,14 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     def wasmwitNativeMembersUsed: scala.collection.Set[MethodName] =
       _wasmwitNativeMembersUsed.keySet
 
+    private[this] val isWitTypeDefUsed = new AtomicBoolean(false)
+
+    def useWitTypeDef(moduleUnit: ModuleUnit)(implicit from: From): Unit = {
+      if (isWitTypeDefUsed.compareAndSet(false, true)) {
+        data.witTypeDef.foreach(followReachabilityInfo(_, moduleUnit))
+      }
+    }
+
     val jsNativeLoadSpec: Option[JSNativeLoadSpec] = data.jsNativeLoadSpec
 
     private[this] val _staticDependencies: mutable.Map[ClassName, Unit] = emptyThreadSafeMap
@@ -1556,6 +1564,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     for (dataInClass <- data.byClass) {
       lookupClass(dataInClass.className) { clazz =>
         val className = dataInClass.className
+        clazz.useWitTypeDef(moduleUnit)
 
         val flags = dataInClass.flags
         if (flags != 0) {
@@ -1724,7 +1733,7 @@ private class AnalyzerRun(config: CommonPhaseConfig, initial: Boolean,
     new Infos.ClassInfo(className, ClassKind.Class, syntheticKind = None, nonExistent = true,
         superClass = superClass, interfaces = Nil, jsNativeLoadSpec = None,
         referencedFieldClasses = Map.empty, methods = methods,
-        jsNativeMembers = Map.empty, witNativeMembers = Map.empty,
+        jsNativeMembers = Map.empty, witTypeDef = None, witNativeMembers = Map.empty,
         jsMethodProps = Nil, topLevelExports = Nil)
   }
 

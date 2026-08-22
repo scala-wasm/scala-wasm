@@ -1,12 +1,12 @@
 package componentmodel.wasi.cli
 
+import componentmodel.wasi.io.streams.OutputStream
+import scala.scalajs.wit.annotation.{WitImport, WitScope}
+import scala.scalajs.wit.native
+
 package object stdout {
 
-  // Type definitions
-  type OutputStream = componentmodel.wasi.io.streams.OutputStream
-
-  // Functions
-  @scala.scalajs.wit.annotation.WitImport("wasi:cli/stdout@0.2.0", "get-stdout")
-  def getStdout(): OutputStream = scala.scalajs.wit.native
+  @WitImport(WitScope("wasi", "cli", "stdout", "0.2.0"), "get-stdout")
+  def getStdout(): OutputStream = native
 
 }

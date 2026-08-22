@@ -271,8 +271,8 @@ final class Emitter(config: Emitter.Config) {
     val conflicts = topLevelExports.exists {
       case topLevelExport =>
         topLevelExport.tree match {
-          case WitExportDef(moduleName, WitFunctionName.Function(functionName), _, _) =>
-            moduleName == componentExport.moduleName &&
+          case WitExportDef(scope, WitFunctionName.Function(functionName), _, _) =>
+            scope == componentExport.scope &&
             functionName == componentExport.functionName
           case _ =>
             false
@@ -282,7 +282,7 @@ final class Emitter(config: Emitter.Config) {
     if (conflicts) {
       throw new LinkingException(
           "Wasm Component module initializer export conflicts with " +
-          s"a WIT export: ${componentExport.moduleName}#${componentExport.functionName}")
+          s"a WIT export: ${componentExport.exportName}")
     }
   }
 
@@ -292,9 +292,7 @@ final class Emitter(config: Emitter.Config) {
       implicit ctx: WasmContext): Unit = {
     implicit val pos = Position.NoPosition
 
-    val exportName =
-      if (componentExport.moduleName.isEmpty) componentExport.functionName
-      else s"${componentExport.moduleName}#${componentExport.functionName}"
+    val exportName = componentExport.exportName
     val functionID = genFunctionID.forExport(exportName)
     val fb = new FunctionBuilder(
       ctx.moduleBuilder,

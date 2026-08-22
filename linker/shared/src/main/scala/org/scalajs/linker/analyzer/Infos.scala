@@ -22,6 +22,7 @@ import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.Version
 import org.scalajs.ir.WellKnownNames._
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.frontend.{LinkTimeEvaluator, LinkTimeProperties, SyntheticClassKind}
@@ -67,6 +68,7 @@ object Infos {
       val referencedFieldClasses: Map[FieldName, ClassName],
       val methods: Array[Map[MethodName, MethodInfo]],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
+      val witTypeDef: Option[ReachabilityInfo],
       val witNativeMembers: Map[MethodName, ReachabilityInfo],
       val jsMethodProps: List[ReachabilityInfo],
       val topLevelExports: List[TopLevelExportInfo]
@@ -638,6 +640,11 @@ object Infos {
       new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
         .generateWitNativeMember(member)
     }
+
+    def generateWitTypeDef(typeDef: WitTypeDef): ReachabilityInfo = {
+      new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
+        .generateWitTypeDef(typeDef)
+    }
   }
 
   private final class GenInfoTraverser(version: Version,
@@ -670,6 +677,11 @@ object Infos {
       //   }
       // }
       MethodInfo(true, reachabilityInfo)
+    }
+
+    def generateWitTypeDef(typeDef: WitTypeDef): ReachabilityInfo = {
+      generateForWITTypeDef(typeDef)
+      builder.result()
     }
 
     def generateMethodInfo(methodDef: MethodDef): MethodInfo = {
@@ -756,7 +768,7 @@ object Infos {
     private def generateForWIT(tpe: wit.WasmInterfaceType): Unit = {
       tpe match {
         case wit.FuncType(paramTypes, resultType) =>
-          for (t <- paramTypes) generateForWIT(t)
+          for (t <- paramTypes) generateForWIT(t.tpe)
           resultType.foreach(t => generateForWIT(t))
 
         case wit.TupleType(fields) =>
@@ -769,19 +781,11 @@ object Infos {
           }
           for (f <- fields) generateForWIT(f)
 
-        case wit.RecordType(className, fields) =>
-          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
-          builder.addInstantiatedClass(className, ctor)
-          for (f <- fields) {
-            builder.addFieldRead(f.label)
-            generateForWIT(f.tpe)
-          }
+        case wit.RecordTypeRef(className) =>
+          builder.addReferencedClass(className)
 
-        case wit.FlagsType(className, _) =>
-          builder.maybeAddAccessedClassData(ClassRef(className))
-          // FlagsType is a final class with a single Int parameter
-          val ctor = MethodName.constructor(List(IntRef))
-          builder.addInstantiatedClass(className, ctor)
+        case wit.FlagsTypeRef(className) =>
+          builder.addReferencedClass(className)
 
         case wit.OptionType(t) =>
           builder.addInstantiatedClass(
@@ -792,8 +796,8 @@ object Infos {
 
         case wit.ResultType(ok, err) =>
           val cases = List(
-            wit.CaseType(ComponentResultOkClass, ok),
-            wit.CaseType(ComponentResultErrClass, err)
+            wit.CaseType(ComponentResultOkClass, "ok", ok),
+            wit.CaseType(ComponentResultErrClass, "err", err)
           )
           builder.maybeAddAccessedClassData(ClassRef(ComponentResultClass))
           for (c <- cases) {
@@ -806,8 +810,49 @@ object Infos {
             }
           }
 
-        case wit.VariantType(className, cases) =>
+        case wit.EnumTypeRef(className) =>
+          builder.addReferencedClass(className)
+
+        case wit.VariantTypeRef(className) =>
+          builder.addReferencedClass(className)
+
+        case wit.ListType(elemType, _) =>
+          generateForWIT(elemType)
+
+        case wit.ResourceType(className, _) =>
+          builder.maybeAddReferencedClass(ClassRef(className))
+
+        case _ =>
+      }
+
+    }
+
+    private def generateForWITTypeDef(typeDef: WitTypeDef): Unit = {
+      typeDef match {
+        case WitTypeDef.Record(className, _, _, fields) =>
+          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
+          builder.addInstantiatedClass(className, ctor)
+          for (f <- fields) {
+            builder.addFieldRead(f.label)
+            generateForWIT(f.tpe)
+          }
+
+        case WitTypeDef.Flags(className, _, _, _) =>
           builder.maybeAddAccessedClassData(ClassRef(className))
+          val ctor = MethodName.constructor(List(IntRef))
+          builder.addInstantiatedClass(className, ctor)
+
+        case WitTypeDef.Enum(className, _, _, cases) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          // A WIT enum is closed. If the parent type appears in the WIT
+          // surface, CABI decoding may need to construct any of its cases.
+          for (c <- cases)
+            builder.addInstantiatedClass(c.className, wit.makeCtorName(c.tpe))
+
+        case WitTypeDef.Variant(className, _, _, cases) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          // A WIT variant is closed. If the parent type appears in the WIT
+          // surface, CABI decoding may need to construct any of its cases.
           for (c <- cases) {
             val ctor = wit.makeCtorName(c.tpe)
             builder.addInstantiatedClass(c.className, ctor)
@@ -817,15 +862,9 @@ object Infos {
             }
           }
 
-        case wit.ListType(elemType, _) =>
-          generateForWIT(elemType)
-
-        case wit.ResourceType(className) =>
-          builder.maybeAddReferencedClass(ClassRef(className))
-
-        case _ =>
+        case WitTypeDef.Resource(resource) =>
+          builder.maybeAddReferencedClass(ClassRef(resource.className))
       }
-
     }
 
     override def traverse(tree: Tree): Unit = {

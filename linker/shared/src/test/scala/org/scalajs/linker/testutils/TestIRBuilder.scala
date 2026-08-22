@@ -22,6 +22,7 @@ import org.scalajs.ir.OriginalName
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker.interface.ModuleInitializer
@@ -60,6 +61,7 @@ object TestIRBuilder {
       jsConstructor: Option[JSConstructorDef] = None,
       jsMethodProps: List[JSMethodPropDef] = Nil,
       jsNativeMembers: List[JSNativeMemberDef] = Nil,
+      witTypeDef: Option[WitTypeDef] = None,
       witNativeMembers: List[WitNativeMemberDef] = Nil,
       topLevelExportDefs: List[TopLevelExportDef] = Nil,
       optimizerHints: OptimizerHints = EOH
@@ -67,7 +69,8 @@ object TestIRBuilder {
     val notHashed = ClassDef(ClassIdent(className), NON, kind, jsClassCaptures,
         superClass.map(ClassIdent(_)), interfaces.map(ClassIdent(_)),
         jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-        jsMethodProps, jsNativeMembers, witNativeMembers, topLevelExportDefs)(
+        jsMethodProps, jsNativeMembers, witTypeDef, witNativeMembers,
+        topLevelExportDefs)(
         optimizerHints)
     Hashers.hashClassDef(notHashed)
   }

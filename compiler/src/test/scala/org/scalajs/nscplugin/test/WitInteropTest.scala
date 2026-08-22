@@ -27,7 +27,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceImportMustBeOnFinalClass: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     class MyResource
     """ hasErrors
     """
@@ -37,7 +37,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     object MyResource
     """ hasErrors
     """
@@ -47,7 +47,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     trait MyResource
     """ hasErrors
     """
@@ -59,7 +59,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceImportCannotBeSealed: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     sealed final class MyResource private () extends Object
     """ hasErrors
     """
@@ -71,7 +71,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceMethodsMustHaveAnnotation: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       def doSomething(): Unit = ???
     }
@@ -83,7 +83,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       def method1(): Unit = ???
       def method2(x: Int): String = ???
@@ -99,7 +99,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceMethod("annotated")
       def annotated(): Unit = wm.native
@@ -118,15 +118,15 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
     class NotCompatible
 
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceMethod("invalid")
-      def invalidMethod(x: NotCompatible): Unit = wm.native
+      def invalidMethod(@WitName("x") x: NotCompatible): Unit = wm.native
     }
     """ hasErrors
     """
       |newSource1.scala:11: error: Parameter type 'NotCompatible' in method 'invalidMethod' is not compatible with Component Model
-      |      def invalidMethod(x: NotCompatible): Unit = wm.native
+      |      def invalidMethod(@WitName("x") x: NotCompatible): Unit = wm.native
       |          ^
     """
   }
@@ -135,7 +135,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
     class NotCompatible
 
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceMethod("invalid")
       def invalidMethod(): NotCompatible = wm.native
@@ -150,7 +150,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceCompanionObjectMethodsMustHaveAnnotation: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceMethod("do-something")
       def doSomething(): Unit = wm.native
@@ -168,20 +168,20 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceDropMustHaveNoParametersAndReturnUnit: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceDrop
-      def close(x: Int): Unit = wm.native
+      def close(@WitName("x") x: Int): Unit = wm.native
     }
     """ hasErrors
     """
       |newSource1.scala:9: error: @WitResourceDrop method must take no parameters
-      |      def close(x: Int): Unit = wm.native
+      |      def close(@WitName("x") x: Int): Unit = wm.native
       |          ^
     """
 
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceDrop
       def close(): Int = wm.native
@@ -196,7 +196,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceCanHaveAtMostOneDropMethod: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceDrop
       def close(): Unit = wm.native
@@ -214,7 +214,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceConstructorOnlyInCompanionObject: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceConstructor
       def create(): MyResource = wm.native
@@ -229,7 +229,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceStaticMethodOnlyInCompanionObject: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object {
       @WitResourceStaticMethod("factory")
       def factory(): MyResource = wm.native
@@ -244,7 +244,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceConstructorMustBeOnApply: Unit = {
     """
-    @WitResourceImport("test:module", "resource")
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "resource")
     final class MyResource private () extends Object
     object MyResource {
       @WitResourceConstructor
@@ -312,23 +312,23 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def resourceValidExample: Unit = {
     """
-    @WitResourceImport("test:io/streams", "input-stream")
+    @WitResourceImport(WitScope.unversioned("test", "io", "streams"), "input-stream")
     final class InputStream private () extends Object {
       @WitResourceMethod("read")
-      def read(len: ULong): wm.Result[Array[UByte], String] = wm.native
+      def read(@WitName("len") len: ULong): wm.Result[Array[UByte], String] = wm.native
 
       @WitResourceMethod("blocking-read")
-      def blockingRead(len: ULong): wm.Result[Array[UByte], String] = wm.native
+      def blockingRead(@WitName("len") len: ULong): wm.Result[Array[UByte], String] = wm.native
 
       @WitResourceDrop
       def close(): Unit = wm.native
     }
     object InputStream {}
 
-    @WitResourceImport("test:io/streams", "output-stream")
+    @WitResourceImport(WitScope.unversioned("test", "io", "streams"), "output-stream")
     final class OutputStream private () extends Object {
       @WitResourceMethod("write")
-      def write(data: Array[UByte]): wm.Result[Unit, String] = wm.native
+      def write(@WitName("data") data: Array[UByte]): wm.Result[Unit, String] = wm.native
 
       @WitResourceMethod("flush")
       def flush(): wm.Result[Unit, String] = wm.native
@@ -341,7 +341,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
       def apply(): OutputStream = wm.native
 
       @WitResourceConstructor
-      def apply(x: Int): OutputStream = wm.native
+      def apply(@WitName("x") x: Int): OutputStream = wm.native
     }
     """.hasNoWarns()
   }
@@ -350,7 +350,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantMustBeSealed: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     trait NotSealed
     """ hasErrors
     """
@@ -362,7 +362,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantMustHaveAtLeastOneCase: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait Empty
     """ hasErrors
     """
@@ -374,14 +374,15 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantCasesMustBeCaseClassOrObject: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait MyVariant
     object MyVariant {
+      @WitName("not-a-case")
       class NotACase extends MyVariant
     }
     """ hasErrors
     """
-      |newSource1.scala:9: error: Component variant case 'NotACase' must be a final class or object
+      |newSource1.scala:10: error: Component variant case 'NotACase' must be a final class or object
       |      class NotACase extends MyVariant
       |            ^
     """
@@ -389,14 +390,15 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantCaseClassMustHaveAtMostOneField: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait MyVariant
     object MyVariant {
+      @WitName("too-many-fields")
       final case class TooManyFields(x: Int, y: String) extends MyVariant
     }
     """ hasErrors
     """
-      |newSource1.scala:9: error: Component variant case 'TooManyFields' must have exactly one field, found 2.
+      |newSource1.scala:10: error: Component variant case 'TooManyFields' must have exactly one field, found 2.
       |      final case class TooManyFields(x: Int, y: String) extends MyVariant
       |                       ^
     """
@@ -404,14 +406,15 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantCaseFieldMustBeNamedValue: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait MyVariant
     object MyVariant {
+      @WitName("wrong-name")
       final case class WrongName(data: Int) extends MyVariant
     }
     """ hasErrors
     """
-      |newSource1.scala:9: error: Component variant case 'WrongName' field must be named 'value', found 'data'.
+      |newSource1.scala:10: error: Component variant case 'WrongName' field must be named 'value', found 'data'.
       |      final case class WrongName(data: Int) extends MyVariant
       |                                 ^
     """
@@ -421,14 +424,15 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
     class NotCompatible
 
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait MyVariant
     object MyVariant {
+      @WitName("invalid-type")
       final case class InvalidType(value: NotCompatible) extends MyVariant
     }
     """ hasErrors
     """
-      |newSource1.scala:11: error: Field 'value' has type 'NotCompatible' which is not compatible with Component Model.
+      |newSource1.scala:12: error: Field 'value' has type 'NotCompatible' which is not compatible with Component Model.
       |      final case class InvalidType(value: NotCompatible) extends MyVariant
       |                                   ^
     """
@@ -436,21 +440,39 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def variantValidCaseClassWithValue: Unit = {
     """
-    @WitVariant
+    @WitVariant(WitScope.root, "my-variant")
     sealed trait MyVariant
     object MyVariant {
+      @WitName("int-value")
       final case class IntValue(value: Int) extends MyVariant
+      @WitName("string-value")
       final case class StringValue(value: String) extends MyVariant
+      @WitName("none")
       final case object None extends MyVariant
     }
     """.hasNoWarns()
+  }
+
+  @Test def variantCasesMustHaveWitName: Unit = {
+    """
+    @WitVariant(WitScope.root, "my-variant")
+    sealed trait MyVariant
+    object MyVariant {
+      final case class MissingName(value: Int) extends MyVariant
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:9: error: Component variant case 'MissingName' must have a @WitName annotation
+      |      final case class MissingName(value: Int) extends MyVariant
+      |                       ^
+    """
   }
 
   // --- Component Record Tests ---
 
   @Test def recordMustBeCaseClass: Unit = {
     """
-    @WitRecord
+    @WitRecord(WitScope.root, "record")
     class NotCaseClass(x: Int, y: Int)
     """ hasErrors
     """
@@ -460,7 +482,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitRecord
+    @WitRecord(WitScope.root, "record")
     trait NotCaseClass
     """ hasErrors
     """
@@ -470,7 +492,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitRecord
+    @WitRecord(WitScope.root, "record")
     object NotCaseClass
     """ hasErrors
     """
@@ -482,7 +504,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def recordMustBeFinal: Unit = {
     """
-    @WitRecord
+    @WitRecord(WitScope.root, "record")
     case class NotFinal(x: Int, y: Int)
     """ hasErrors
     """
@@ -496,49 +518,61 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
     class NotCompatible
 
-    @WitRecord
-    final case class InvalidRecord(x: Int, y: NotCompatible)
+    @WitRecord(WitScope.root, "record")
+    final case class InvalidRecord(@WitName("x") x: Int, @WitName("y") y: NotCompatible)
     """ hasErrors
     """
       |newSource1.scala:9: error: Field 'y' has type 'NotCompatible' which is not compatible with Component Model
-      |    final case class InvalidRecord(x: Int, y: NotCompatible)
-      |                                           ^
+      |    final case class InvalidRecord(@WitName("x") x: Int, @WitName("y") y: NotCompatible)
+      |                                                                       ^
     """
 
     """
     class NotCompatible
 
-    @WitRecord
-    final case class MultipleInvalid(a: NotCompatible, b: String, c: NotCompatible)
+    @WitRecord(WitScope.root, "record")
+    final case class MultipleInvalid(@WitName("a") a: NotCompatible, @WitName("b") b: String, @WitName("c") c: NotCompatible)
     """ hasErrors
     """
       |newSource1.scala:9: error: Field 'a' has type 'NotCompatible' which is not compatible with Component Model
-      |    final case class MultipleInvalid(a: NotCompatible, b: String, c: NotCompatible)
-      |                                     ^
+      |    final case class MultipleInvalid(@WitName("a") a: NotCompatible, @WitName("b") b: String, @WitName("c") c: NotCompatible)
+      |                                                   ^
       |newSource1.scala:9: error: Field 'c' has type 'NotCompatible' which is not compatible with Component Model
-      |    final case class MultipleInvalid(a: NotCompatible, b: String, c: NotCompatible)
-      |                                                                  ^
+      |    final case class MultipleInvalid(@WitName("a") a: NotCompatible, @WitName("b") b: String, @WitName("c") c: NotCompatible)
+      |                                                                                                            ^
     """
   }
 
   @Test def recordValidExamples: Unit = {
     """
-    @WitRecord
-    final case class Point(x: Int, y: Int)
+    @WitRecord(WitScope.root, "point")
+    final case class Point(@WitName("x") x: Int, @WitName("y") y: Int)
 
-    @WitRecord
-    final case class Person(name: String, age: Int)
+    @WitRecord(WitScope.root, "person")
+    final case class Person(@WitName("name") name: String, @WitName("age") age: Int)
 
-    @WitRecord
+    @WitRecord(WitScope.root, "empty")
     final case class Empty()
     """.hasNoWarns()
+  }
+
+  @Test def recordFieldsMustHaveWitName: Unit = {
+    """
+    @WitRecord(WitScope.root, "record")
+    final case class MissingName(x: Int)
+    """ hasErrors
+    """
+      |newSource1.scala:7: error: Field 'x' must have a @WitName annotation
+      |    final case class MissingName(x: Int)
+      |                                 ^
+    """
   }
 
   // --- Component Flags Tests ---
 
   @Test def flagsMustBeCaseClass: Unit = {
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     class NotCaseClass(value: Int)
     """ hasErrors
     """
@@ -548,7 +582,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     trait NotCaseClass
     """ hasErrors
     """
@@ -560,7 +594,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def flagsMustBeFinal: Unit = {
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     case class NotFinal(value: Int)
     """ hasErrors
     """
@@ -572,7 +606,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def flagsMustNotExtendAnyVal: Unit = {
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     final case class ValueClass(value: Int) extends AnyVal
     """ hasErrors
     """
@@ -584,7 +618,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def flagsMustHaveOneParameter: Unit = {
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     final case class NoParameters()
     """ hasErrors
     """
@@ -594,7 +628,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitFlags(2)
+    @WitFlags(WitScope.root, "flags", Array("a", "b"))
     final case class TwoParameters(value: Int, other: Int)
     """ hasErrors
     """
@@ -606,7 +640,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def flagsParameterMustBeIntNamedValue: Unit = {
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     final case class WrongType(value: String)
     """ hasErrors
     """
@@ -616,7 +650,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
 
     """
-    @WitFlags(1)
+    @WitFlags(WitScope.root, "flags", Array("a"))
     final case class WrongName(data: Int)
     """ hasErrors
     """
@@ -628,7 +662,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
   @Test def flagsValidExamples: Unit = {
     """
-    @WitFlags(3)
+    @WitFlags(WitScope.root, "my-flags", Array("flag0", "flag1", "flag2"))
     final case class MyFlags(value: Int) {
       def |(other: MyFlags): MyFlags = MyFlags(value | other.value)
       def &(other: MyFlags): MyFlags = MyFlags(value & other.value)
@@ -639,7 +673,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
       val Flag2 = MyFlags(1 << 2)
     }
 
-    @WitFlags(2)
+    @WitFlags(WitScope.root, "simple-flags", Array("a", "b"))
     final case class SimpleFlags(value: Int)
     object SimpleFlags {
       val A = SimpleFlags(1 << 0)
@@ -653,36 +687,36 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportMustBeInPublicObject: Unit = {
     """
     class MyClass {
-      @WitImport("test:module", "in-class")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "in-class")
       def inClass(x: Int): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "in-class") methods must be defined in a public object
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "in-class") methods must be defined in a public object
       |      def inClass(x: Int): Int = wm.native
       |          ^
     """
 
     """
     trait MyTrait {
-      @WitImport("test:module", "in-trait")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "in-trait")
       def inTrait(x: Int): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "in-trait") methods must be defined in a public object
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "in-trait") methods must be defined in a public object
       |      def inTrait(x: Int): Int = wm.native
       |          ^
     """
 
     """
     private object PrivateObject {
-      @WitImport("test:module", "in-private")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "in-private")
       def inPrivate(x: Int): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "in-private") methods must be defined in a public object
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "in-private") methods must be defined in a public object
       |      def inPrivate(x: Int): Int = wm.native
       |          ^
     """
@@ -691,24 +725,24 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportMustBePublic: Unit = {
     """
     object MyFunctions {
-      @WitImport("test:module", "private-func")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "private-func")
       private def privateFunc(x: Int): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "private-func") methods must be public
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "private-func") methods must be public
       |      private def privateFunc(x: Int): Int = wm.native
       |                  ^
     """
 
     """
     object MyFunctions {
-      @WitImport("test:module", "protected-func")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "protected-func")
       protected def protectedFunc(x: Int): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "protected-func") methods must be public
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "protected-func") methods must be public
       |      protected def protectedFunc(x: Int): Int = wm.native
       |                    ^
     """
@@ -717,12 +751,12 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportCannotHaveTypeParameters: Unit = {
     """
     object MyFunctions {
-      @WitImport("test:module", "generic-func")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "generic-func")
       def genericFunc[T](x: T): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "generic-func") methods cannot have type parameters
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "generic-func") methods cannot have type parameters
       |      def genericFunc[T](x: T): Int = wm.native
       |          ^
     """
@@ -731,13 +765,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportCannotHaveRepeatedParameters: Unit = {
     """
     object MyFunctions {
-      @WitImport("test:module", "varargs-func")
-      def varargsFunc(xs: Int*): Unit = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "varargs-func")
+      def varargsFunc(@WitName("xs") xs: Int*): Unit = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "varargs-func") methods may not have repeated parameters
-      |      def varargsFunc(xs: Int*): Unit = wm.native
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "varargs-func") methods may not have repeated parameters
+      |      def varargsFunc(@WitName("xs") xs: Int*): Unit = wm.native
       |          ^
     """
   }
@@ -745,13 +779,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportCannotHaveDefaultParameters: Unit = {
     """
     object MyFunctions {
-      @WitImport("test:module", "default-param")
-      def defaultParam(x: Int = 42): Int = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "default-param")
+      def defaultParam(@WitName("x") x: Int = 42): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport("test:module", "default-param") methods may not have default parameters
-      |      def defaultParam(x: Int = 42): Int = wm.native
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "default-param") methods may not have default parameters
+      |      def defaultParam(@WitName("x") x: Int = 42): Int = wm.native
       |          ^
     """
   }
@@ -761,13 +795,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCompatible
 
     object MyFunctions {
-      @WitImport("test:module", "invalid-param")
-      def invalidParam(x: NotCompatible): Unit = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "invalid-param")
+      def invalidParam(@WitName("x") x: NotCompatible): Unit = wm.native
     }
     """ hasErrors
     """
       |newSource1.scala:10: error: Parameter 'x' has type 'NotCompatible' which is not compatible with Component Model
-      |      def invalidParam(x: NotCompatible): Unit = wm.native
+      |      def invalidParam(@WitName("x") x: NotCompatible): Unit = wm.native
       |          ^
     """
   }
@@ -777,13 +811,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
     class NotCompatible
 
     object MyFunctions {
-      @WitImport("test:module", "invalid-return")
-      def invalidReturn(x: Int): NotCompatible = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "invalid-return")
+      def invalidReturn(@WitName("x") x: Int): NotCompatible = wm.native
     }
     """ hasErrors
     """
       |newSource1.scala:10: error: Return type 'NotCompatible' is not compatible with Component Model
-      |      def invalidReturn(x: Int): NotCompatible = wm.native
+      |      def invalidReturn(@WitName("x") x: Int): NotCompatible = wm.native
       |          ^
     """
   }
@@ -795,12 +829,12 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
 
     object MyFunctions extends Base {
-      @WitImport("test:module", "override-func")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "override-func")
       def baseMethod(): Int = wm.native
     }
     """ hasErrors
     """
-      |newSource1.scala:12: error: An scala.scalajs.wit.annotation.WitImport("test:module", "override-func") member cannot implement the inherited member Base.baseMethod
+      |newSource1.scala:12: error: An scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "override-func") member cannot implement the inherited member Base.baseMethod
       |      def baseMethod(): Int = wm.native
       |          ^
     """
@@ -810,13 +844,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """
     object MyFunctions {
       def outer(): Unit = {
-        @WitImport("test:module", "local-func")
+        @WitImport(WitScope.unversioned("test", "test", "module"), "local-func")
         def localFunc(x: Int): Int = wm.native
       }
     }
     """ hasErrors
     """
-      |newSource1.scala:9: error: scala.scalajs.wit.annotation.WitImport("test:module", "local-func") is not allowed on local definitions
+      |newSource1.scala:9: error: scala.scalajs.wit.annotation.WitImport(scala.scalajs.wit.annotation.WitScope.unversioned("test", "test", "module"), "local-func") is not allowed on local definitions
       |        def localFunc(x: Int): Int = wm.native
       |            ^
     """
@@ -825,28 +859,28 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witImportValidExamples: Unit = {
     """
     object MyImports {
-      @WitImport("test:module", "add")
-      def add(a: Int, b: Int): Int = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "add")
+      def add(@WitName("a") a: Int, @WitName("b") b: Int): Int = wm.native
 
-      @WitImport("test:module", "greet")
-      def greet(name: String): String = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "greet")
+      def greet(@WitName("name") name: String): String = wm.native
 
-      @WitImport("test:module", "process")
-      def process(data: Array[UByte]): wm.Result[Unit, String] = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "process")
+      def process(@WitName("data") data: Array[UByte]): wm.Result[Unit, String] = wm.native
 
-      @WitImport("test:module", "no-params")
+      @WitImport(WitScope.unversioned("test", "test", "module"), "no-params")
       def noParams(): Unit = wm.native
 
-      @WitImport("test:module", "returns-optional")
-      def returnsOptional(x: Int): java.util.Optional[String] = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "module"), "returns-optional")
+      def returnsOptional(@WitName("x") x: Int): java.util.Optional[String] = wm.native
     }
 
-    @WitRecord
-    final case class Point(x: Int, y: Int)
+    @WitRecord(WitScope.root, "record")
+    final case class Point(@WitName("x") x: Int, @WitName("y") y: Int)
 
     object MoreImports {
-      @WitImport("test:geom", "distance")
-      def distance(p1: Point, p2: Point): Double = wm.native
+      @WitImport(WitScope.unversioned("test", "test", "geom"), "distance")
+      def distance(@WitName("p1") p1: Point, @WitName("p2") p2: Point): Double = wm.native
     }
     """.hasNoWarns()
   }
@@ -856,27 +890,27 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witExportMustBeInStaticObject: Unit = {
     """
     class NotStatic {
-      @WitExport("test:module", "method")
+      @WitExport(WitScope.unversioned("test", "test", "module"), "method")
       def method(): Unit = ???
     }
     """ hasErrors
     """
       |newSource1.scala:7: error: @WitExport can only be used in static objects.
-      |      @WitExport("test:module", "method")
+      |      @WitExport(WitScope.unversioned("test", "test", "module"), "method")
       |       ^
     """
 
     """
     class Owner {
       object Nested {
-        @WitExport("test:module", "method")
+        @WitExport(WitScope.unversioned("test", "test", "module"), "method")
         def method(): Unit = ()
       }
     }
     """ hasErrors
     """
       |newSource1.scala:8: error: @WitExport can only be used in static objects.
-      |        @WitExport("test:module", "method")
+      |        @WitExport(WitScope.unversioned("test", "test", "module"), "method")
       |         ^
     """
   }
@@ -884,7 +918,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def witExportTraitMethodsAreTemporarilyIgnored: Unit = {
     """
     trait GeneratedExports {
-      @WitExport("test:module", "method")
+      @WitExport(WitScope.unversioned("test", "test", "module"), "method")
       def method(): Unit
     }
     """.hasNoWarns()
@@ -895,7 +929,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     object DirectRunImpl {
       val foo = "bar"
 
-      @WitExport("wasi:cli/run@0.2.0", "run")
+      @WitExport(WitScope("wasi", "cli", "run", "0.2.0"), "run")
       def run(): wm.Result[Unit, Unit] = {
         println(foo)
         new wm.Ok(())
@@ -905,19 +939,19 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
 
     object MyAPIImpl {
-      @WitExport("test:api", "get-data")
-      def getData(id: Int): wm.Result[String, String] =
+      @WitExport(WitScope.unversioned("test", "test", "api"), "get-data")
+      def getData(@WitName("id") id: Int): wm.Result[String, String] =
         new wm.Ok(s"data-$id")
 
-      @WitExport("test:api", "process")
-      def process(data: Array[UByte]): Unit = {
+      @WitExport(WitScope.unversioned("test", "test", "api"), "process")
+      def process(@WitName("data") data: Array[UByte]): Unit = {
         // Process data
       }
     }
 
     object Outer {
       object Nested {
-        @WitExport("test:nested", "method")
+        @WitExport(WitScope.unversioned("test", "test", "nested"), "method")
         def method(): Unit = ()
       }
     }
