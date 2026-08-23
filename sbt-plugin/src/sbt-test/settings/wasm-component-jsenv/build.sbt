@@ -1,65 +1,58 @@
 import sbtcompat.PluginCompat._
-import org.scalajs.linker.interface.{ESVersion, WasmComponentModuleInitializerExport}
+import org.scalajs.linker.interface.ESVersion
+import org.scalajs.linker.interface.WasmComponentModuleInitializerExport
+import org.scalajs.linker.interface.WasmComponentModuleInitializerExport._
+import org.scalajs.ir.WitScope
 import org.scalajs.jsenv.wasmtime.WasmtimeEnv
-
-// TODO: currently we can't run tests using the wasmtime env,
-// if the Compile scope has it's own WIT files
 
 inThisBuild(Def.settings(
   version := scalaJSVersion,
   scalaVersion := "2.12.21",
 ))
 
+// TODO: pre-generate each bindings
 val wasmtimeEnvSettings = Def.settings(
   jsEnv := Def.uncached {
-    val config = WasmtimeEnv.Config()
-      .withArgs(List(
+    new WasmtimeEnv(
+      WasmtimeEnv.Config()
+        .withArgs(List(
           "run",
           "-W", "gc,function-references,exceptions",
-          "-S", "cli,http,inherit-env,inherit-network,tcp"
-      ))
-      .withEnv(envVars.value)
-    new WasmtimeEnv(config)
+          "-S", "cli,inherit-env,inherit-network,tcp",
+        ))
+        .withEnv(envVars.value)
+    )
   }
 )
 
-lazy val runComponent = project
-  .in(file("run-component"))
+/* A library that implements `println` on top of `wasi:io` */
+lazy val libIo = project
+  .in(file("lib-io"))
   .enablePlugins(ScalaJSPlugin)
-  .settings(wasmtimeEnvSettings)
+
+/* A library that reads the monotonic clock through `wasi:clocks`. */
+lazy val libClock = project
+  .in(file("lib-clock"))
+  .enablePlugins(ScalaJSPlugin)
   .settings(
-      Compile / scalaJSLinkerConfig := {
-        (Compile / scalaJSLinkerConfig).value
-          .withExperimentalUseWebAssembly(true)
-          .withESFeatures(_.withESVersion(ESVersion.ES2022))
-          .withModuleKind(ModuleKind.WasmComponent)
-          .withWasmFeatures { features =>
-            features
-              .withWitDirectory(Some((baseDirectory.value / "wit").getAbsolutePath))
-              .withWitWorld(Some("command"))
-          }
-      }
+    exportJars := true,
   )
 
-lazy val testComponent = project
-  .in(file("test-component"))
+lazy val runComponent = project
+  .in(file("run-component"))
   .enablePlugins(ScalaJSPlugin, ScalaJSJUnitPlugin)
+  .dependsOn(libIo, libClock)
   .settings(wasmtimeEnvSettings)
   .settings(
-      Test / scalaJSLinkerConfig := {
-        (Test / scalaJSLinkerConfig).value
-          .withExperimentalUseWebAssembly(true)
-          .withESFeatures(_.withESVersion(ESVersion.ES2022))
-          .withModuleKind(ModuleKind.WasmComponent)
-          .withWasmFeatures { features =>
-            features
-              .withWitDirectory(Some((baseDirectory.value / "wit").getAbsolutePath))
-              .withWitWorld(Some("test"))
-              .withModuleInitializerExport(Some(WasmComponentModuleInitializerExport(
-                  org.scalajs.ir.WitScope.Interface(
-                      "wasi", "cli", "run", Some("0.2.0")),
-                  "run",
-                  WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit)))
-          }
-      }
+    scalaJSUseMainModuleInitializer := true,
+    scalaJSLinkerConfig ~= {
+      _.withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
+        .withModuleKind(ModuleKind.WasmComponent)
+        .withWasmFeatures(_.withModuleInitializerExport(
+            Some(WasmComponentModuleInitializerExport(
+              scope = WitScope.Interface("wasi", "cli", "run", Some("0.2.0")),
+              functionName = "run",
+              resultType = ResultType.ResultUnitUnit,
+            ))))
+    }
   )

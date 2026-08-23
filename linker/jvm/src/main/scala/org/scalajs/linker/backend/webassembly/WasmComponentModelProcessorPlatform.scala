@@ -12,12 +12,11 @@
 
 package org.scalajs.linker.backend.webassembly
 
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.sys.process._
 
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
 
 import org.scalajs.linker.interface.unstable.OutputDirectoryImpl
 import org.scalajs.logging.Logger
@@ -30,8 +29,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
   override def processComponentModel(
       outputDirectory: OutputDirectoryImpl,
       wasmFileName: String,
-      witDirectory: Path,
-      worldName: Option[String],
       logger: Logger
   )(implicit ec: ExecutionContext): Future[Unit] = {
     checkWasmToolsInstalled()
@@ -47,30 +44,7 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           val wasmFilePath = tempFile.toString
 
-          // Step 1: wasm-tools component embed (in-place)
-          val baseEmbedCmd = Seq(
-            "wasm-tools",
-            "component",
-            "embed",
-            witDirectory.toString,
-            wasmFilePath,
-            "-o",
-            wasmFilePath
-          )
-          // Add world name if specified, otherwise wasm-tools will auto-detect
-          val embedCmd1 = worldName match {
-            case Some(world) => baseEmbedCmd ++ Seq("-w", world, "--encoding", "utf16")
-            case None        => baseEmbedCmd ++ Seq("--encoding", "utf16")
-          }
-
-          logger.info(s"Embedding user WIT for $wasmFileName")
-
-          runCommand(embedCmd1, "wasm-tools component embed")
-
-          /** Step 3: wasm-tools component new.
-           *  Reads all component-type custom sections which is embedded by component embed,
-           *  filter by core module requirements (unused WASI imports would be dropped), and merges them.
-           */
+          // wasm-tools component new (still required for componentization)
           val newCmd = Seq(
             "wasm-tools",
             "component",
@@ -84,7 +58,6 @@ private final class WasmComponentModelProcessorImpl extends WasmComponentModelPr
 
           runCommand(newCmd, "wasm-tools component new")
 
-          // Read the modified wasm back
           val modifiedWasm = Files.readAllBytes(tempFile)
           ByteBuffer.wrap(modifiedWasm)
         } finally {
