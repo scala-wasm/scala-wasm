@@ -229,21 +229,18 @@ jobs:
         run: sbt sbtPlugin3/scripted
 
   publish-snapshot:
-    # needs:
-    #   - test-suite-js
-    #   - test-suite-webassembly
-    #   - test-suite-pure-wasm
-    #   - test-suite-component
-    #   - test-suite-jvm
-    #   - ir-compiler-and-linker-tests
-    #   - sbt-plugin-scripted
-    # for testing, temporaly running on PR to scala-wasm
+    needs:
+      - test-suite-js
+      - test-suite-webassembly
+      - test-suite-pure-wasm
+      - test-suite-component
+      - test-suite-jvm
+      - ir-compiler-and-linker-tests
+      - sbt-plugin-scripted
     if: >
       github.repository == 'scala-wasm/scala-wasm' &&
-      (
-        (github.event_name == 'push' && github.ref == 'refs/heads/scala-wasm') ||
-        (github.event_name == 'pull_request' && github.base_ref == 'scala-wasm')
-      )
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/scala-wasm'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
