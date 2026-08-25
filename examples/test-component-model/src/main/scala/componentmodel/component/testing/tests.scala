@@ -252,6 +252,35 @@ package object tests {
     val b31 = new F3(1 << 31)
   }
 
+  @WitFlags(WitScope.unversioned("component", "testing", "tests"), "named-f", Array("b0"))
+  final class NamedF(val value: Int) {
+    override def equals(other: Any): Boolean = other match {
+      case that: NamedF => this.value == that.value
+      case _            => false
+    }
+
+    override def hashCode(): Int = value.hashCode()
+  }
+
+  object NamedF {
+    val b0 = new NamedF(1 << 0)
+  }
+
+  @WitRecord(WitScope.unversioned("component", "testing", "tests"), "named-r")
+  final class NamedR(@WitName("b") val b: NamedF) {
+    override def equals(other: Any): Boolean = other match {
+      case that: NamedR => this.b == that.b
+      case _            => false
+    }
+
+    override def hashCode(): Int = b.hashCode()
+  }
+
+  object NamedR {
+    def apply(b: NamedF): NamedR = new NamedR(b)
+    def unapply(arg: NamedR): Some[NamedF] = Some(arg.b)
+  }
+
   // Functions
   /** roundtrip-basics0: func(a: tuple<u32, s32>)
    *    -> tuple<u32, s32>;
@@ -333,5 +362,8 @@ package object tests {
       @WitName("a") a: wit.Tuple3[Int, String, Boolean]): wit.Tuple3[Int, String, Boolean] = {
     wit.native
   }
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-named-r")
+  def roundtripNamedR(@WitName("a") a: NamedR): NamedR = wit.native
 
 }

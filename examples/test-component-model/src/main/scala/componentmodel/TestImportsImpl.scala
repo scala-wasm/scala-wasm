@@ -27,6 +27,11 @@ object TestImportsImpl {
     assert("Hello, World!" == bareGreet("World"))
     assert("Hello, Scala!" == bareGreet("Scala"))
 
+    assert(WorldPoint(3.asInstanceOf[UInt], 4.asInstanceOf[UInt]) ==
+      movePoint(WorldPoint(2.asInstanceOf[UInt], 2.asInstanceOf[UInt])))
+
+    assert(NamedR(NamedF.b0) == roundtripNamedR(NamedR(NamedF.b0)))
+
     assert(1 == roundtripU8(1))
     assert(0 == roundtripS8(0))
     assert(0 == roundtripU16(0))

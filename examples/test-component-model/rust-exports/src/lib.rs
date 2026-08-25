@@ -7,6 +7,7 @@ use crate::bindings::exports::component::testing::basics::Guest as Basics;
 use crate::bindings::exports::component::testing::tests::Guest as Tests;
 use crate::bindings::exports::component::testing::tests::*;
 use crate::bindings::Guest as RootGuest;
+use crate::bindings::WorldPoint;
 
 use std::cell::RefCell;
 
@@ -20,6 +21,10 @@ impl RootGuest for Component {
 
   fn bare_greet(name: String) -> String {
     format!("Hello, {}!", name)
+  }
+
+  fn move_point(p: WorldPoint) -> WorldPoint {
+    WorldPoint { x: p.x + 1, y: p.y + 2 }
   }
 }
 
@@ -126,6 +131,7 @@ impl Tests for Component {
   fn roundtrip_flags(a: (F1, F1)) -> (F1, F1) { a }
   fn roundtrip_tuple2(a: (i32, String)) -> (i32, String) { a }
   fn roundtrip_tuple3(a: (i32, String, bool)) -> (i32, String, bool) { a }
+  fn roundtrip_named_r(a: NamedR) -> NamedR { a }
 }
 
 bindings::export!(Component with_types_in bindings);
