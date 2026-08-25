@@ -317,12 +317,13 @@ private[backend] object ComponentBuilder {
     }
 
     // Step 2: Index named types defined in this interface (record, variant, resouce, and etc)
-    for (named <- namedTypes) {
+    // Topological sort so field references can resolve when bodies are encoded.
+    for (named <- topologicalSortNamedTypes(namedTypes)) {
       named match {
         case _: WitTypeDef.Resource =>
           localTypeIdx(named.className) = builder.addExportResource(named.name)
         case other =>
-          val defId = addNamedTypeBody(builder, other, resolve)
+          val defId = addNamedTypeBody(builder, other, localTypeIdx.toMap)
           localTypeIdx(other.className) = builder.addExportTypeEq(other.name, defId)
       }
     }
@@ -347,13 +348,43 @@ private[backend] object ComponentBuilder {
     builder.decls()
   }
 
+  /** Local named types in dependency order. */
+  private def topologicalSortNamedTypes(namedTypes: List[WitTypeDef]): List[WitTypeDef] = {
+    val byClass = namedTypes.map(t => t.className -> t).toMap
+    val ordered = mutable.LinkedHashSet.empty[ClassName]
+    val visiting = mutable.Set.empty[ClassName]
+
+    def visit(className: ClassName): Unit = {
+      if (ordered.contains(className)) {
+        // skip
+      } else if (!visiting.add(className)) {
+        throw new AssertionError(
+            s"cyclic dependency ${className.nameString}")
+      } else {
+        for (dep <- namedTypeRefs(byClass(className))) {
+          if (byClass.contains(dep))
+            visit(dep)
+        }
+        visiting -= className
+        ordered += className
+      }
+    }
+
+    namedTypes.foreach(t => visit(t.className))
+    ordered.iterator.map(byClass).toList
+  }
+
   private def addNamedTypeBody(builder: ComponentBuilder, named: WitTypeDef,
-      resolve: ValType => ValRef): TypeID = {
+      localTypeIdx: Map[ClassName, TypeID]): TypeID = {
     named match {
       case WitTypeDef.Record(_, _, _, fields) =>
-        builder.addRecord(fields.map(f => f.name -> resolve(f.tpe)))
+        builder.addRecord(fields.map { f =>
+          f.name -> resolveValRef(builder, f.tpe, localTypeIdx)
+        })
       case WitTypeDef.Variant(_, _, _, cases) =>
-        builder.addVariant(cases.map(c => c.name -> c.tpe.map(resolve)))
+        builder.addVariant(cases.map { c =>
+          c.name -> c.tpe.map(resolveValRef(builder, _, localTypeIdx))
+        })
       case WitTypeDef.Enum(_, _, _, cases) =>
         builder.addEnum(cases.map(_.name))
       case WitTypeDef.Flags(_, _, _, names) =>
@@ -364,7 +395,7 @@ private[backend] object ComponentBuilder {
   }
 
   private def resolveValRef(builder: ComponentBuilder, tpe: ValType,
-      localTypeIdx: mutable.Map[ClassName, TypeID]): ValRef = {
+      localTypeIdx: Map[ClassName, TypeID]): ValRef = {
     tpe match {
       case BoolType   => ValRef.Bool
       case S8Type     => ValRef.S8
