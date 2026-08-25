@@ -97,6 +97,12 @@ private[backend] object Components {
     final case class ExportResource(id: TypeID, name: String) extends TypeDecl
     final case class ExportTypeEq(id: TypeID, name: String, ty: TypeID) extends TypeDecl
 
+    /** `(import "name" (type (eq $ty)))` world-level named type. */
+    final case class ImportTypeEq(id: TypeID, name: String, ty: TypeID) extends TypeDecl
+
+    /** `(import "name" (type (sub resource)))` world-level resource. */
+    final case class ImportTypeResource(id: TypeID, name: String) extends TypeDecl
+
     final case class Import(name: String, externtype: ExternType,
         instance: scala.Option[InstanceID])
         extends Decl

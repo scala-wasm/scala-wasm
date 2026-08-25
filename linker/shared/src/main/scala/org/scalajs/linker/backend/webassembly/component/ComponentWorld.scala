@@ -58,6 +58,9 @@ private[backend] object ComponentWorld {
     final case class Interface(scope: WitScope.Interface) extends WorldItem
     final case class Inline(scope: WitScope.Inline) extends WorldItem
     final case class Func(func: Endpoint) extends WorldItem
+
+    /** World-level named type: a Root typedef or `use iface.{T}`. */
+    final case class Type(named: WitTypeDef) extends WorldItem
   }
 
   final case class Endpoint(
@@ -98,15 +101,47 @@ private[backend] object ComponentWorld {
     val endpointsByScope = allEndpoints.groupBy(_.scope)
     val typeDefByClass = allTypeDefs.map(td => td.className -> td).toMap
 
+    // World-level named types: Root typedefs and `use` of types referenced by Root funcs.
+    val worldTypes = mutable.LinkedHashMap.empty[ClassName, WitTypeDef]
+    def addWorldType(td: WitTypeDef): Unit = {
+      td.scope match {
+        case WitScope.Root =>
+          if (!worldTypes.contains(td.className)) {
+            worldTypes(td.className) = td
+            for (className <- namedTypeRefs(td))
+              addWorldType(typeDefByClass(className))
+          }
+        case _: WitScope.Interface =>
+          worldTypes.getOrElseUpdate(td.className, td)
+        case _ =>
+      }
+    }
+    typesByScope.getOrElse(WitScope.Root, Nil).foreach(addWorldType)
+    for {
+      ep <- importRoots.iterator ++ exportRoots.iterator
+      className <- endpointTypeRefs(ep)
+    } addWorldType(typeDefByClass(className))
+
+    // Interfaces referenced only from Root bare funcs still need a world import
+    // so `(alias export ...)` can bring those types into scope.
+    val rootIfaceDeps = mutable.LinkedHashSet.empty[WitScope.Interface]
+    worldTypes.values.foreach { td =>
+      td.scope match {
+        case iface: WitScope.Interface => rootIfaceDeps += iface
+        case _                         =>
+      }
+    }
+
     val interfacesToImport = {
       transitiveInterfaceDeps(
-          importInterfaces ++ exportInterfaces, endpointsByScope, typesByScope,
-          typeDefByClass) ++ importInterfaces
+          importInterfaces ++ exportInterfaces ++ rootIfaceDeps, endpointsByScope,
+          typesByScope, typeDefByClass) ++ importInterfaces ++ rootIfaceDeps
     }
 
     val imports: List[WorldItem] = {
       val b = List.newBuilder[WorldItem]
       interfacesToImport.foreach(i => b += WorldItem.Interface(i))
+      worldTypes.values.foreach(td => b += WorldItem.Type(td))
       importInlines.foreach(i => b += WorldItem.Inline(i))
       importRoots.foreach(i => b += WorldItem.Func(i))
       b.result()

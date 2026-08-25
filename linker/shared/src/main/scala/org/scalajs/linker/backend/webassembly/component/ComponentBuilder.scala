@@ -38,9 +38,8 @@ private[backend] final class ComponentBuilder {
   def addInstanceType(nested: List[Decl]): TypeID =
     addType(Decl.InstanceType(_, nested))
 
-  def addFuncType(signature: FuncType, resolve: ValType => ValRef): TypeID = {
-    val params = signature.params.map(p => p.name -> resolve(p.tpe))
-    val result = signature.resultType.map(resolve)
+  def addFuncType(params: List[(String, ValRef)],
+      result: scala.Option[ValRef]): TypeID = {
     addType(Decl.FuncType(_, params, result))
   }
 
@@ -80,6 +79,9 @@ private[backend] final class ComponentBuilder {
   def addAliasExport(instance: InstanceID, name: String): TypeID =
     addType(Decl.AliasExport(_, instance, name))
 
+  def addAliasExport(id: TypeID, instance: InstanceID, name: String): Unit =
+    declBuf += Decl.AliasExport(id, instance, name)
+
   def addAliasOuter(outer: TypeID): TypeID =
     addType(Decl.AliasOuter(_, outer))
 
@@ -89,16 +91,25 @@ private[backend] final class ComponentBuilder {
   def addExportTypeEq(name: String, ty: TypeID): TypeID =
     addType(Decl.ExportTypeEq(_, name, ty))
 
+  def addImportTypeEq(id: TypeID, name: String, ty: TypeID): Unit =
+    declBuf += Decl.ImportTypeEq(id, name, ty)
+
+  def addImportTypeResource(id: TypeID, name: String): Unit =
+    declBuf += Decl.ImportTypeResource(id, name)
+
+  def addInstanceImport(name: String, ty: TypeID, id: InstanceID): Unit =
+    declBuf += Decl.Import(name, ExternType.Instance(ty), Some(id))
+
   def addInstanceImport(name: String, ty: TypeID): InstanceID = {
     val id = new InstanceID
-    declBuf += Decl.Import(name, ExternType.Instance(ty), Some(id))
+    addInstanceImport(name, ty, id)
     id
   }
 
   def addImport(name: String, externtype: ExternType): Unit = {
     externtype match {
       case ExternType.Instance(_) =>
-        throw new AssertionError("instance import needs InstanceID; use addInstanceImport")
+        throw new AssertionError("instance import needs InstanceID. use addInstanceImport")
       case _ =>
         declBuf += Decl.Import(name, externtype, None)
     }
@@ -158,147 +169,286 @@ private[backend] object ComponentBuilder {
   }
 
   /** Encode world-level imports, then exports. */
-  private def encodeWorld(world: ComponentWorld): List[Decl] = {
-    val builder = new ComponentBuilder
-    val instanceIds = mutable.Map.empty[WitScope.Interface, InstanceID]
-    val aliases = mutable.Map.empty[ClassName, TypeID]
-    val typeDefByClass = world.typeDefByClass
+  private def encodeWorld(world: ComponentWorld): List[Decl] =
+    new WorldEncoder(world).encode()
 
-    def aliasExports(classNames: List[ClassName]): Unit = {
-      for (className <- classNames if !aliases.contains(className)) {
-        val td = typeDefByClass(className)
-        val owner = td.scope match {
-          case iface: WitScope.Interface => iface
-          case _ =>
-            throw new AssertionError(
-                s"foreign type ${className.nameString} is not from a package interface")
+  /** Encode one WIT world into componenttype decls. */
+  private final class WorldEncoder(world: ComponentWorld) {
+    private val builder = new ComponentBuilder
+    private val typeDefByClass = world.typeDefByClass
+    private val emittedAliases = mutable.Set.empty[ClassName]
+
+    private val instanceIds: Map[WitScope.Interface, InstanceID] = {
+      world.imports.collect {
+        // We don't pre-allocate instance IDs for inline blocks or funcs, because WIT cannot
+        // import types/functions defined in inline interface.
+        case ComponentWorld.WorldItem.Interface(iface) =>
+          iface -> new InstanceID
+      }.toMap
+    }
+
+    private val typeIds: Map[(WitScope, String), TypeID] = {
+      // World-level named types and types imported from other interfaces.
+      val fromWorldTypes = world.imports.collect {
+        case ComponentWorld.WorldItem.Type(td) => (td.scope, td.name)
+      }
+      val uses = (world.imports ++ world.exports).flatMap(foreignClassNamesUsedBy).map {
+        className =>
+          val td = typeDefByClass(className)
+          (td.scope, td.name)
+      }
+      (fromWorldTypes ++ uses).distinct.map(k => k -> new TypeID).toMap
+    }
+
+    private val typeIdsByClass: Map[ClassName, TypeID] = {
+      typeDefByClass.flatMap { case (className, td) =>
+        typeIds.get((td.scope, td.name)).map(className -> _)
+      }
+    }
+
+    def encode(): List[Decl] = {
+      // Write each world import, then each world export.
+      //
+      // When an import/export item uses a type defined in another interface (via `use`),
+      // bring the type onto the world first with `(alias export ...)`, then encode
+      // the item (which pulls it in via `alias outer`).
+      //
+      // For example, wasi:io/streams uses a type from wasi:io/error:
+      //
+      // {{{
+      // interface streams {
+      //   use wasi:io/error.{error};
+      //   write: func(e: error);
+      // }
+      //
+      // (import "wasi:io/error" (instance $error ...))
+      // (alias export $error "error" (type $t)) ;; $t = type from $error's exports
+      // (import "wasi:io/streams" (instance (type (instance
+      //   (alias outer 1 $t (type $error))  ;; $error = $t from 1 outer scope
+      //   (export "error" (type $error))
+      //   ...))))
+      // }}}
+      emitImports()
+      emitExports()
+      builder.decls()
+    }
+
+    /** Encode WIT `import` items into world componenttype import decls. */
+    private def emitImports(): Unit = {
+      for (item <- topologicalSortWorldItems(world.imports)) {
+        item match {
+          case ComponentWorld.WorldItem.Type(named) =>
+            encodeWorldType(named)
+            // `(import "ns:pkg/iface" (instance $id ...))`
+          case ComponentWorld.WorldItem.Interface(iface) =>
+            // alias export imported types
+            // e.g. (alias export $error "error" (type $t))
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addInstanceImport(iface.witId, instanceType(iface), instanceIds(iface))
+            // `(import "name" (instance ...))`
+          case ComponentWorld.WorldItem.Inline(inline) =>
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addInstanceImport(inline.name, instanceType(inline))
+            // `(import "f" (func ...))`
+          case ComponentWorld.WorldItem.Func(func) =>
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addImport(WitFunctionName.wasmName(func.name),
+                ExternType.Func(bareFunc(func)))
         }
+      }
+    }
+
+    private def emitExports(): Unit = {
+      for (item <- topologicalSortWorldItems(world.exports)) {
+        item match {
+          // `(export "ns:pkg/iface" (instance ...))`
+          case ComponentWorld.WorldItem.Interface(iface) =>
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addExport(iface.witId, ExternType.Instance(instanceType(iface)))
+            // `(export "name" (instance ...))`
+          case ComponentWorld.WorldItem.Inline(inline) =>
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addExport(inline.name, ExternType.Instance(instanceType(inline)))
+            // `(export "f" (func ...))`
+          case ComponentWorld.WorldItem.Func(func) =>
+            aliasExports(foreignClassNamesUsedBy(item))
+            builder.addExport(WitFunctionName.wasmName(func.name),
+                ExternType.Func(bareFunc(func)))
+          case _: ComponentWorld.WorldItem.Type =>
+            throw new AssertionError("world types are encoded as imports")
+        }
+      }
+    }
+
+    /** World-level named type: Root typedef or `use iface.{T}`. */
+    private def encodeWorldType(named: WitTypeDef): Unit = {
+      val id = typeIdsByClass.getOrElse(named.className,
+          throw new AssertionError(
+              s"missing world type ${WitScope.importModuleName(named.scope)}/${named.name}"))
+      named.scope match {
+        case WitScope.Root =>
+          named match {
+            case _: WitTypeDef.Resource =>
+              // `(import "$name" (type $id (sub resource)))`
+              builder.addImportTypeResource(id, named.name)
+            case other =>
+              val body = addNamedTypeBody(builder, other, typeIdsByClass)
+              // `(import "$name" (type $id (eq $body)))`
+              builder.addImportTypeEq(id, other.name, body)
+          }
+        case _: WitScope.Interface =>
+          encodeWorldUse(named, id)
+        case _: WitScope.Inline =>
+          throw new AssertionError(
+              s"inline type ${named.name} cannot be a world-level type")
+      }
+    }
+
+    // `(alias export $inst "T" $alias)` then `(import "T" (type $id (eq $alias)))`.
+    private def encodeWorldUse(named: WitTypeDef, id: TypeID): Unit = {
+      val owner = interfaceOf(named.className).getOrElse(
+          throw new AssertionError(
+              s"world use ${named.name} is not from a package interface"))
+      val inst = instanceIds.getOrElse(owner,
+          throw new AssertionError(
+              s"missing imported dependency interface ${owner.witId} " +
+              s"before aliasing ${named.name}"))
+      val aliased = builder.addAliasExport(inst, named.name)
+      emittedAliases += named.className
+      builder.addImportTypeEq(id, named.name, aliased)
+    }
+
+    private def topologicalSortWorldItems(
+        items: List[ComponentWorld.WorldItem]): List[ComponentWorld.WorldItem] = {
+      val interfaceItems = items.collect {
+        case i @ ComponentWorld.WorldItem.Interface(iface) => iface -> i
+      }.toMap
+      val typeItems = items.collect {
+        case t @ ComponentWorld.WorldItem.Type(named) => named.className -> t
+      }.toMap
+      val ordered = mutable.LinkedHashSet.empty[ComponentWorld.WorldItem]
+      val visiting = mutable.Set.empty[ComponentWorld.WorldItem]
+
+      def visit(item: ComponentWorld.WorldItem): Unit = {
+        if (ordered.contains(item)) {
+          // skip
+        } else if (!visiting.add(item)) {
+          throw new AssertionError("cyclic world item dependency")
+        } else {
+          item match {
+            case ComponentWorld.WorldItem.Type(named) =>
+              named.scope match {
+                case iface: WitScope.Interface =>
+                  interfaceItems.get(iface).foreach(visit)
+                case _ =>
+              }
+              for (className <- namedTypeRefs(named) if className != named.className) {
+                typeItems.get(className).foreach(visit)
+                interfaceOf(className).flatMap(interfaceItems.get).foreach(visit)
+              }
+            case _ =>
+              for (className <- foreignClassNamesUsedBy(item)) {
+                typeItems.get(className).foreach(visit)
+                interfaceOf(className).flatMap(interfaceItems.get).foreach(visit)
+              }
+          }
+          visiting -= item
+          ordered += item
+        }
+      }
+
+      items.foreach(visit)
+      ordered.toList
+    }
+
+    // `(alias export $id "T" $inst)` for each first-seen `use ns:pkg/iface.{T}`.
+    private def aliasExports(classNames: Iterable[ClassName]): Unit = {
+      for (className <- classNames if emittedAliases.add(className)) {
+        val td = typeDefByClass(className)
+        val owner = interfaceOf(className).getOrElse(
+            throw new AssertionError(
+                s"foreign type ${className.nameString} is not from a package interface"))
         val inst = instanceIds.getOrElse(owner,
             throw new AssertionError(
                 s"missing imported dependency interface ${owner.witId} " +
                 s"before aliasing ${td.name}"))
-        aliases(className) = builder.addAliasExport(inst, td.name)
+        builder.addAliasExport(typeIdsByClass(className), inst, td.name)
       }
     }
 
-    /** WIT `use other.{T}` in `scope`. */
-    def witUses(scope: WitScope): List[ClassName] = {
-      typeRefsIn(world.typesFor(scope), world.endpointsFor(scope)).filter { className =>
-        typeDefByClass(className).scope match {
-          case iface: WitScope.Interface if iface != scope => true
-          case _                                         => false
-        }
-      }.distinct.sorted
-    }
-
-    /** WIT `use other.{T}` on this item that are not yet in `aliases`. */
-    def usesOf(item: ComponentWorld.WorldItem): List[ClassName] = {
+    /** `ClassName`s of types from other interfaces that `item` references. */
+    private def foreignClassNamesUsedBy(item: ComponentWorld.WorldItem): List[ClassName] = {
       item match {
         case ComponentWorld.WorldItem.Interface(iface) =>
-          witUses(iface).filter(!aliases.contains(_))
+          filterForeignClassNames(iface, scopeTypeRefs(iface))
         case ComponentWorld.WorldItem.Inline(inline) =>
-          witUses(inline).filter(!aliases.contains(_))
-        case ComponentWorld.WorldItem.Func(_) =>
-          Nil
-      }
-    }
-
-    def addImportedItem(item: ComponentWorld.WorldItem): Unit = {
-      item match {
-        case ComponentWorld.WorldItem.Interface(iface) =>
-          val instanceTy = encodeInstanceType(
-              iface, world.endpointsFor(iface), world.typesFor(iface), aliases,
-              typeDefByClass)
-          instanceIds(iface) =
-            builder.addInstanceImport(iface.witId, builder.addInstanceType(instanceTy))
-        case ComponentWorld.WorldItem.Inline(inline) =>
-          val instanceTy = encodeInstanceType(
-              inline, world.endpointsFor(inline), world.typesFor(inline), aliases,
-              typeDefByClass)
-          builder.addInstanceImport(inline.name, builder.addInstanceType(instanceTy))
+          filterForeignClassNames(inline, scopeTypeRefs(inline))
         case ComponentWorld.WorldItem.Func(func) =>
-          val resolve = (tpe: ValType) =>
-            resolveValRef(builder, tpe, mutable.Map.empty)
-          val ty = builder.addFuncType(func.signature, resolve)
-          builder.addImport(WitFunctionName.wasmName(func.name), ExternType.Func(ty))
+          filterForeignClassNames(func.scope, endpointTypeRefs(func))
+        case ComponentWorld.WorldItem.Type(named) =>
+          filterForeignClassNames(named.scope, namedTypeRefs(named))
       }
     }
 
-    def addExportedItem(item: ComponentWorld.WorldItem): Unit = {
-      item match {
-        case ComponentWorld.WorldItem.Interface(iface) =>
-          val instanceTy = encodeInstanceType(
-              iface, world.endpointsFor(iface), world.typesFor(iface), aliases,
-              typeDefByClass)
-          builder.addExport(iface.witId,
-              ExternType.Instance(builder.addInstanceType(instanceTy)))
-        case ComponentWorld.WorldItem.Inline(inline) =>
-          val instanceTy = encodeInstanceType(
-              inline, world.endpointsFor(inline), world.typesFor(inline), aliases,
-              typeDefByClass)
-          builder.addExport(inline.name,
-              ExternType.Instance(builder.addInstanceType(instanceTy)))
-        case ComponentWorld.WorldItem.Func(func) =>
-          val resolve = (tpe: ValType) =>
-            resolveValRef(builder, tpe, mutable.Map.empty)
-          val ty = builder.addFuncType(func.signature, resolve)
-          builder.addExport(WitFunctionName.wasmName(func.name), ExternType.Func(ty))
+    /** Collect referenced types from the given scope. */
+    private def scopeTypeRefs(scope: WitScope): List[ClassName] = {
+      world.typesFor(scope).flatMap(namedTypeRefs) ++
+      world.endpointsFor(scope).flatMap(endpointTypeRefs)
+    }
+
+    /** Filter out classes defined in this scope */
+    private def filterForeignClassNames(scope: WitScope,
+        classNames: Iterable[ClassName]): List[ClassName] = {
+      classNames.filter { className =>
+        interfaceOf(className).exists(_ != scope)
+      }.toList.distinct
+    }
+
+    private def interfaceOf(className: ClassName): Option[WitScope.Interface] = {
+      typeDefByClass(className).scope match {
+        case iface: WitScope.Interface => Some(iface)
+        case _                         => None
       }
     }
 
-    // Write each world import, then each world export.
-    //
-    // When an import/export item uses a type defined in another interface (via `use`),
-    // bring the type onto the world first with `(alias export ...)`, then encode
-    // the item (which pulls it in via `alias outer`).
-    //
-    // For example, wasi:io/streams uses a type from wasi:io/error:
-    //
-    // {{{
-    // interface streams {
-    //   use wasi:io/error.{error};
-    //   write: func(e: error);
-    // }
-    //
-    // (import "wasi:io/error" (instance $error ...))
-    // (alias export $error "error" (type $t)) ;; $t = type from $error's exports
-    // (import "wasi:io/streams" (instance (type (instance
-    //   (alias outer 1 $t (type $error))  ;; $error = $t from 1 outer scope
-    //   (export "error" (type $error))
-    //   ...))))
-    // }}}
-    //
-    // Same `aliases` table for imports and exports: later items look up $t
-    // already put there (no second alias export). Alias export can only name
-    // imported instances, so imports run first.
-    for (item <- world.imports) {
-      aliasExports(usesOf(item))
-      addImportedItem(item)
+    private def bareFunc(func: ComponentWorld.Endpoint): TypeID = {
+      val params = func.signature.params.map { p =>
+        p.name -> resolveValRef(builder, p.tpe, typeIdsByClass)
+      }
+      val result = func.signature.resultType.map(resolveValRef(builder, _, typeIdsByClass))
+      builder.addFuncType(params, result)
     }
-    for (item <- world.exports) {
-      aliasExports(usesOf(item))
-      addExportedItem(item)
+
+    private def instanceType(scope: WitScope): TypeID = {
+      builder.addInstanceType(encodeInstanceType(
+          scope, world.endpointsFor(scope), world.typesFor(scope), typeIdsByClass,
+          typeDefByClass))
     }
-    builder.decls()
   }
 
-  private def typeRefsIn(namedTypes: List[WitTypeDef],
-      endpoints: List[ComponentWorld.Endpoint]): List[ClassName] = {
-    namedTypes.flatMap(namedTypeRefs) ++ endpoints.flatMap(endpointTypeRefs)
-  }
-
-  private[component] def encodeInstanceType(scope: WitScope, endpoints: List[ComponentWorld.Endpoint],
+  /** Build decls for one WIT interface/inline as a component instance type.
+   *
+   *  Emits, in order:
+   *   1. Types defined in another interfaces: `(alias outer ...)` + `(export "T" (type ...))`
+   *   2. Named types defined in this scope in topological order.
+   *   3. Exported funcs.
+   *
+   *  @param scope This interface or inline scope
+   *  @param endpoints Functions belong to this `scope`
+   *  @param namedTypes Named types defined in `scope`
+   *  @param worldTypeIds World-referencable types keyed by IR class
+   *  @param typeDefByClass All named types in the world, for resolving type refs
+   */
+  private[component] def encodeInstanceType(scope: WitScope,
+      endpoints: List[ComponentWorld.Endpoint],
       namedTypes: List[WitTypeDef],
       worldTypeIds: Map[ClassName, TypeID],
       typeDefByClass: Map[ClassName, WitTypeDef]): List[Decl] = {
     val builder = new ComponentBuilder
-    val localTypeIdx = mutable.Map.empty[ClassName, TypeID]
-
-    def resolve(tpe: ValType): ValRef =
-      resolveValRef(builder, tpe, localTypeIdx)
+    var localTypeIdx = Map.empty[ClassName, TypeID]
 
     // Step 1: Index WIT `use other.{T}`. Pull world's
-    // `(alias export ...)` from `worldAliases` using `alias outer`.
+    // `(alias export ...)` from `worldTypeIds` using `alias outer`.
     // `alias outer`, then export the local name `typeName`.
     //   (alias outer 1 $t (type $error))
     //   (export "error" (type $error))
@@ -312,19 +462,20 @@ private[backend] object ComponentBuilder {
           throw new AssertionError(
               s"missing aliased foreign type for ${className.nameString}"))
       val aliased = builder.addAliasOuter(outerId)
-      localTypeIdx(className) =
-        builder.addExportTypeEq(typeDefByClass(className).name, aliased)
+      localTypeIdx = localTypeIdx + (className ->
+        builder.addExportTypeEq(typeDefByClass(className).name, aliased))
     }
 
     // Step 2: Index named types defined in this interface (record, variant, resouce, and etc)
-    // Topological sort so field references can resolve when bodies are encoded.
+    // Topological sort so field referencess can resolve when bodies are encoded.
     for (named <- topologicalSortNamedTypes(namedTypes)) {
       named match {
         case _: WitTypeDef.Resource =>
-          localTypeIdx(named.className) = builder.addExportResource(named.name)
+          localTypeIdx = localTypeIdx + (named.className -> builder.addExportResource(named.name))
         case other =>
-          val defId = addNamedTypeBody(builder, other, localTypeIdx.toMap)
-          localTypeIdx(other.className) = builder.addExportTypeEq(other.name, defId)
+          val defId = addNamedTypeBody(builder, other, localTypeIdx)
+          localTypeIdx =
+            localTypeIdx + (other.className -> builder.addExportTypeEq(other.name, defId))
       }
     }
 
@@ -340,7 +491,11 @@ private[backend] object ComponentBuilder {
     for (func <- resourceFuncs ::: plainFuncs) {
       val exportName = WitFunctionName.wasmName(func.name)
       if (seenNames.add(exportName)) {
-        val ty = builder.addFuncType(func.signature, resolve)
+        val params = func.signature.params.map { p =>
+          p.name -> resolveValRef(builder, p.tpe, localTypeIdx)
+        }
+        val result = func.signature.resultType.map(resolveValRef(builder, _, localTypeIdx))
+        val ty = builder.addFuncType(params, result)
         builder.addExport(exportName, ExternType.Func(ty))
       }
     }
