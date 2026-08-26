@@ -240,6 +240,19 @@ private sealed class ComponentBinaryWriter(component: Component) {
         buf.byte(0x00)
         buf.u32(typeIdx(ty))
 
+      case Decl.ImportTypeEq(_, name, ty) =>
+        buf.byte(0x03)
+        writeNameAttributes(buf, name)
+        buf.byte(0x03)
+        buf.byte(0x00) // typebound ::= eq
+        buf.u32(typeIdx(ty))
+
+      case Decl.ImportTypeResource(_, name) =>
+        buf.byte(0x03)
+        writeNameAttributes(buf, name)
+        buf.byte(0x03)
+        buf.byte(0x01) // typebound ::= sub resource
+
       case Decl.Import(name, externtype, _) =>
         buf.byte(0x03)
         writeNameAttributes(buf, name)

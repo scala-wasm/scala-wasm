@@ -58,6 +58,9 @@ private[backend] object ComponentWorld {
     final case class Interface(scope: WitScope.Interface) extends WorldItem
     final case class Inline(scope: WitScope.Inline) extends WorldItem
     final case class Func(func: Endpoint) extends WorldItem
+
+    /** World-level named type: a Root typedef or `use iface.{T}`. */
+    final case class Type(named: WitTypeDef) extends WorldItem
   }
 
   final case class Endpoint(
@@ -98,16 +101,47 @@ private[backend] object ComponentWorld {
     val endpointsByScope = allEndpoints.groupBy(_.scope)
     val typeDefByClass = allTypeDefs.map(td => td.className -> td).toMap
 
-    // Dependency interfaces needed so imports/exports can `use` their types
+    // World-level named types: Root typedefs and `use` of types referenced by Root funcs.
+    val worldTypes = mutable.LinkedHashMap.empty[ClassName, WitTypeDef]
+    def addWorldType(td: WitTypeDef): Unit = {
+      td.scope match {
+        case WitScope.Root =>
+          if (!worldTypes.contains(td.className)) {
+            worldTypes(td.className) = td
+            for (className <- namedTypeRefs(td))
+              addWorldType(typeDefByClass(className))
+          }
+        case _: WitScope.Interface =>
+          worldTypes.getOrElseUpdate(td.className, td)
+        case _ =>
+      }
+    }
+    typesByScope.getOrElse(WitScope.Root, Nil).foreach(addWorldType)
+    for {
+      ep <- importRoots.iterator ++ exportRoots.iterator
+      className <- endpointTypeRefs(ep)
+    } addWorldType(typeDefByClass(className))
+
+    // Interfaces referenced only from Root bare funcs still need a world import
+    // so `(alias export ...)` can bring those types into scope.
+    val rootIfaceDeps = mutable.LinkedHashSet.empty[WitScope.Interface]
+    worldTypes.values.foreach { td =>
+      td.scope match {
+        case iface: WitScope.Interface => rootIfaceDeps += iface
+        case _                         =>
+      }
+    }
+
     val interfacesToImport = {
-      dependencyInterfaces(
-          importInterfaces ++ exportInterfaces, endpointsByScope, typesByScope,
-          typeDefByClass) ++ importInterfaces
+      transitiveInterfaceDeps(
+          importInterfaces ++ exportInterfaces ++ rootIfaceDeps, endpointsByScope,
+          typesByScope, typeDefByClass) ++ importInterfaces ++ rootIfaceDeps
     }
 
     val imports: List[WorldItem] = {
       val b = List.newBuilder[WorldItem]
       interfacesToImport.foreach(i => b += WorldItem.Interface(i))
+      worldTypes.values.foreach(td => b += WorldItem.Type(td))
       importInlines.foreach(i => b += WorldItem.Inline(i))
       importRoots.foreach(i => b += WorldItem.Func(i))
       b.result()
@@ -164,86 +198,78 @@ private[backend] object ComponentWorld {
     byKey.values.toList
   }
 
-  /** Interfaces that `roots` depend on via `use`, in topological order. */
-  private def dependencyInterfaces(
+  /** Interfaces transitively referenced by `roots` via `use`. */
+  private def transitiveInterfaceDeps(
       roots: Iterable[WitScope.Interface],
       endpointsByScope: Map[WitScope, List[Endpoint]],
       typesByScope: Map[WitScope, List[WitTypeDef]],
       typeDefByClass: Map[ClassName, WitTypeDef]): mutable.LinkedHashSet[WitScope.Interface] = {
     def depsOf(iface: WitScope.Interface): Iterable[WitScope.Interface] = {
       val deps = mutable.HashSet.empty[WitScope.Interface]
-      val refsByTypes = for {
-        named <- typesByScope.getOrElse(iface, Nil)
-        ref <- namedTypeRefs(named, typeDefByClass)
-      } yield ref
-      val refsByEndpoints = for {
-        func <- endpointsByScope.getOrElse(iface, Nil)
-        tpe <- func.signature.params.map(_.tpe) ++ func.signature.resultType
-        ref <- valTypeRefs(tpe, typeDefByClass)
-      } yield ref
-      (refsByTypes ++ refsByEndpoints).foreach {
+      val refs = {
+        typesByScope.getOrElse(iface, Nil).flatMap(namedTypeRefs) ++
+        endpointsByScope.getOrElse(iface, Nil).flatMap(endpointTypeRefs)
+      }
+      refs.foreach { className =>
         // Only named package interfaces need a world import for `use`
-        case (dep: WitScope.Interface, _) if dep != iface => deps += dep
-        case _                                            =>
+        typeDefByClass(className).scope match {
+          case dep: WitScope.Interface if dep != iface => deps += dep
+          case _                                       =>
+        }
       }
       deps
     }
 
-    val ordered = mutable.LinkedHashSet.empty[WitScope.Interface]
+    val seen = mutable.LinkedHashSet.empty[WitScope.Interface]
     def visit(iface: WitScope.Interface): Unit = {
-      for (dep <- depsOf(iface) if !ordered.contains(dep)) {
+      for (dep <- depsOf(iface) if seen.add(dep))
         visit(dep)
-        ordered += dep
-      }
     }
 
     roots.foreach(visit)
-    ordered
+    seen
   }
 
-  /** Collect types referenced from the given named type definition. */
-  private[component] def namedTypeRefs(named: WitTypeDef,
-      typeDefByClass: Map[ClassName, WitTypeDef]): List[(WitScope, String)] = {
+  /** Collect ClassNames referenced from an endpoint signature. */
+  private[component] def endpointTypeRefs(func: Endpoint): List[ClassName] = {
+    val tpes = func.signature.params.map(_.tpe) ++ func.signature.resultType
+    tpes.flatMap(valTypeRefs)
+  }
+
+  /** Collect ClassNames referenced from the given named type definition. */
+  private[component] def namedTypeRefs(named: WitTypeDef): List[ClassName] = {
     named match {
       case WitTypeDef.Record(_, _, _, fields) =>
-        fields.flatMap(f => valTypeRefs(f.tpe, typeDefByClass))
+        fields.flatMap(f => valTypeRefs(f.tpe))
       case WitTypeDef.Variant(_, _, _, cases) =>
-        cases.flatMap(_.tpe.toList.flatMap(valTypeRefs(_, typeDefByClass)))
+        cases.flatMap(_.tpe.toList.flatMap(valTypeRefs(_)))
       case _ =>
         Nil
     }
   }
 
-  /** Collect types referenced from the given value type. */
-  private[component] def valTypeRefs(tpe: ValType,
-      typeDefByClass: Map[ClassName, WitTypeDef]): List[(WitScope, String)] = {
-    def namedRef(className: ClassName): List[(WitScope, String)] = {
-      val td = typeDefByClass.getOrElse(className,
-          throw new AssertionError(
-              s"missing WitTypeDef for ${className.nameString}"))
-      (td.scope, td.name) :: Nil
-    }
-
+  /** Collect ClassNames of named types referenced from the given value type. */
+  private[component] def valTypeRefs(tpe: ValType): List[ClassName] = {
     tpe match {
       case ListType(elem, _) =>
-        valTypeRefs(elem, typeDefByClass)
+        valTypeRefs(elem)
       case RecordTypeRef(className) =>
-        namedRef(className)
+        className :: Nil
       case VariantTypeRef(className) =>
-        namedRef(className)
+        className :: Nil
       case EnumTypeRef(className) =>
-        namedRef(className)
+        className :: Nil
       case FlagsTypeRef(className) =>
-        namedRef(className)
+        className :: Nil
       case ResourceType(className, _) =>
-        namedRef(className)
+        className :: Nil
       case TupleType(ts) =>
-        ts.flatMap(valTypeRefs(_, typeDefByClass))
+        ts.flatMap(valTypeRefs(_))
       case ResultType(ok, err) =>
-        ok.toList.flatMap(valTypeRefs(_, typeDefByClass)) ++
-        err.toList.flatMap(valTypeRefs(_, typeDefByClass))
+        ok.toList.flatMap(valTypeRefs(_)) ++
+        err.toList.flatMap(valTypeRefs(_))
       case OptionType(inner) =>
-        valTypeRefs(inner, typeDefByClass)
+        valTypeRefs(inner)
       case _: PrimValType =>
         Nil
     }

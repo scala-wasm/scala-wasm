@@ -9,9 +9,12 @@ world scala {
   import tests;
   import countable;
 
+  record world-point { x: u32, y: u32 }
+
   // world level function imports
   import bare-add: func(a: s32, b: s32) -> s32;
   import bare-greet: func(name: string) -> string;
+  import move-point: func(p: world-point) -> world-point;
 
   export tests;
   export test-imports;
@@ -26,9 +29,12 @@ world rust-exports {
   export tests;
   export countable;
 
+  record world-point { x: u32, y: u32 }
+
   // Bare function exports for Rust to implement
   export bare-add: func(a: s32, b: s32) -> s32;
   export bare-greet: func(name: string) -> string;
+  export move-point: func(p: world-point) -> world-point;
 }
 
 world rust-run {
@@ -123,6 +129,10 @@ interface tests {
 
   roundtrip-tuple2: func(a: tuple<s32, string>) -> tuple<s32, string>;
   roundtrip-tuple3: func(a: tuple<s32, string, bool>) -> tuple<s32, string, bool>;
+
+  record named-r { b: named-f }
+  flags named-f { b0 }
+  roundtrip-named-r: func(a: named-r) -> named-r;
 }
 
 interface test-imports {

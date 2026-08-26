@@ -94,4 +94,7 @@ object TestsImpl {
     roundtrip(a)
   }
 
+  @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-named-r")
+  def roundtripNamedR(@WitName("a") a: NamedR): NamedR = roundtrip(a)
+
 }
