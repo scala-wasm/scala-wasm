@@ -172,8 +172,16 @@ object TestImportsImpl {
     // Test Object methods on imported resources
     TestFunctions.testResourceObjectMethods()
 
+    testWitTypeAlias()
+
     val end = Console.currentTimeMillis()
     Console.println(s"elapsed: ${(end - start).toInt} ms")
+  }
+
+  def testWitTypeAlias(): Unit = {
+    assert(Optional.of(7.asInstanceOf[UInt]) ==
+      roundtripOptionU32(Optional.of(7.asInstanceOf[UInt])))
+    assert(Optional.empty[UInt]() == roundtripOptionU32(Optional.empty[UInt]()))
   }
 }
 

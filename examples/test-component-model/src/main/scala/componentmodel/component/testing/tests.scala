@@ -366,4 +366,10 @@ package object tests {
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-named-r")
   def roundtripNamedR(@WitName("a") a: NamedR): NamedR = wit.native
 
+  // Named WIT type alias, Scala should export named type alias in Component binary.
+  type OptionU32 = java.util.Optional[wit.unsigned.UInt]
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
+  def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = wit.native
+
 }
