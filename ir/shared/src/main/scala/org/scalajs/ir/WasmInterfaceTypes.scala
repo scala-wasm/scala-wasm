@@ -141,6 +141,14 @@ object WasmInterfaceTypes {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, nullable = true, exact = false)
   }
 
+  /** Named WIT type alias reference (`type name = ...`). */
+  final case class AliasTypeRef(scope: WitScope, name: String, owner: ClassName) extends ValType {
+    def toIRType(): jstpe.Type = {
+      throw new AssertionError(
+          s"AliasTypeRef($scope, $name, $owner) must be dealiased first")
+    }
+  }
+
   /** A WIT resource declaration, without handle ownership.
    *
    *  For example, `streams/input-stream` in:
@@ -193,7 +201,28 @@ object WasmInterfaceTypes {
     case EnumTypeRef(className)    => jstpe.ClassRef(className)
     case OptionType(tpe)           => jstpe.ClassRef(ClassName("java.util.Optional"))
     case FlagsTypeRef(className)   => jstpe.ClassRef(className)
-    case ResourceType(className, _) => jstpe.ClassRef(className)
+    case ResourceType(className, _)       => jstpe.ClassRef(className)
+    case AliasTypeRef(scope, name, owner) =>
+      throw new AssertionError(
+          s"AliasTypeRef($scope, $name, $owner) must be dealiased first")
+  }
+
+  def dealias(tpe: ValType, resolve: (WitScope, String) => ValType): ValType = {
+    def loop(t: ValType): ValType = t match {
+      case AliasTypeRef(scope, name, _) =>
+        loop(resolve(scope, name))
+      case ListType(elem, len) =>
+        ListType(loop(elem), len)
+      case TupleType(ts) =>
+        TupleType(ts.map(loop))
+      case OptionType(inner) =>
+        OptionType(loop(inner))
+      case ResultType(ok, err) =>
+        ResultType(ok.map(loop), err.map(loop))
+      case other =>
+        other
+    }
+    loop(tpe)
   }
 
   def makeCtorName(tpe: Option[ValType]): MethodName = {

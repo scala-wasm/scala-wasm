@@ -1497,6 +1497,8 @@ object Trees {
        *  Currently, only relevant for WIT record, variant, enum, flags and resource.
        */
       val witTypeDef: Option[WitTypeDef],
+      /** WIT named type aliases whose Scala definition is owned by this class. */
+      val witAliases: List[WitAliasDef],
       val witNativeMembers: List[WitNativeMemberDef],
       val topLevelExportDefs: List[TopLevelExportDef]
   )(
@@ -1522,6 +1524,7 @@ object Trees {
         jsMethodProps: List[JSMethodPropDef],
         jsNativeMembers: List[JSNativeMemberDef],
         witTypeDef: Option[WitTypeDef],
+        witAliases: List[WitAliasDef] = Nil,
         witNativeMembers: List[WitNativeMemberDef],
         topLevelExportDefs: List[TopLevelExportDef]
     )(
@@ -1529,7 +1532,7 @@ object Trees {
         implicit pos: Position): ClassDef = {
       new ClassDef(name, originalName, kind, jsClassCaptures, superClass,
           interfaces, jsSuperClass, jsNativeLoadSpec, fields, methods,
-          jsConstructor, jsMethodProps, jsNativeMembers, witTypeDef,
+          jsConstructor, jsMethodProps, jsNativeMembers, witTypeDef, witAliases,
           witNativeMembers, topLevelExportDefs)(
           optimizerHints)
     }

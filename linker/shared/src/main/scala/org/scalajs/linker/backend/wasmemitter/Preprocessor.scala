@@ -39,6 +39,8 @@ object Preprocessor {
     val (itableBucketCount, itableBucketAssignments) =
       computeItableBuckets(classes)
 
+    val aliasMap = WitAliasResolution.collectAliases(classes)
+
     val classInfosBuilder = mutable.HashMap.empty[ClassName, ClassInfo]
     val definedReflectiveProxyNames = mutable.HashSet.empty[MethodName]
 
@@ -66,7 +68,7 @@ object Preprocessor {
     val reflectiveProxyIDs = definedReflectiveProxyNames.toList.sorted.zipWithIndex.toMap
 
     new WasmContext(coreSpec, coreLib, classInfos, reflectiveProxyIDs,
-        privateJSFields, itableBucketCount)
+        privateJSFields, itableBucketCount, aliasMap)
   }
 
   private def computeStaticFieldMirrors(

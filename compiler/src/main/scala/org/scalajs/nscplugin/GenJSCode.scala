@@ -847,6 +847,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           memberExports,
           jsNativeMembers,
           witTypeDef = genWitTypeDef(sym),
+          witAliases = genWitAliasDefs(sym),
           witNativeMembers = witNativeMembersBuilder.result(),
           topLevelExportDefs ++ witExportDefsBuilder.result())(
           optimizerHints)
@@ -982,6 +983,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           jsMethodProps,
           jsNativeMembers = Nil,
           witTypeDef = None,
+          witAliases = Nil,
           witNativeMembers = Nil,
           topLevelExports)(
           OptimizerHints.empty)
@@ -1211,7 +1213,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), kind, None, superClass,
           genClassInterfaces(sym, forJSClass = true), None, jsNativeLoadSpec,
-          Nil, Nil, None, Nil, Nil, None, Nil, Nil)(
+          Nil, Nil, None, Nil, Nil, None, Nil, Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -1233,7 +1235,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
 
       js.ClassDef(classIdent, originalNameOfClass(sym), ClassKind.Interface,
           None, None, interfaces, None, None, fields = Nil, methods = allMemberDefs,
-          None, Nil, Nil, genWitTypeDef(sym), Nil, Nil)(
+          None, Nil, Nil, genWitTypeDef(sym), genWitAliasDefs(sym), Nil, Nil)(
           OptimizerHints.empty)
     }
 
@@ -6910,6 +6912,7 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           Nil,
           Nil,
           None,
+          Nil,
           Nil,
           Nil)(
           js.OptimizerHints.empty.withInline(true))

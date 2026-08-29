@@ -23,6 +23,7 @@ import org.scalajs.ir.Types._
 import org.scalajs.ir.Version
 import org.scalajs.ir.WellKnownNames._
 import org.scalajs.ir.WitTypeDef
+import org.scalajs.ir.WitAliasDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import org.scalajs.linker.frontend.{LinkTimeEvaluator, LinkTimeProperties, SyntheticClassKind}
@@ -69,6 +70,7 @@ object Infos {
       val methods: Array[Map[MethodName, MethodInfo]],
       val jsNativeMembers: Map[MethodName, JSNativeLoadSpec],
       val witTypeDef: Option[ReachabilityInfo],
+      val witAliases: Option[ReachabilityInfo],
       val witNativeMembers: Map[MethodName, ReachabilityInfo],
       val jsMethodProps: List[ReachabilityInfo],
       val topLevelExports: List[TopLevelExportInfo]
@@ -641,9 +643,14 @@ object Infos {
         .generateWitNativeMember(member)
     }
 
-    def generateWitTypeDef(typeDef: WitTypeDef): ReachabilityInfo = {
+    def generateWitTypeDef(classDef: ClassDef): ReachabilityInfo = {
       new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
-        .generateWitTypeDef(typeDef)
+        .generateWitTypeDef(classDef)
+    }
+
+    def generateWitAliases(aliases: List[WitAliasDef]): ReachabilityInfo = {
+      new GenInfoTraverser(Version.Unversioned, linkTimeProperties, registerJSInterop)
+        .generateWitAliases(aliases)
     }
   }
 
@@ -679,8 +686,14 @@ object Infos {
       MethodInfo(true, reachabilityInfo)
     }
 
-    def generateWitTypeDef(typeDef: WitTypeDef): ReachabilityInfo = {
-      generateForWITTypeDef(typeDef)
+    def generateWitTypeDef(classDef: ClassDef): ReachabilityInfo = {
+      generateForWITTypeDef(classDef)
+      builder.result()
+    }
+
+    def generateWitAliases(aliases: List[WitAliasDef]): ReachabilityInfo = {
+      for (alias <- aliases)
+        generateForWIT(alias.target)
       builder.result()
     }
 
@@ -822,16 +835,19 @@ object Infos {
         case wit.ResourceType(className, _) =>
           builder.maybeAddReferencedClass(ClassRef(className))
 
+        case wit.AliasTypeRef(_, _, owner) =>
+          builder.addReferencedClass(owner)
+
         case _ =>
       }
 
     }
 
-    private def generateForWITTypeDef(typeDef: WitTypeDef): Unit = {
-      typeDef match {
+    private def generateForWITTypeDef(classDef: ClassDef): Unit = {
+      classDef.witTypeDef.get match {
         case WitTypeDef.Record(className, _, _, fields) =>
-          val ctor = MethodName.constructor(fields.map(f => wit.toTypeRef(f.tpe)))
-          builder.addInstantiatedClass(className, ctor)
+          for (m <- classDef.methods if m.flags.namespace == MemberNamespace.Constructor)
+            builder.addInstantiatedClass(className, m.methodName)
           for (f <- fields) {
             builder.addFieldRead(f.label)
             generateForWIT(f.tpe)

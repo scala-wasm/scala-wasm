@@ -40,7 +40,7 @@ class ComponentBuilderTest {
     val typeDefByClass = Map(f1Class -> f1, r1Class -> r1)
     // r1 depends on f1, but r1 comes first
     val decls = ComponentBuilder.encodeInstanceType(
-        scope, Nil, List(r1, f1), Map.empty, typeDefByClass)
+        scope, Nil, List(r1, f1), Nil, Map.empty, typeDefByClass)
 
     val exportedNames = decls.collect {
       case Decl.ExportTypeEq(_, name, _) => name

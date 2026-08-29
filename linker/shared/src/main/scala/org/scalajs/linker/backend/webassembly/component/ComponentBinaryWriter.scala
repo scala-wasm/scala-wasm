@@ -213,6 +213,11 @@ private sealed class ComponentBinaryWriter(component: Component) {
         buf.byte(0x68)
         buf.u32(typeIdx(resource))
 
+      // defvaltype ::= pvt:<primvaltype> => pvt  (and other valtypes already covered)
+      case Decl.ValTypeDef(_, v) =>
+        buf.byte(0x01)
+        writeValRef(v, typeIdx)
+
       case Decl.AliasExport(_, instance, name) =>
         buf.byte(0x02)
         buf.byte(SortType) // sort ::= 0x03 type

@@ -134,7 +134,7 @@ object Hashers {
     val newTopLevelExportDefs = topLevelExportDefs.map(hashTopLevelExportDef(_))
     ClassDef(name, originalName, kind, jsClassCaptures, superClass, interfaces,
         jsSuperClass, jsNativeLoadSpec, fields, newMethods, newJSConstructorDef,
-        newExportedMembers, jsNativeMembers, witTypeDef, witNativeMembers,
+        newExportedMembers, jsNativeMembers, witTypeDef, witAliases, witNativeMembers,
         newTopLevelExportDefs)(
         optimizerHints)
   }

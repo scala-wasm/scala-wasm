@@ -53,6 +53,8 @@ private[canonicalabi] object WitTypeOps {
       elemSizeVariant(getVariantCases(tpe))
     case FlagsTypeRef(className) =>
       flagsSize(flagNames(className))
+    case a: AliasTypeRef =>
+      elemSize(ctx.dealiasWit(a))
     case ResourceType(_, _) =>
       4
   }
@@ -83,6 +85,8 @@ private[canonicalabi] object WitTypeOps {
       alignmentVariant(getVariantCases(tpe))
     case FlagsTypeRef(className) =>
       flagsSize(flagNames(className))
+    case a: AliasTypeRef =>
+      alignment(ctx.dealiasWit(a))
     case ResourceType(_, _) =>
       4
   }

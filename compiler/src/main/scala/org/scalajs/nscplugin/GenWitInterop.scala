@@ -14,8 +14,6 @@ package org.scalajs.nscplugin
 
 import scala.tools.nsc._
 
-import scala.collection.mutable
-
 import org.scalajs.ir.{
   Names,
   Trees => js,
@@ -24,6 +22,7 @@ import org.scalajs.ir.{
   WitScope,
   ResourceOwnership,
   WitTypeDef,
+  WitAliasDef,
   ClassKind,
   Position
 }
@@ -235,6 +234,21 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
+  /** Collect `@WitAlias` type aliases owned by this class/module. */
+  def genWitAliasDefs(owner: Symbol): List[WitAliasDef] = {
+    val aliases = exitingPhase(currentRun.typerPhase) {
+      owner.info.decls.toList.collect {
+        case tsym if tsym.isAliasType && tsym.hasAnnotation(WitAliasAnnotation) =>
+          val (scope, name) = witIdOf(tsym, WitAliasAnnotation)
+          (scope, name, tsym.info.dealias)
+      }
+    }
+    aliases.map {
+      case (scope, name, targetTpe) =>
+        WitAliasDef(scope, name, toWIT(targetTpe))
+    }
+  }
+
   private def witVariantValueTypeOf(sym: Symbol): Type = {
     exitingPhase(currentRun.typerPhase) {
       if (sym.isModuleClass) {
@@ -262,7 +276,14 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val arg = tpe.typeArgs.headOption.getOrElse {
         throw new AssertionError(s"Borrow without a type argument in $tpe")
       }
-      toWIT(arg) match {
+      val resourceTpe = { // dealias @WitAlias type alias
+        val argSym = exitingPhase(currentRun.typerPhase)(arg.typeSymbolDirect)
+        if (argSym.hasAnnotation(WitAliasAnnotation))
+          exitingPhase(currentRun.typerPhase)(argSym.info.dealias)
+        else
+          arg
+      }
+      toWIT(resourceTpe) match {
         case res: wit.ResourceType =>
           Some(res.copy(ownership = ResourceOwnership.Borrow))
         case other =>
@@ -274,6 +295,12 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
 
   private def toWIT(tpe: Type): wit.ValType = {
     val directTpe = exitingPhase(currentRun.typerPhase)(tpe)
+    val directSym = exitingPhase(currentRun.typerPhase)(directTpe.typeSymbolDirect)
+    if (directSym.hasAnnotation(WitAliasAnnotation)) {
+      val (scope, name) = witIdOf(directSym, WitAliasAnnotation)
+      return wit.AliasTypeRef(scope, name, encodeClassName(directSym.owner))
+    }
+
     val dealiasedTpe = exitingPhase(currentRun.typerPhase)(directTpe.dealias)
 
     unsigned2WIT.get(directTpe.typeSymbolDirect).orElse {

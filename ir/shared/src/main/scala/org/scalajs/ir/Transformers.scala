@@ -234,6 +234,7 @@ object Transformers {
         jsMethodProps.map(transformJSMethodPropDef),
         jsNativeMembers,
         witTypeDef,
+        witAliases,
         witNativeMembers,
         topLevelExportDefs.map(transformTopLevelExportDef)
       )(

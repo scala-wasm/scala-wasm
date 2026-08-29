@@ -114,7 +114,7 @@ object CABIToScalaJS {
 
       case wit.RecordTypeRef(className) =>
         val fields = WitTypeOps.recordFields(className)
-        val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
+        val typeRefs = fields.map(f => wit.toTypeRef(ctx.dealiasWit(f.tpe)))
         val ctor = MethodName.constructor(typeRefs)
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.LocalSet(ptr)
@@ -138,7 +138,7 @@ object CABIToScalaJS {
             genAlignTo(fb, WitTypeOps.alignment(f), ptr)
             fb += wa.LocalGet(ptr)
             genLoadMemory(fb, f)
-            f.toIRType() match {
+            ctx.dealiasWit(f).toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -165,6 +165,9 @@ object CABIToScalaJS {
         val cases = WitTypeOps.getVariantCases(tpe)
         genLoadVariantMemory(fb, cases, false)
 
+      case a: wit.AliasTypeRef =>
+        genLoadMemory(fb, ctx.dealiasWit(a))
+
       case wit.OptionType(t) =>
         val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
         val maxCaseAlignment = WitTypeOps.alignment(t)
@@ -185,7 +188,7 @@ object CABIToScalaJS {
           genNewScalaClass(fb, juOptionalClass, ctorID) {
             fb += wa.LocalGet(ptr)
             genLoadMemory(fb, t)
-            t.toIRType() match {
+            ctx.dealiasWit(t).toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -249,7 +252,7 @@ object CABIToScalaJS {
           for (f <- fields) {
             val fieldType = Flatten.flattenType(f)
             genLoadStack(fb, f, vi)
-            f.toIRType() match {
+            ctx.dealiasWit(f).toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -287,7 +290,7 @@ object CABIToScalaJS {
 
       case wit.RecordTypeRef(className) =>
         val fields = WitTypeOps.recordFields(className)
-        val typeRefs = fields.map(f => wit.toTypeRef(f.tpe))
+        val typeRefs = fields.map(f => wit.toTypeRef(ctx.dealiasWit(f.tpe)))
         val ctor = MethodName.constructor(typeRefs)
         genNewScalaClass(fb, className, ctor) {
           for (f <- fields) {
@@ -309,6 +312,9 @@ object CABIToScalaJS {
         val cases = WitTypeOps.getVariantCases(tpe)
         genLoadVariantStack(fb, cases, vi, boxValue = false)
 
+      case a: wit.AliasTypeRef =>
+        genLoadStack(fb, ctx.dealiasWit(a), vi)
+
       case wit.OptionType(t) =>
         val optionType = watpe.RefType(genTypeID.forClass(juOptionalClass))
         val ctorID = MethodName.constructor(List(ClassRef(ObjectClass)))
@@ -318,7 +324,7 @@ object CABIToScalaJS {
           // non-null
           genNewScalaClass(fb, juOptionalClass, ctorID) {
             genLoadStack(fb, t, vi)
-            t.toIRType() match {
+            ctx.dealiasWit(t).toIRType() match {
               case t: PrimTypeWithRef => genBox(fb, t)
               case _                  =>
             }
@@ -349,7 +355,7 @@ object CABIToScalaJS {
   )(implicit ctx: WasmContext): Unit = {
     val wit.ListType(elemType, maybeLength) = listType
     assert(maybeLength.isEmpty)
-    val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
+    val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(ctx.dealiasWit(elemType)))
     val arrayUnderlyingID = genTypeID.underlyingOf(arrayTypeRef)
     val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
     val elemSize = WitTypeOps.elemSize(elemType)
@@ -430,7 +436,7 @@ object CABIToScalaJS {
           } else {
             val ctorID =
               if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
-              else wit.makeCtorName(c.tpe)
+              else wit.makeCtorName(c.tpe.map(ctx.dealiasWit))
             genNewScalaClass(fb, c.className, ctorID) {
               c.tpe match {
                 case None =>
@@ -439,7 +445,7 @@ object CABIToScalaJS {
                   fb += wa.LocalGet(ptr)
                   genLoadMemory(fb, tpe)
                   if (boxValue) {
-                    tpe.toIRType() match {
+                    ctx.dealiasWit(tpe).toIRType() match {
                       case t: PrimTypeWithRef => genBox(fb, t)
                       case _                  =>
                     }
@@ -477,7 +483,7 @@ object CABIToScalaJS {
           } else {
             val ctorID =
               if (boxValue) MethodName.constructor(List(ClassRef(ObjectClass)))
-              else wit.makeCtorName(c.tpe)
+              else wit.makeCtorName(c.tpe.map(ctx.dealiasWit))
             genNewScalaClass(fb, c.className, ctorID) {
               c.tpe match {
                 case None =>
@@ -487,7 +493,7 @@ object CABIToScalaJS {
                   genCoerceValues(fb, vi.copy(), flattened, expect)
                   genLoadStack(fb, tpe, ValueIterator(fb, expect))
                   if (boxValue) {
-                    tpe.toIRType() match {
+                    ctx.dealiasWit(tpe).toIRType() match {
                       case t: PrimTypeWithRef => genBox(fb, t)
                       case _                  =>
                     }

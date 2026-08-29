@@ -50,3 +50,7 @@ object WitTypeDef {
     def name: String = resource.name
   }
 }
+
+/** Named WIT `type name = target`, stored on the enclosing module ClassDef. */
+final case class WitAliasDef(scope: WitScope, name: String,
+    target: WasmInterfaceTypes.ValType)

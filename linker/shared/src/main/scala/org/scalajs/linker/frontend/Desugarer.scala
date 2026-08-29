@@ -95,6 +95,7 @@ final class Desugarer(config: CommonPhaseConfig, checkIR: Boolean) {
         exportedMembers = newExportedMembers,
         jsNativeMembers,
         witTypeDef,
+        witAliases,
         witNativeMembers,
         optimizerHints,
         pos,

@@ -110,7 +110,7 @@ object ScalaJSToCABI {
             genTypeID.forClass(className),
             genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
           )
-          f.toIRType() match {
+          ctx.dealiasWit(f).toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _                  =>
           }
@@ -159,6 +159,9 @@ object ScalaJSToCABI {
       case tpe: wit.EnumTypeRef =>
         val cases = WitTypeOps.getVariantCases(tpe)
         genStoreVariantMemory(fb, cases, (_) => {})
+
+      case a: wit.AliasTypeRef =>
+        genStoreMemory(fb, ctx.dealiasWit(a))
 
       case wit.OptionType(t) =>
         val flattened = Flatten.flattenVariants(List(t))
@@ -266,7 +269,7 @@ object ScalaJSToCABI {
             genTypeID.forClass(className),
             genFieldID.forClassInstanceField(FieldName(className, SimpleFieldName(s"_${i + 1}")))
           )
-          f.toIRType() match {
+          ctx.dealiasWit(f).toIRType() match {
             case t: PrimTypeWithRef => genUnbox(fb, t)
             case _                  =>
           }
@@ -295,6 +298,9 @@ object ScalaJSToCABI {
       case tpe: wit.EnumTypeRef =>
         val cases = WitTypeOps.getVariantCases(tpe)
         genStoreVariantStack(fb, cases, (_) => {})
+
+      case a: wit.AliasTypeRef =>
+        genStoreStack(fb, ctx.dealiasWit(a))
 
       case wit.OptionType(t) =>
         val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
@@ -347,7 +353,7 @@ object ScalaJSToCABI {
     maybeLength match {
       case None =>
         // array
-        val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(elemType))
+        val arrayTypeRef = ArrayTypeRef.of(wit.toTypeRef(ctx.dealiasWit(elemType)))
         val arrayStructTypeID = genTypeID.forArrayClass(arrayTypeRef)
         val arrType = watpe.RefType.nullable(arrayStructTypeID)
 
@@ -391,7 +397,7 @@ object ScalaJSToCABI {
             fb += wa.LocalGet(arr)
             fb += wa.StructGet(arrayStructTypeID, genFieldID.objStruct.arrayUnderlying)
             fb += wa.LocalGet(iLocal)
-            wit.toTypeRef(elemType) match {
+            wit.toTypeRef(ctx.dealiasWit(elemType)) match {
               case BooleanRef | CharRef =>
                 fb += wa.ArrayGetU(genTypeID.underlyingOf(arrayTypeRef))
               case ByteRef | ShortRef =>
@@ -625,7 +631,7 @@ object ScalaJSToCABI {
         val resourceStructType = watpe.RefType(genTypeID.forClass(className))
         fb += wa.RefCast(resourceStructType)
       case _ =>
-        targetTpe.toIRType() match {
+        ctx.dealiasWit(targetTpe).toIRType() match {
           case t: PrimTypeWithRef => genUnbox(fb, t)
           case _                  =>
         }

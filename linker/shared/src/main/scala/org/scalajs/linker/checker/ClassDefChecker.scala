@@ -1271,6 +1271,7 @@ object ClassDefChecker {
       exportedMembers,
       jsNativeMembers,
       witTypeDef,
+      witAliases,
       witNativeMembers,
       topLevelExportDefs = Nil
     )(optimizerHints)

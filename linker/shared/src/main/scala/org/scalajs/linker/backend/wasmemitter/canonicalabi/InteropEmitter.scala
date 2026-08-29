@@ -12,7 +12,7 @@
 
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
-import org.scalajs.ir.{Names, OriginalName, Trees => js, WasmInterfaceTypes => wit}
+import org.scalajs.ir.{Names, OriginalName, Trees => js}
 import org.scalajs.ir.WitScope
 import org.scalajs.ir.OriginalName.NoOriginalName
 
@@ -85,16 +85,15 @@ object InteropEmitter {
     fb += wa.LocalSet(savedStackPointer)
 
     val params = member.signature.paramTypes.map { p =>
-      val irType = p.toIRType()
       val localID = fb.addParam(
         NoOriginalName,
-        transformParamType(p.toIRType())
+        transformParamType(ctx.dealiasWit(p).toIRType())
       )
       (localID, p)
     }
     val resultType = member.signature.resultType match {
       case None        => Nil
-      case Some(value) => List(value.toIRType())
+      case Some(value) => List(ctx.dealiasWit(value).toIRType())
     }
     fb.setResultTypes(resultType.flatMap(transformResultType(_)))
 
