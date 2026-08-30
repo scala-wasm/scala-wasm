@@ -107,6 +107,7 @@ object Flatten {
         flattenVariantCases(cases)
       case wit.OptionType(t)   => List(watpe.Int32) ++ flattenVariants(List(t))
       case _: wit.FlagsTypeRef => List(watpe.Int32)
+      case a: wit.AliasTypeRef => flattenType(ctx.dealiasWit(a))
       case _: wit.ResourceType => List(watpe.Int32)
     }
   }

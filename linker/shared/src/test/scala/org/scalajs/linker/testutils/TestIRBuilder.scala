@@ -69,7 +69,7 @@ object TestIRBuilder {
     val notHashed = ClassDef(ClassIdent(className), NON, kind, jsClassCaptures,
         superClass.map(ClassIdent(_)), interfaces.map(ClassIdent(_)),
         jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-        jsMethodProps, jsNativeMembers, witTypeDef, witNativeMembers,
+        jsMethodProps, jsNativeMembers, witTypeDef, witAliases = Nil, witNativeMembers,
         topLevelExportDefs)(
         optimizerHints)
     Hashers.hashClassDef(notHashed)

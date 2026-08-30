@@ -175,6 +175,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         checkWitRecord(sym)
       else if (sym.hasAnnotation(WitFlagsAnnotation))
         checkWitFlags(sym)
+      else if (sym.hasAnnotation(WitAliasAnnotation))
+        checkWitAlias(sym)
       else if (WasmComponentResourceAnnots.exists(sym.hasAnnotation(_)))
         checkWasmComponentResourceAnnotationContext(tree.pos, sym)
       else if (WasmComponentFunctionAnnots.exists(sym.hasAnnotation(_)))
@@ -233,7 +235,12 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
             transformScalaValOrDefDef(tree)
           }
 
-        case _:TypeDef | _:PackageDef =>
+        case td: TypeDef =>
+          if (td.symbol.hasAnnotation(WitAliasAnnotation))
+            checkWitAlias(td.symbol)
+          super.transform(tree)
+
+        case _: PackageDef =>
           super.transform(tree)
       }
 
@@ -1093,8 +1100,9 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       val sym = dealiased.typeSymbol
       val fullName = sym.fullName
 
-      // Check primitives
-      if (sym == UnitClass || sym == ByteClass || sym == ShortClass || sym == IntClass || sym == LongClass ||
+      if (tpe.typeSymbolDirect.hasAnnotation(WitAliasAnnotation)) {
+        true
+      } else if (sym == UnitClass || sym == ByteClass || sym == ShortClass || sym == IntClass || sym == LongClass ||
           sym == FloatClass || sym == DoubleClass || sym == CharClass || sym == BooleanClass) {
         true
       } else if (sym.fullName == "java.lang.String") {
@@ -1118,10 +1126,27 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           sym.hasAnnotation(WitVariantAnnotation) ||
           sym.hasAnnotation(WitEnumAnnotation) ||
           sym.hasAnnotation(WitFlagsAnnotation) ||
+          sym.hasAnnotation(WitAliasAnnotation) ||
           sym.hasAnnotation(WitResourceImportAnnotation)) {
         true
       } else {
         false
+      }
+    }
+
+    private def checkWitAlias(sym: Symbol): Unit = {
+      if (!sym.isAliasType) {
+        reporter.error(sym.pos,
+            "@WitAlias can only be used on type aliases")
+      } else if (!isComponentModelCompatible(sym.info)) {
+        reporter.error(sym.pos,
+            s"@WitAlias target type '${sym.info}' is not compatible with Component Model")
+      } else {
+        val annot = sym.getAnnotation(WitAliasAnnotation).get
+        if (jsInterop.witScopeArg(annot, 0).isEmpty || annot.stringArg(1).isEmpty) {
+          reporter.error(sym.pos,
+              "@WitAlias requires a literal WitScope and a literal name")
+        }
       }
     }
 

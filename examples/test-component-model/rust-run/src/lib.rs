@@ -105,8 +105,16 @@ impl Run for Component {
       assert_eq!(roundtrip_tuple2((111, "hello")), (111, "hello".to_string()));
       assert_eq!(roundtrip_tuple3((111, "hello", false)), (111, "hello".to_string(), false));
 
+      // Named WIT type alias, Scala should export named type alias in Component binary.
+      test_wit_type_alias();
+
       return Ok(());
     }
+}
+
+fn test_wit_type_alias() {
+    assert_eq!(roundtrip_option_u32(Some(42)), Some(42));
+    assert_eq!(roundtrip_option_u32(None), None);
 }
 
 bindings::export!(Component with_types_in bindings);

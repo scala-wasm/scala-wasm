@@ -133,6 +133,10 @@ interface tests {
   record named-r { b: named-f }
   flags named-f { b0 }
   roundtrip-named-r: func(a: named-r) -> named-r;
+
+  // Named type alias must appear as an interface type export.
+  type option-u32 = option<u32>;
+  roundtrip-option-u32: func(a: option-u32) -> option-u32;
 }
 
 interface test-imports {

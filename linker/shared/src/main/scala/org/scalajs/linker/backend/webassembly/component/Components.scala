@@ -20,7 +20,7 @@ package org.scalajs.linker.backend.webassembly.component
  *  @see
  *    [[https://github.com/bytecodealliance/wasm-tools/blob/main/crates/wit-component/src/metadata.rs]]
  */
-private[backend] object Components {
+object Components {
 
   final class TypeID
   final class InstanceID
@@ -87,6 +87,9 @@ private[backend] object Components {
 
     final case class Own(id: TypeID, resource: TypeID) extends TypeDecl
     final case class Borrow(id: TypeID, resource: TypeID) extends TypeDecl
+
+    /** `(type $id <valtype>)` */
+    final case class ValTypeDef(id: TypeID, v: ValRef) extends TypeDecl
 
     /** `(alias export $instance "name" (type ...))` */
     final case class AliasExport(id: TypeID, instance: InstanceID, name: String) extends TypeDecl

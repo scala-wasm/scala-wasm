@@ -16,7 +16,7 @@ import scala.collection.mutable
 
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.Trees.{WitExportDef, WitFunctionName}
-import org.scalajs.ir.{WitScope, WitTypeDef}
+import org.scalajs.ir.{WitScope, WitTypeDef, WitAliasDef}
 import org.scalajs.ir.WasmInterfaceTypes._
 import org.scalajs.linker.interface.WasmComponentModuleInitializerExport
 import org.scalajs.linker.standard.ModuleSet
@@ -28,7 +28,8 @@ private[backend] final case class ComponentWorld(
     imports: List[ComponentWorld.WorldItem],
     exports: List[ComponentWorld.WorldItem],
     endpoints: List[ComponentWorld.Endpoint],
-    typeDefs: List[WitTypeDef]
+    typeDefs: List[WitTypeDef],
+    aliases: List[WitAliasDef]
 ) {
   def endpointsFor(scope: WitScope): List[ComponentWorld.Endpoint] =
     endpoints.filter(_.scope == scope)
@@ -36,8 +37,14 @@ private[backend] final case class ComponentWorld(
   def typesFor(scope: WitScope): List[WitTypeDef] =
     typeDefs.filter(_.scope == scope)
 
+  def aliasesFor(scope: WitScope): List[WitAliasDef] =
+    aliases.filter(_.scope == scope)
+
   def typeDefByClass: Map[ClassName, WitTypeDef] =
     typeDefs.map(td => td.className -> td).toMap
+
+  def aliasMap: Map[(WitScope, String), ValType] =
+    aliases.map(a => (a.scope, a.name) -> a.target).toMap
 }
 
 private[backend] object ComponentWorld {
@@ -59,8 +66,11 @@ private[backend] object ComponentWorld {
     final case class Inline(scope: WitScope.Inline) extends WorldItem
     final case class Func(func: Endpoint) extends WorldItem
 
-    /** World-level named type: a Root typedef or `use iface.{T}`. */
+    /** World-level named type: Root typedef or `use iface.{T}`. */
     final case class Type(named: WitTypeDef) extends WorldItem
+
+    /** World-level `type foo = ...` or `use iface.{T as Z}`. */
+    final case class Alias(alias: WitAliasDef) extends WorldItem
   }
 
   final case class Endpoint(
@@ -75,6 +85,7 @@ private[backend] object ComponentWorld {
     // correct all Wasm Component imports/exports and type definitions from IR
     val allEndpoints: List[Endpoint] = collectEndpoints(module, moduleInitializerExport)
     val allTypeDefs: List[WitTypeDef] = collectTypeDefs(module)
+    val allAliases: List[WitAliasDef] = collectAliasDefs(module)
 
     val importInterfaces = mutable.LinkedHashSet.empty[WitScope.Interface]
     val importInlines = mutable.LinkedHashSet.empty[WitScope.Inline]
@@ -99,6 +110,7 @@ private[backend] object ComponentWorld {
     }
     val typesByScope = allTypeDefs.groupBy(_.scope)
     val endpointsByScope = allEndpoints.groupBy(_.scope)
+    val aliasesByScope = allAliases.groupBy(_.scope)
     val typeDefByClass = allTypeDefs.map(td => td.className -> td).toMap
 
     // World-level named types: Root typedefs and `use` of types referenced by Root funcs.
@@ -120,7 +132,16 @@ private[backend] object ComponentWorld {
     for {
       ep <- importRoots.iterator ++ exportRoots.iterator
       className <- endpointTypeRefs(ep)
-    } addWorldType(typeDefByClass(className))
+    } {
+      typeDefByClass.get(className).foreach(addWorldType)
+    }
+    // Root `use other.{T}` aliases (no ClassName on the alias itself).
+    for {
+      alias <- aliasesByScope.getOrElse(WitScope.Root, Nil)
+      className <- valTypeRefs(alias.target)
+    } {
+      typeDefByClass.get(className).foreach(addWorldType)
+    }
 
     // Interfaces referenced only from Root bare funcs still need a world import
     // so `(alias export ...)` can bring those types into scope.
@@ -135,13 +156,14 @@ private[backend] object ComponentWorld {
     val interfacesToImport = {
       transitiveInterfaceDeps(
           importInterfaces ++ exportInterfaces ++ rootIfaceDeps, endpointsByScope,
-          typesByScope, typeDefByClass) ++ importInterfaces ++ rootIfaceDeps
+          typesByScope, aliasesByScope, typeDefByClass) ++ importInterfaces ++ rootIfaceDeps
     }
 
     val imports: List[WorldItem] = {
       val b = List.newBuilder[WorldItem]
       interfacesToImport.foreach(i => b += WorldItem.Interface(i))
       worldTypes.values.foreach(td => b += WorldItem.Type(td))
+      aliasesByScope.getOrElse(WitScope.Root, Nil).foreach(a => b += WorldItem.Alias(a))
       importInlines.foreach(i => b += WorldItem.Inline(i))
       importRoots.foreach(i => b += WorldItem.Func(i))
       b.result()
@@ -154,7 +176,8 @@ private[backend] object ComponentWorld {
       b.result()
     }
 
-    ComponentWorld(RootPackage, WorldName, imports, exports, allEndpoints, allTypeDefs)
+    ComponentWorld(RootPackage, WorldName, imports, exports, allEndpoints, allTypeDefs,
+        allAliases)
   }
 
   private def collectEndpoints(module: ModuleSet.Module,
@@ -198,25 +221,51 @@ private[backend] object ComponentWorld {
     byKey.values.toList
   }
 
+  private def collectAliasDefs(module: ModuleSet.Module): List[WitAliasDef] = {
+    val byKey = mutable.Map.empty[(WitScope, String), WitAliasDef]
+    for {
+      classDef <- module.classDefs
+      alias <- classDef.witAliases
+    } {
+      byKey.getOrElseUpdate((alias.scope, alias.name), alias)
+    }
+    byKey.values.toList
+  }
+
   /** Interfaces transitively referenced by `roots` via `use`. */
   private def transitiveInterfaceDeps(
       roots: Iterable[WitScope.Interface],
       endpointsByScope: Map[WitScope, List[Endpoint]],
       typesByScope: Map[WitScope, List[WitTypeDef]],
+      aliasesByScope: Map[WitScope, List[WitAliasDef]],
       typeDefByClass: Map[ClassName, WitTypeDef]): mutable.LinkedHashSet[WitScope.Interface] = {
     def depsOf(iface: WitScope.Interface): Iterable[WitScope.Interface] = {
       val deps = mutable.HashSet.empty[WitScope.Interface]
-      val refs = {
-        typesByScope.getOrElse(iface, Nil).flatMap(namedTypeRefs) ++
-        endpointsByScope.getOrElse(iface, Nil).flatMap(endpointTypeRefs)
+      def addIfForeign(scope: WitScope): Unit = scope match {
+        case dep: WitScope.Interface if dep != iface => deps += dep
+        case _                                       =>
       }
-      refs.foreach { className =>
-        // Only named package interfaces need a world import for `use`
-        typeDefByClass(className).scope match {
-          case dep: WitScope.Interface if dep != iface => deps += dep
-          case _                                       =>
+      def visit(tpe: ValType): Unit = {
+        for (className <- valTypeRefs(tpe))
+          typeDefByClass.get(className).foreach(td => addIfForeign(td.scope))
+        for (a <- aliasTypeRefs(tpe))
+          addIfForeign(a.scope)
+      }
+
+      for (named <- typesByScope.getOrElse(iface, Nil)) {
+        named match {
+          case WitTypeDef.Record(_, _, _, fields) =>
+            fields.foreach(f => visit(f.tpe))
+          case WitTypeDef.Variant(_, _, _, cases) =>
+            cases.foreach(_.tpe.foreach(visit))
+          case _ =>
         }
       }
+      for (ep <- endpointsByScope.getOrElse(iface, Nil)) {
+        ep.signature.params.foreach(p => visit(p.tpe))
+        ep.signature.resultType.foreach(visit)
+      }
+      aliasesByScope.getOrElse(iface, Nil).foreach(a => visit(a.target))
       deps
     }
 
@@ -263,6 +312,8 @@ private[backend] object ComponentWorld {
         className :: Nil
       case ResourceType(className, _) =>
         className :: Nil
+      case AliasTypeRef(_, _, _) =>
+        Nil // named types come from WitAliasDef targets
       case TupleType(ts) =>
         ts.flatMap(valTypeRefs(_))
       case ResultType(ok, err) =>
@@ -273,5 +324,57 @@ private[backend] object ComponentWorld {
       case _: PrimValType =>
         Nil
     }
+  }
+
+  /** Collect named WIT aliases referenced from a value type. */
+  private[component] def aliasTypeRefs(tpe: ValType): List[AliasTypeRef] = {
+    tpe match {
+      case a @ AliasTypeRef(_, _, _) =>
+        a :: Nil
+      case ListType(elem, _) =>
+        aliasTypeRefs(elem)
+      case TupleType(ts) =>
+        ts.flatMap(aliasTypeRefs(_))
+      case ResultType(ok, err) =>
+        ok.toList.flatMap(aliasTypeRefs(_)) ++
+        err.toList.flatMap(aliasTypeRefs(_))
+      case OptionType(inner) =>
+        aliasTypeRefs(inner)
+      case _ =>
+        Nil
+    }
+  }
+
+  private[component] def endpointAliasRefs(func: Endpoint): List[AliasTypeRef] = {
+    val tpes = func.signature.params.map(_.tpe) ++ func.signature.resultType
+    tpes.flatMap(aliasTypeRefs)
+  }
+
+  private[component] def namedTypeAliasRefs(named: WitTypeDef): List[AliasTypeRef] = {
+    named match {
+      case WitTypeDef.Record(_, _, _, fields) =>
+        fields.flatMap(f => aliasTypeRefs(f.tpe))
+      case WitTypeDef.Variant(_, _, _, cases) =>
+        cases.flatMap(_.tpe.toList.flatMap(aliasTypeRefs(_)))
+      case _ =>
+        Nil
+    }
+  }
+
+  private[component] def collectAliasesForScope(scope: WitScope,
+      defined: List[WitAliasDef],
+      endpoints: List[Endpoint], namedTypes: List[WitTypeDef]): List[WitAliasDef] = {
+    val byKey = mutable.Map.empty[(WitScope, String), WitAliasDef]
+    for (a <- defined if a.scope == scope)
+      byKey.getOrElseUpdate((a.scope, a.name), a)
+
+    for (ref <- endpoints.flatMap(endpointAliasRefs) ++ namedTypes.flatMap(namedTypeAliasRefs)
+        if ref.scope == scope) {
+      if (!byKey.contains((ref.scope, ref.name))) {
+        throw new AssertionError(
+            s"missing WitAliasDef for ${ref.scope}/${ref.name}")
+      }
+    }
+    byKey.values.toList
   }
 }

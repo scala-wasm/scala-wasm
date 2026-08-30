@@ -195,6 +195,7 @@ private[frontend] object BaseLinker {
         jsMethodProps,
         jsNativeMembers,
         classDef.witTypeDef,
+        classDef.witAliases,
         wasmwitNativeMembers,
         classDef.optimizerHints,
         classDef.pos,

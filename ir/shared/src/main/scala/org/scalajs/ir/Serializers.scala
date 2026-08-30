@@ -681,11 +681,20 @@ object Serializers {
       writeJSNativeLoadSpec(jsNativeLoadSpec)
       writeBoolean(witTypeDef.isDefined)
       witTypeDef.foreach(writeWITTypeDef)
+      writeInt(witAliases.size)
+      witAliases.foreach(writeWitAliasDef)
       writeMemberDefs(
           fields ::: methods ::: jsConstructor.toList ::: jsMethodProps ::: jsNativeMembers
           ::: witNativeMembers)
       writeTopLevelExportDefs(topLevelExportDefs)
       writeInt(OptimizerHints.toBits(optimizerHints))
+    }
+
+    def writeWitAliasDef(alias: WitAliasDef): Unit = {
+      buffer.writeByte(TagWITAliasDef)
+      writeWitScope(alias.scope)
+      writeString(alias.name)
+      writeWITType(alias.target)
     }
 
     def writeMemberDef(memberDef: MemberDef): Unit = {
@@ -1061,6 +1070,11 @@ object Serializers {
           case ResourceOwnership.Own    => 0
           case ResourceOwnership.Borrow => 1
         })
+      case wit.AliasTypeRef(scope, name, owner) =>
+        buffer.writeByte(TagWITAliasTypeRef)
+        writeWitScope(scope)
+        writeString(name)
+        writeName(owner)
       case wit.FuncType(params, result) =>
         buffer.writeByte(TagWITFuncType)
         buffer.writeInt(params.length)
@@ -1965,6 +1979,10 @@ object Serializers {
         else if (readBoolean()) Some(readWITTypeDef())
         else None
       }
+      val witAliases = {
+        if (!hacks.isWasmIR) Nil
+        else List.fill(readInt())(readWitAliasDef())
+      }
 
       // Read member defs
       val fieldsBuilder = List.newBuilder[AnyFieldDef]
@@ -2021,7 +2039,8 @@ object Serializers {
 
       val classDef = ClassDef(name, originalName, kind, jsClassCaptures, superClass, parents,
           jsSuperClass, jsNativeLoadSpec, fields, methods, jsConstructor,
-          jsMethodProps, jsNativeMembers, witTypeDef, witNativeMembers, topLevelExportDefs)(
+          jsMethodProps, jsNativeMembers, witTypeDef, witAliases, witNativeMembers,
+          topLevelExportDefs)(
           optimizerHints)
 
       if (hacks.useBelow(19))
@@ -2398,6 +2417,7 @@ object Serializers {
           jsMethodProps,
           jsNativeMembers,
           witTypeDef,
+          witAliases,
           witNativeMembers,
           topLevelExportDefs
         )(OptimizerHints.empty)(pos) // throws away the `@inline`
@@ -2867,6 +2887,8 @@ object Serializers {
             case 1 => ResourceOwnership.Borrow
           }
           wit.ResourceType(className, ownership)
+        case TagWITAliasTypeRef =>
+          wit.AliasTypeRef(readWitScope(), readString(), readClassName())
       }
     }
 
@@ -2920,6 +2942,11 @@ object Serializers {
           val name = readString()
           WitTypeDef.Resource(wit.ResourceRef(className, scope, name))
       }
+    }
+
+    private def readWitAliasDef(): WitAliasDef = {
+      assert(readByte() == TagWITAliasDef)
+      WitAliasDef(readWitScope(), readString(), readWITType())
     }
 
     def readType(): Type = {

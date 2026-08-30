@@ -13,7 +13,7 @@
 package org.scalajs.linker.standard
 
 import org.scalajs.ir.Trees._
-import org.scalajs.ir.{ClassKind, Position, Version, WitTypeDef}
+import org.scalajs.ir.{ClassKind, Position, Version, WitTypeDef, WitAliasDef}
 import org.scalajs.ir.Names.{ClassName, FieldName, MethodName}
 
 /** A ClassDef after linking.
@@ -50,6 +50,7 @@ final class LinkedClass(
     val exportedMembers: List[JSMethodPropDef],
     val jsNativeMembers: List[JSNativeMemberDef],
     val witTypeDef: Option[WitTypeDef],
+    val witAliases: List[WitAliasDef],
     val witNativeMembers: List[WitNativeMemberDef],
     val optimizerHints: OptimizerHints,
     val pos: Position,

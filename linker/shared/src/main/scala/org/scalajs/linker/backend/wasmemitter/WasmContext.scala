@@ -24,6 +24,8 @@ import org.scalajs.ir.OriginalName
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Trees.{FieldDef, ParamDef, JSNativeLoadSpec}
 import org.scalajs.ir.Types._
+import org.scalajs.ir.WitScope
+import org.scalajs.ir.WasmInterfaceTypes.{ValType => WitValType}
 import org.scalajs.ir.WellKnownNames._
 
 import org.scalajs.linker.interface.ModuleKind
@@ -48,7 +50,8 @@ final class WasmContext(
     classInfo: Map[ClassName, WasmContext.ClassInfo],
     reflectiveProxies: Map[MethodName, Int],
     val privateJSFields: Map[FieldName, String],
-    val itablesLength: Int
+    val itablesLength: Int,
+    val witAliases: Map[(WitScope, String), WitValType]
 ) {
   import WasmContext._
 
@@ -125,6 +128,9 @@ final class WasmContext(
     getClassInfo(name).witTypeDef.getOrElse(
         throw new Error(s"WIT type definition not found for ${name.nameString}"))
   }
+
+  def dealiasWit(tpe: WitValType): WitValType =
+    WitAliasResolution.dealiasVal(tpe, witAliases)
 
   def inferTypeFromTypeRef(typeRef: TypeRef): Type = typeRef match {
     case PrimRef(tpe) =>

@@ -271,6 +271,8 @@ private[ir] object Tags {
   final val TagWITEnumTypeDef = TagWITVariantTypeDef + 1
   final val TagWITFlagsTypeDef = TagWITEnumTypeDef + 1
   final val TagWITResourceTypeDef = TagWITFlagsTypeDef + 1
+  final val TagWITAliasTypeRef = TagWITResourceTypeDef + 1
+  final val TagWITAliasDef = TagWITAliasTypeRef + 1
 
   // Tags for wasm Component Function kind
 

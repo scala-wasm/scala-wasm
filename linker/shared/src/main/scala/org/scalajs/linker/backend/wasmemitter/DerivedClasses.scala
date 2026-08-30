@@ -148,6 +148,7 @@ object DerivedClasses {
       exportedMembers = Nil,
       jsNativeMembers = Nil,
       witTypeDef = None,
+      witAliases = Nil,
       witNativeMembers = Nil,
       EOH,
       pos,
