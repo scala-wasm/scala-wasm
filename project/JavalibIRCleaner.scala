@@ -618,12 +618,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         (enclosingClassName == TypedArrayBufferBridge || enclosingClassName == TypedArrayBufferBridgeMod)
       }
 
-      def isWasmComponent =
-        cls.nameString.startsWith("scala.scalajs.wit")
-
       def isAnException: Boolean =
-        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself ||
-            isWasmComponent
+        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself
 
       if (cls.nameString.startsWith("scala.") && !isAnException)
         reportError(s"Illegal reference to Scala class ${cls.nameString}")

@@ -15,8 +15,6 @@ package org.scalajs.testing.bridge
 import scalajs.wit
 import scalajs.wit.annotation.{WitImport, WitName, WitScope}
 
-import java.util.Optional
-
 object TestRpcTransport {
   @WitImport(WitScope.unversioned("scalajs", "test-rpc", "rpc"), "init")
   def init(): Unit = wit.native
@@ -25,5 +23,5 @@ object TestRpcTransport {
   def send(@WitName("msg") msg: String): Unit = wit.native
 
   @WitImport(WitScope.unversioned("scalajs", "test-rpc", "rpc"), "poll")
-  def poll(): Optional[String] = wit.native
+  def poll(): wit.Option[String] = wit.native
 }

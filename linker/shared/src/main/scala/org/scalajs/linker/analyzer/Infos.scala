@@ -801,10 +801,12 @@ object Infos {
           builder.addReferencedClass(className)
 
         case wit.OptionType(t) =>
+          builder.maybeAddAccessedClassData(ClassRef(ComponentOptionClass))
+          builder.addAccessedModule(ComponentNoneClass)
+          builder.addInstantiatedClass(ComponentNoneClass, NoArgConstructorName)
           builder.addInstantiatedClass(
-              juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
-          builder.addFieldRead(
-              FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+              ComponentSomeClass, MethodName.constructor(List(ClassRef(ObjectClass))))
+          builder.addFieldRead(FieldName(ComponentSomeClass, WitVariantValueFieldName))
           generateForWIT(t)
 
         case wit.ResultType(ok, err) =>

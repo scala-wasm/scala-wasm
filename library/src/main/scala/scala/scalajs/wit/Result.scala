@@ -12,44 +12,54 @@
 
 package scala.scalajs.wit
 
-sealed trait Result[+A, +B]
+sealed trait Result[+A, +B] {
+  def isOk: Boolean
+  def isErr: Boolean = !isOk
 
-final class Ok[A](val value: A) extends Result[A, Nothing] {
-  override def equals(other: Any): Boolean = {
-    other match {
-      case that: Ok[_] =>
-        if (this.value == null) that.value == null
-        else this.value == that.value
-      case _ => false
-    }
+  def get: A
+
+  def getOrElse[C >: A](default: => C): C =
+    if (isOk) get else default
+
+  def map[C](f: A => C): Result[C, B] = this match {
+    case Ok(value)  => Ok(f(value))
+    case Err(value) => Err(value)
   }
 
-  override def hashCode(): Int =
-    if (value == null) 0 else value.hashCode()
-
-  override def toString(): String = "Ok(" + value + ")"
-}
-
-object Ok {
-  def apply[A](value: A): Ok[A] = new Ok(value)
-}
-
-final class Err[B](val value: B) extends Result[Nothing, B] {
-  override def equals(other: Any): Boolean = {
-    other match {
-      case that: Err[_] =>
-        if (this.value == null) that.value == null
-        else this.value == that.value
-      case _ => false
-    }
+  def mapErr[C](f: B => C): Result[A, C] = this match {
+    case Ok(value)  => Ok(value)
+    case Err(value) => Err(f(value))
   }
 
-  override def hashCode(): Int =
-    if (value == null) 0 else value.hashCode()
+  def flatMap[C, E >: B](f: A => Result[C, E]): Result[C, E] = this match {
+    case Ok(value)  => f(value)
+    case Err(value) => Err(value)
+  }
 
-  override def toString(): String = "Err(" + value + ")"
+  def fold[C](ok: A => C, err: B => C): C = this match {
+    case Ok(value)  => ok(value)
+    case Err(value) => err(value)
+  }
+
+  def toEither: Either[B, A] = this match {
+    case Ok(value)  => Right(value)
+    case Err(value) => Left(value)
+  }
 }
 
-object Err {
-  def apply[B](value: B): Err[B] = new Err(value)
+final case class Ok[+A](value: A) extends Result[A, Nothing] {
+  def isOk: Boolean = true
+  def get: A = value
+}
+
+final case class Err[+B](value: B) extends Result[Nothing, B] {
+  def isOk: Boolean = false
+
+  def get: Nothing =
+    throw new java.util.NoSuchElementException("Err.get")
+}
+
+object Result {
+  def ok[A](value: A): Result[A, Nothing] = Ok(value)
+  def err[B](value: B): Result[Nothing, B] = Err(value)
 }

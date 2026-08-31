@@ -46,8 +46,8 @@ private[bridge] final object JSRPC extends RPCCore {
       var continue = true
       while (continue) {
         val maybeMsg = TestRpcTransport.poll()
-        if (maybeMsg.isPresent) {
-          handleMessage(maybeMsg.get())
+        if (maybeMsg.isDefined) {
+          handleMessage(maybeMsg.get)
         } else {
           continue = false
         }

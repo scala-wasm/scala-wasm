@@ -165,8 +165,15 @@ object WellKnownNames {
   final val ComponentResultErrClass: ClassName =
     ClassName("scala.scalajs.wit.Err")
 
+  final val ComponentOptionClass: ClassName =
+    ClassName("scala.scalajs.wit.Option")
+
+  final val ComponentSomeClass: ClassName =
+    ClassName("scala.scalajs.wit.Some")
+
+  final val ComponentNoneClass: ClassName =
+    ClassName("scala.scalajs.wit.None$")
+
   final val WitVariantValueFieldName: SimpleFieldName =
     SimpleFieldName("value")
-
-  final val juOptionalClass = ClassName("java.util.Optional")
 }

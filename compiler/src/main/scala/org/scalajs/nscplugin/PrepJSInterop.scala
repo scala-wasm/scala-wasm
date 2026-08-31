@@ -1116,8 +1116,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         true
       } else if (sym.fullName == "scala.Array") {
         dealiased.typeArgs.headOption.forall(isComponentModelCompatible)
-      } else if (sym.fullName == "java.util.Optional") {
-        dealiased.typeArgs.headOption.forall(isComponentModelCompatible)
+      } else if (sym.isSubClass(ComponentOptionClass)) {
+        dealiased.baseType(ComponentOptionClass).typeArgs.forall(isComponentModelCompatible)
       } else if (sym.fullName.startsWith("scala.scalajs.wit.Tuple")) {
         dealiased.typeArgs.forall(isComponentModelCompatible)
       } else if (sym.fullName.startsWith("scala.scalajs.wit.Result")) {

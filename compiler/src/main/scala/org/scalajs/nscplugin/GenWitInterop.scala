@@ -329,8 +329,8 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
           val List(ok, err) = dealiasedTpe.baseType(ComponentResultClass).typeArgs
           wit.ResultType(toResultWIT(ok), toResultWIT(err))
 
-        case tsym if tsym.fullName == "java.util.Optional" =>
-          val List(t) = dealiasedTpe.baseType(tsym).typeArgs
+        case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
+          val List(t) = dealiasedTpe.baseType(ComponentOptionClass).typeArgs
           wit.OptionType(toWIT(t))
 
         case tsym if tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed =>

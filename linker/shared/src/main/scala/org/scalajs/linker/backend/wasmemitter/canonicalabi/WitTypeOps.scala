@@ -128,8 +128,8 @@ private[canonicalabi] object WitTypeOps {
         cases
       case OptionType(tpe) =>
         List(
-          CaseType(juOptionalClass, "none", None),
-          CaseType(juOptionalClass, "some", Some(tpe))
+          CaseType(ComponentNoneClass, "none", None),
+          CaseType(ComponentSomeClass, "some", Some(tpe))
         )
       case ResultType(ok, err) =>
         List(

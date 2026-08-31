@@ -872,7 +872,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
       def noParams(): Unit = wm.native
 
       @WitImport(WitScope.unversioned("test", "test", "module"), "returns-optional")
-      def returnsOptional(@WitName("x") x: Int): java.util.Optional[String] = wm.native
+      def returnsOptional(@WitName("x") x: Int): wm.Option[String] = wm.native
     }
 
     @WitRecord(WitScope.root, "record")

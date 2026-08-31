@@ -21,27 +21,10 @@ package object streams {
 
   object StreamError {
     @WitName("last-operation-failed")
-    final class LastOperationFailed(@WitName("value") val value: Error) extends StreamError {
-      override def equals(other: Any): Boolean = other match {
-        case that: LastOperationFailed => this.value == that.value
-        case _                         => false
-      }
-
-      override def hashCode(): Int =
-        value.hashCode()
-
-      override def toString(): String = "LastOperationFailed(" + value + ")"
-    }
-
-    object LastOperationFailed {
-      def apply(value: Error): LastOperationFailed = new LastOperationFailed(value)
-      def unapply(arg: LastOperationFailed): Some[Error] = Some(arg.value)
-    }
+    final case class LastOperationFailed(@WitName("value") value: Error) extends StreamError
 
     @WitName("closed")
-    object Closed extends StreamError {
-      override def toString(): String = "Closed"
-    }
+    case object Closed extends StreamError
   }
 
   @WitResourceImport(WitScope("wasi", "io", "streams", "0.2.0"), "input-stream")

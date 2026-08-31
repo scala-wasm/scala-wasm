@@ -133,7 +133,7 @@ object WasmInterfaceTypes {
   }
 
   final case class OptionType(tpe: ValType) extends SpecializedType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(juOptionalClass, true, false)
+    def toIRType(): jstpe.Type = jstpe.ClassType(ComponentOptionClass, true, false)
   }
 
   /** Reference to a named WIT flags. Definition is on `ClassDef.witTypeDef`. */
@@ -199,7 +199,7 @@ object WasmInterfaceTypes {
     case VariantTypeRef(className) => jstpe.ClassRef(className)
     case ResultType(ok, err)       => jstpe.ClassRef(ComponentResultClass)
     case EnumTypeRef(className)    => jstpe.ClassRef(className)
-    case OptionType(tpe)           => jstpe.ClassRef(ClassName("java.util.Optional"))
+    case OptionType(tpe)           => jstpe.ClassRef(ComponentOptionClass)
     case FlagsTypeRef(className)   => jstpe.ClassRef(className)
     case ResourceType(className, _)       => jstpe.ClassRef(className)
     case AliasTypeRef(scope, name, owner) =>

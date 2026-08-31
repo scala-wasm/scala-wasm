@@ -9,10 +9,6 @@ import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
 
-import scala.scalajs.WitUtils.toEither
-
-import java.util.Optional
-
 object TestImportsImpl {
   @WitExport(WitScope.unversioned("component", "testing", "test-imports"), "run")
   def run(): Unit = {
@@ -101,28 +97,28 @@ object TestImportsImpl {
     val tupleResult3: (C1, Z1) = roundtripTuple((C1.A(4), Z1.B))
     assert(tupleResult3 == (C1.A(4), Z1.B))
 
-    assert(Optional.of("ok") == roundtripOption(Optional.of("ok")))
-    assert(Optional.empty == roundtripOption(Optional.empty[String]))
-    assert(Optional.of(Optional.of("foo")) == roundtripDoubleOption(Optional.of(Optional.of("foo"))))
-    assert(Optional.of(Optional.empty) == roundtripDoubleOption(Optional.of(Optional.empty[String])))
-    assert(Optional.empty == roundtripDoubleOption(Optional.empty[Optional[String]]))
+    assert(wit.Some("ok") == roundtripOption(wit.Some("ok")))
+    assert(wit.None == roundtripOption(wit.None))
+    assert(wit.Some(wit.Some("foo")) == roundtripDoubleOption(wit.Some(wit.Some("foo"))))
+    assert(wit.Some(wit.None) == roundtripDoubleOption(wit.Some(wit.None)))
+    assert(wit.None == roundtripDoubleOption(wit.None))
     // assert(new wit.Err("aaa") != new wit.Err("bbb"))
 
-    assert(new wit.Ok(()) == roundtripResult(new wit.Ok(())))
-    assert(new wit.Err(()) == roundtripResult(new wit.Err(())))
-    assert(new wit.Ok(3.0f) == roundtripStringError(new wit.Ok(3.0f)))
-    assert(new wit.Err("err") == roundtripStringError(new wit.Err("err")))
-    assert(new wit.Ok(C1.A(432)) == roundtripEnumError(new wit.Ok(C1.A(432))))
-    assert(new wit.Ok(C1.B(0.0f)) == roundtripEnumError(new wit.Ok(C1.B(0.0f))))
-    assert(new wit.Err(E1.A) == roundtripEnumError(new wit.Err(E1.A)))
-    assert(new wit.Err(E1.B) == roundtripEnumError(new wit.Err(E1.B)))
-    assert(new wit.Err(E1.C) == roundtripEnumError(new wit.Err(E1.C)))
+    assert(wit.Ok(()) == roundtripResult(wit.Ok(())))
+    assert(wit.Err(()) == roundtripResult(wit.Err(())))
+    assert(wit.Ok(3.0f) == roundtripStringError(wit.Ok(3.0f)))
+    assert(wit.Err("err") == roundtripStringError(wit.Err("err")))
+    assert(wit.Ok(C1.A(432)) == roundtripEnumError(wit.Ok(C1.A(432))))
+    assert(wit.Ok(C1.B(0.0f)) == roundtripEnumError(wit.Ok(C1.B(0.0f))))
+    assert(wit.Err(E1.A) == roundtripEnumError(wit.Err(E1.A)))
+    assert(wit.Err(E1.B) == roundtripEnumError(wit.Err(E1.B)))
+    assert(wit.Err(E1.C) == roundtripEnumError(wit.Err(E1.C)))
 
     assert((F1.b3 | F1.b6 | F1.b7) == roundtripF1(F1.b3 | F1.b6 | F1.b7))
     assert((F2.b7 | F2.b8 | F2.b15) == roundtripF2(F2.b7 | F2.b8 | F2.b15))
     assert((F3.b7 | F3.b8 | F3.b15 | F3.b31) == roundtripF3(F3.b7 | F3.b8 | F3.b15 | F3.b31))
 
-    val flagsTuple = new wit.Tuple2(F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7)
+    val flagsTuple = wit.Tuple2(F1.b3 | F1.b6, F1.b2 | F1.b3 | F1.b7)
     val flagsResult = roundtripFlags(flagsTuple)
     assert(flagsResult._1 == (F1.b3 | F1.b6))
     assert(flagsResult._2 == (F1.b2 | F1.b3 | F1.b7))
@@ -135,18 +131,20 @@ object TestImportsImpl {
 
     // Test resource wrappers
     locally {
-      val successResult = toEither(tryCreateCounter(10))
-      successResult match {
-        case Right(counter) => assert(10 == counter.valueOf())
-        case Left(_)        => throw new AssertionError("Expected Right but got Left")
+      tryCreateCounter(10) match {
+        case wit.Ok(counter) => assert(10 == counter.valueOf())
+        case wit.Err(_)      => throw new AssertionError("Expected Ok but got Err")
       }
 
-      val errorResult = toEither(tryCreateCounter(-5))
-      assert(errorResult.isLeft)
+      tryCreateCounter(-5) match {
+        case wit.Err(_) => ()
+        case wit.Ok(_)  => throw new AssertionError("Expected Err but got Ok")
+      }
 
-      val maybeCounter = maybeGetCounter()
-      assert(maybeCounter.isPresent)
-      assert(42 == maybeCounter.get().valueOf())
+      maybeGetCounter() match {
+        case wit.Some(counter) => assert(42 == counter.valueOf())
+        case wit.None          => throw new AssertionError("Expected Some but got None")
+      }
     }
 
     locally {
@@ -179,9 +177,9 @@ object TestImportsImpl {
   }
 
   def testWitTypeAlias(): Unit = {
-    assert(Optional.of(7.asInstanceOf[UInt]) ==
-      roundtripOptionU32(Optional.of(7.asInstanceOf[UInt])))
-    assert(Optional.empty[UInt]() == roundtripOptionU32(Optional.empty[UInt]()))
+    assert(wit.Some(7.asInstanceOf[UInt]) ==
+      roundtripOptionU32(wit.Some(7.asInstanceOf[UInt])))
+    assert(wit.None == roundtripOptionU32(wit.None))
   }
 }
 
