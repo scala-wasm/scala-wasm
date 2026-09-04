@@ -784,14 +784,8 @@ object Infos {
           for (t <- paramTypes) generateForWIT(t.tpe)
           resultType.foreach(t => generateForWIT(t))
 
-        case wit.TupleType(fields) =>
-          val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
-          val ctorID = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
-          builder.addInstantiatedClass(className, ctorID)
-          // Add field reads for each tuple field
-          for (i <- 1 to fields.size) {
-            builder.addFieldRead(FieldName(className, SimpleFieldName(s"_$i")))
-          }
+        case wit.TupleType(fields, className) =>
+          builder.addReferencedClass(className)
           for (f <- fields) generateForWIT(f)
 
         case wit.RecordTypeRef(className) =>
@@ -807,21 +801,11 @@ object Infos {
               FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
           generateForWIT(t)
 
-        case wit.ResultType(ok, err) =>
-          val cases = List(
-            wit.CaseType(ComponentResultOkClass, "ok", ok),
-            wit.CaseType(ComponentResultErrClass, "err", err)
-          )
-          builder.maybeAddAccessedClassData(ClassRef(ComponentResultClass))
-          for (c <- cases) {
-            // ResultType uses generic Ok/Err classes, so after type erasure they take Object
-            builder.addInstantiatedClass(
-                c.className, MethodName.constructor(List(ClassRef(ObjectClass))))
-            c.tpe.foreach { tpe =>
-              builder.addFieldRead(FieldName(c.className, WitVariantValueFieldName))
-              generateForWIT(tpe)
-            }
-          }
+        case wit.ResultType(ok, err, className) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          builder.addReferencedClass(className)
+          ok.foreach(generateForWIT)
+          err.foreach(generateForWIT)
 
         case wit.EnumTypeRef(className) =>
           builder.addReferencedClass(className)
@@ -880,6 +864,19 @@ object Infos {
 
         case WitTypeDef.Resource(resource) =>
           builder.maybeAddReferencedClass(ClassRef(resource.className))
+
+        case WitTypeDef.Result(_, okClass, errClass, field) =>
+          val ctor = MethodName.constructor(List(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(okClass, ctor)
+          builder.addInstantiatedClass(errClass, ctor)
+          builder.addFieldRead(FieldName(okClass, field))
+          builder.addFieldRead(FieldName(errClass, field))
+
+        case WitTypeDef.Tuple(className, fields) =>
+          val ctor = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(className, ctor)
+          for (f <- fields)
+            builder.addFieldRead(FieldName(className, f))
       }
     }
 

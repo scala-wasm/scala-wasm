@@ -109,9 +109,8 @@ object WasmInterfaceTypes {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
-  final case class TupleType(ts: List[ValType]) extends SpecializedType {
-    def toIRType(): jstpe.Type =
-      jstpe.ClassType(ClassName("scala.scalajs.wit.Tuple" + ts.size), true, false)
+  final case class TupleType(ts: List[ValType], className: ClassName) extends SpecializedType {
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
   final case class CaseType(className: ClassName, name: String, tpe: Option[ValType]) {
@@ -123,8 +122,9 @@ object WasmInterfaceTypes {
     def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
-  final case class ResultType(ok: Option[ValType], err: Option[ValType]) extends SpecializedType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(ComponentResultClass, true, false)
+  final case class ResultType(ok: Option[ValType], err: Option[ValType], className: ClassName)
+      extends SpecializedType {
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
   /** Reference to a named WIT enum. Definition is on `ClassDef.witTypeDef`. */
@@ -194,13 +194,13 @@ object WasmInterfaceTypes {
     case StringType                 => jstpe.ClassRef(BoxedStringClass)
     case ListType(elemType, length) =>
       jstpe.ArrayTypeRef.of(toTypeRef(elemType))
-    case RecordTypeRef(className)  => jstpe.ClassRef(className)
-    case TupleType(ts)             => jstpe.ClassRef(ClassName("scala.scalajs.wit.Tuple" + ts.size))
-    case VariantTypeRef(className) => jstpe.ClassRef(className)
-    case ResultType(ok, err)       => jstpe.ClassRef(ComponentResultClass)
-    case EnumTypeRef(className)    => jstpe.ClassRef(className)
-    case OptionType(tpe)           => jstpe.ClassRef(ClassName("java.util.Optional"))
-    case FlagsTypeRef(className)   => jstpe.ClassRef(className)
+    case RecordTypeRef(className)         => jstpe.ClassRef(className)
+    case TupleType(_, className)          => jstpe.ClassRef(className)
+    case VariantTypeRef(className)        => jstpe.ClassRef(className)
+    case ResultType(_, _, className)      => jstpe.ClassRef(className)
+    case EnumTypeRef(className)           => jstpe.ClassRef(className)
+    case OptionType(tpe)                  => jstpe.ClassRef(ClassName("java.util.Optional"))
+    case FlagsTypeRef(className)          => jstpe.ClassRef(className)
     case ResourceType(className, _)       => jstpe.ClassRef(className)
     case AliasTypeRef(scope, name, owner) =>
       throw new AssertionError(
@@ -213,12 +213,12 @@ object WasmInterfaceTypes {
         loop(resolve(scope, name))
       case ListType(elem, len) =>
         ListType(loop(elem), len)
-      case TupleType(ts) =>
-        TupleType(ts.map(loop))
+      case TupleType(ts, className) =>
+        TupleType(ts.map(loop), className)
       case OptionType(inner) =>
         OptionType(loop(inner))
-      case ResultType(ok, err) =>
-        ResultType(ok.map(loop), err.map(loop))
+      case ResultType(ok, err, className) =>
+        ResultType(ok.map(loop), err.map(loop), className)
       case other =>
         other
     }

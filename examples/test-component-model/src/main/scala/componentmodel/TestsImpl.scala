@@ -6,8 +6,6 @@ import scala.scalajs.wit.unsigned._
 
 import componentmodel.component.testing.tests._
 
-import scala.scalajs.WitUtils.toEither
-
 import java.util.Optional
 
 object TestsImpl {

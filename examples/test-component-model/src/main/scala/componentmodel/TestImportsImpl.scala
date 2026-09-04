@@ -9,8 +9,6 @@ import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
 
-import scala.scalajs.WitUtils.toEither
-
 import java.util.Optional
 
 object TestImportsImpl {
@@ -135,13 +133,13 @@ object TestImportsImpl {
 
     // Test resource wrappers
     locally {
-      val successResult = toEither(tryCreateCounter(10))
+      val successResult = tryCreateCounter(10).toEither
       successResult match {
         case Right(counter) => assert(10 == counter.valueOf())
         case Left(_)        => throw new AssertionError("Expected Right but got Left")
       }
 
-      val errorResult = toEither(tryCreateCounter(-5))
+      val errorResult = tryCreateCounter(-5).toEither
       assert(errorResult.isLeft)
 
       val maybeCounter = maybeGetCounter()

@@ -273,6 +273,8 @@ private[ir] object Tags {
   final val TagWITResourceTypeDef = TagWITFlagsTypeDef + 1
   final val TagWITAliasTypeRef = TagWITResourceTypeDef + 1
   final val TagWITAliasDef = TagWITAliasTypeRef + 1
+  final val TagWITResultTypeDef = TagWITAliasDef + 1
+  final val TagWITTupleTypeDef = TagWITResultTypeDef + 1
 
   // Tags for wasm Component Function kind
 

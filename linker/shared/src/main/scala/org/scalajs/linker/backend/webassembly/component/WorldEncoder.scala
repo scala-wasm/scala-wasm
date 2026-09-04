@@ -16,7 +16,7 @@ import scala.collection.mutable
 
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.Trees.WitFunctionName
-import org.scalajs.ir.{WitScope, WitTypeDef, WitAliasDef, ResourceOwnership}
+import org.scalajs.ir.{WitScope, WitTypeDef, WitNamedTypeDef, WitAliasDef, ResourceOwnership}
 import org.scalajs.ir.WasmInterfaceTypes.{ExternType => _, _}
 
 import Components._
@@ -136,7 +136,7 @@ private[component] final class WorldEncoder(world: ComponentWorld) {
   }
 
   /** World-level named type: Root typedef or `use iface.{T}`. */
-  private def encodeWorldType(named: WitTypeDef): Unit = {
+  private def encodeWorldType(named: WitNamedTypeDef): Unit = {
     val id = typeIdsByClass.getOrElse(named.className,
         throw new AssertionError(
             s"missing world type ${WitScope.importModuleName(named.scope)}/${named.name}"))
@@ -160,7 +160,7 @@ private[component] final class WorldEncoder(world: ComponentWorld) {
   }
 
   // `(alias export $inst "T" $alias)` then `(import "T" (type $id (eq $alias)))`.
-  private def encodeWorldUse(named: WitTypeDef, id: TypeID): Unit = {
+  private def encodeWorldUse(named: WitNamedTypeDef, id: TypeID): Unit = {
     val owner = interfaceOf(named.className).getOrElse(
         throw new AssertionError(
             s"world use ${named.name} is not from a package interface"))

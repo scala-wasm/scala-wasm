@@ -33,7 +33,7 @@ private[canonicalabi] object WitTypeOps {
         case None        => 8
         case Some(value) => elemSize(elemType) * value
       }
-    case TupleType(ts) =>
+    case TupleType(ts, _) =>
       val size = ts.foldLeft(0) { case (ptr, t) =>
         alignTo(ptr, alignment(t)) + elemSize(t)
       }
@@ -71,7 +71,7 @@ private[canonicalabi] object WitTypeOps {
         case None    => 4
         case Some(_) => alignment(elemType)
       }
-    case TupleType(ts) =>
+    case TupleType(ts, _) =>
       ts.map(alignment).max
     case RecordTypeRef(className) =>
       recordFields(className).map(f => alignment(f.tpe)).max
@@ -131,10 +131,12 @@ private[canonicalabi] object WitTypeOps {
           CaseType(juOptionalClass, "none", None),
           CaseType(juOptionalClass, "some", Some(tpe))
         )
-      case ResultType(ok, err) =>
+      case ResultType(ok, err, className) =>
+        val WitTypeDef.Result(_, okClass, errClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         List(
-          CaseType(ComponentResultOkClass, "ok", ok),
-          CaseType(ComponentResultErrClass, "err", err)
+          CaseType(okClass, "ok", ok),
+          CaseType(errClass, "err", err)
         )
       case _ =>
         throw new AssertionError(s"Not a variant-like type: $tpe")

@@ -672,11 +672,20 @@ object Emitter {
         instantiateClass(IllegalArgumentExceptionClass, StringArgConstructorName)
       },
 
-      // Wasm Component Model
-      // instantiateClass(WasmComponentResultClass, NoArgConstructorName),
-      // instantiateClass(WasmComponentOkClass, AnyArgConstructorName),
-      // instantiateClass(WasmComponentErrClass, AnyArgConstructorName),
-      // instantiateClass(WasmWitVariantClass, NoArgConstructorName),
+      /* TODO: moduleInitializerExport might want to have more generic WIT
+       * type information and className in the future?
+       * reachability should follow that type
+       * instead of special-casing Result.
+       */
+      cond(
+        coreSpec.moduleKind == ModuleKind.WasmComponent &&
+        coreSpec.wasmFeatures.moduleInitializerExport.exists { exp =>
+          exp.resultType == WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit
+        }
+      ) {
+        // so that we can lookup witTypeData for WIT result type.
+        classData(juInternalWitResultClass)
+      },
 
       // See genIdentityHashCode in HelperFunctions
       callMethodStatically(BoxedDoubleClass, hashCodeMethodName),

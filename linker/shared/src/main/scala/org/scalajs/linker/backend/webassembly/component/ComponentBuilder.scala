@@ -17,7 +17,7 @@ import scala.collection.mutable
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.ResourceOwnership
 import org.scalajs.ir.Trees.WitFunctionName
-import org.scalajs.ir.{WitScope, WitTypeDef, WitAliasDef}
+import org.scalajs.ir.{WitScope, WitTypeDef, WitNamedTypeDef, WitAliasDef}
 import org.scalajs.ir.WasmInterfaceTypes.{ExternType => _, _}
 
 import Components._
@@ -190,17 +190,17 @@ object ComponentBuilder {
    */
   private[component] def encodeInstanceType(scope: WitScope,
       endpoints: List[ComponentWorld.Endpoint],
-      namedTypes: List[WitTypeDef],
+      namedTypes: List[WitNamedTypeDef],
       definedAliases: List[WitAliasDef],
       worldTypeIds: Map[(WitScope, String), TypeID],
-      typeDefByClass: Map[ClassName, WitTypeDef]): List[Decl] = {
+      typeDefByClass: Map[ClassName, WitNamedTypeDef]): List[Decl] = {
     new InstanceTypeEncoder(scope, endpoints, namedTypes, definedAliases,
         worldTypeIds, typeDefByClass).encode()
   }
 
   /** Local named types in dependency order. */
-  private[component] def topologicalSortNamedTypes(namedTypes: List[WitTypeDef],
-      localAliases: List[WitAliasDef] = Nil): List[WitTypeDef] = {
+  private[component] def topologicalSortNamedTypes(namedTypes: List[WitNamedTypeDef],
+      localAliases: List[WitAliasDef] = Nil): List[WitNamedTypeDef] = {
     val byClass = namedTypes.map(t => t.className -> t).toMap
     val aliasByName = localAliases.map(a => a.name -> a).toMap
     val ordered = mutable.LinkedHashSet.empty[ClassName]
@@ -237,7 +237,7 @@ object ComponentBuilder {
    *  vs instance exports). WorldEncoder and InstanceTypeEncoder each pass their
    *  own `resolve` for that.
    */
-  private[component] def addNamedTypeBody(builder: ComponentBuilder, named: WitTypeDef,
+  private[component] def addNamedTypeBody(builder: ComponentBuilder, named: WitNamedTypeDef,
       resolve: ValType => ValRef): TypeID = {
     named match {
       case WitTypeDef.Record(_, _, _, fields) =>
@@ -282,7 +282,7 @@ object ComponentBuilder {
         ValRef.Type(builder.addFixedList(
             resolveValRef(builder, elem, localTypeIdx, alias), len))
 
-      case TupleType(ts) =>
+      case TupleType(ts, _) =>
         ValRef.Type(builder.addTuple(
             ts.map(resolveValRef(builder, _, localTypeIdx, alias))))
 
@@ -290,7 +290,7 @@ object ComponentBuilder {
         ValRef.Type(builder.addOption(
             resolveValRef(builder, inner, localTypeIdx, alias)))
 
-      case ResultType(ok, err) =>
+      case ResultType(ok, err, _) =>
         ValRef.Type(builder.addResult(
             ok.map(resolveValRef(builder, _, localTypeIdx, alias)),
             err.map(resolveValRef(builder, _, localTypeIdx, alias))))

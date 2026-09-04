@@ -16,7 +16,8 @@ import scala.collection.mutable
 
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.Trees.{WitExportDef, WitFunctionName}
-import org.scalajs.ir.{WitScope, WitTypeDef, WitAliasDef}
+import org.scalajs.ir.{WitScope, WitTypeDef, WitNamedTypeDef, WitAliasDef}
+import org.scalajs.ir.WellKnownNames.juInternalWitResultClass
 import org.scalajs.ir.WasmInterfaceTypes._
 import org.scalajs.linker.interface.WasmComponentModuleInitializerExport
 import org.scalajs.linker.standard.ModuleSet
@@ -28,19 +29,19 @@ private[backend] final case class ComponentWorld(
     imports: List[ComponentWorld.WorldItem],
     exports: List[ComponentWorld.WorldItem],
     endpoints: List[ComponentWorld.Endpoint],
-    typeDefs: List[WitTypeDef],
+    typeDefs: List[WitNamedTypeDef],
     aliases: List[WitAliasDef]
 ) {
   def endpointsFor(scope: WitScope): List[ComponentWorld.Endpoint] =
     endpoints.filter(_.scope == scope)
 
-  def typesFor(scope: WitScope): List[WitTypeDef] =
+  def typesFor(scope: WitScope): List[WitNamedTypeDef] =
     typeDefs.filter(_.scope == scope)
 
   def aliasesFor(scope: WitScope): List[WitAliasDef] =
     aliases.filter(_.scope == scope)
 
-  def typeDefByClass: Map[ClassName, WitTypeDef] =
+  def typeDefByClass: Map[ClassName, WitNamedTypeDef] =
     typeDefs.map(td => td.className -> td).toMap
 
   def aliasMap: Map[(WitScope, String), ValType] =
@@ -67,7 +68,7 @@ private[backend] object ComponentWorld {
     final case class Func(func: Endpoint) extends WorldItem
 
     /** World-level named type: Root typedef or `use iface.{T}`. */
-    final case class Type(named: WitTypeDef) extends WorldItem
+    final case class Type(named: WitNamedTypeDef) extends WorldItem
 
     /** World-level `type foo = ...` or `use iface.{T as Z}`. */
     final case class Alias(alias: WitAliasDef) extends WorldItem
@@ -84,7 +85,7 @@ private[backend] object ComponentWorld {
       moduleInitializerExport: Option[WasmComponentModuleInitializerExport]): ComponentWorld = {
     // correct all Wasm Component imports/exports and type definitions from IR
     val allEndpoints: List[Endpoint] = collectEndpoints(module, moduleInitializerExport)
-    val allTypeDefs: List[WitTypeDef] = collectTypeDefs(module)
+    val allTypeDefs: List[WitNamedTypeDef] = collectTypeDefs(module)
     val allAliases: List[WitAliasDef] = collectAliasDefs(module)
 
     val importInterfaces = mutable.LinkedHashSet.empty[WitScope.Interface]
@@ -114,8 +115,8 @@ private[backend] object ComponentWorld {
     val typeDefByClass = allTypeDefs.map(td => td.className -> td).toMap
 
     // World-level named types: Root typedefs and `use` of types referenced by Root funcs.
-    val worldTypes = mutable.LinkedHashMap.empty[ClassName, WitTypeDef]
-    def addWorldType(td: WitTypeDef): Unit = {
+    val worldTypes = mutable.LinkedHashMap.empty[ClassName, WitNamedTypeDef]
+    def addWorldType(td: WitNamedTypeDef): Unit = {
       td.scope match {
         case WitScope.Root =>
           if (!worldTypes.contains(td.className)) {
@@ -204,7 +205,7 @@ private[backend] object ComponentWorld {
         case WasmComponentModuleInitializerExport.ResultType.Unit =>
           None
         case WasmComponentModuleInitializerExport.ResultType.ResultUnitUnit =>
-          Some(ResultType(None, None))
+          Some(ResultType(None, None, juInternalWitResultClass))
       }
       Endpoint(Direction.Export, init.scope,
           WitFunctionName.Function(init.functionName),
@@ -214,10 +215,13 @@ private[backend] object ComponentWorld {
     imported ::: exported ::: initializer
   }
 
-  private def collectTypeDefs(module: ModuleSet.Module): List[WitTypeDef] = {
-    val byKey = mutable.LinkedHashMap.empty[(WitScope, String), WitTypeDef]
-    for (td <- module.classDefs.iterator.flatMap(_.witTypeDef))
+  private def collectTypeDefs(module: ModuleSet.Module): List[WitNamedTypeDef] = {
+    val byKey = mutable.LinkedHashMap.empty[(WitScope, String), WitNamedTypeDef]
+    for (td <- module.classDefs.flatMap(_.witTypeDef).collect {
+          case named: WitNamedTypeDef => named
+        }) {
       byKey.getOrElseUpdate((td.scope, td.name), td)
+    }
     byKey.values.toList
   }
 
@@ -236,9 +240,10 @@ private[backend] object ComponentWorld {
   private def transitiveInterfaceDeps(
       roots: Iterable[WitScope.Interface],
       endpointsByScope: Map[WitScope, List[Endpoint]],
-      typesByScope: Map[WitScope, List[WitTypeDef]],
+      typesByScope: Map[WitScope, List[WitNamedTypeDef]],
       aliasesByScope: Map[WitScope, List[WitAliasDef]],
-      typeDefByClass: Map[ClassName, WitTypeDef]): mutable.LinkedHashSet[WitScope.Interface] = {
+      typeDefByClass: Map[ClassName, WitNamedTypeDef]
+  ): mutable.LinkedHashSet[WitScope.Interface] = {
     def depsOf(iface: WitScope.Interface): Iterable[WitScope.Interface] = {
       val deps = mutable.HashSet.empty[WitScope.Interface]
       def addIfForeign(scope: WitScope): Unit = scope match {
@@ -314,9 +319,9 @@ private[backend] object ComponentWorld {
         className :: Nil
       case AliasTypeRef(_, _, _) =>
         Nil // named types come from WitAliasDef targets
-      case TupleType(ts) =>
+      case TupleType(ts, _) =>
         ts.flatMap(valTypeRefs(_))
-      case ResultType(ok, err) =>
+      case ResultType(ok, err, _) =>
         ok.toList.flatMap(valTypeRefs(_)) ++
         err.toList.flatMap(valTypeRefs(_))
       case OptionType(inner) =>
@@ -333,9 +338,9 @@ private[backend] object ComponentWorld {
         a :: Nil
       case ListType(elem, _) =>
         aliasTypeRefs(elem)
-      case TupleType(ts) =>
+      case TupleType(ts, _) =>
         ts.flatMap(aliasTypeRefs(_))
-      case ResultType(ok, err) =>
+      case ResultType(ok, err, _) =>
         ok.toList.flatMap(aliasTypeRefs(_)) ++
         err.toList.flatMap(aliasTypeRefs(_))
       case OptionType(inner) =>

@@ -52,8 +52,22 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
   def isWasmWitRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(WitRecordAnnotation) && sym.isFinal
 
-  def isWasmComponentTupleClass(sym: Symbol): Boolean =
-    sym.fullName.startsWith("scala.scalajs.wit.Tuple")
+  private val ScalaJsWitResultClass = Names.ClassName("scala.scalajs.wit.Result")
+  private val ScalaJsWitOkClass = Names.ClassName("scala.scalajs.wit.Ok")
+  private val ScalaJsWitErrClass = Names.ClassName("scala.scalajs.wit.Err")
+  private val JuInternalWitPackage = "java.util.internal.wit"
+  private val JuInternalWitResultClass = Names.ClassName(JuInternalWitPackage + ".Result")
+  private val JuInternalWitOkClass = Names.ClassName(JuInternalWitPackage + ".Ok")
+  private val JuInternalWitErrClass = Names.ClassName(JuInternalWitPackage + ".Err")
+
+  private def isWasmComponentTupleClass(sym: Symbol): Boolean = {
+    val n = encodeClassName(sym).nameString
+    n.startsWith("scala.scalajs.wit.Tuple") ||
+      n.startsWith(JuInternalWitPackage + ".Tuple")
+  }
+
+  private def isJuInternalWitResultType(sym: Symbol): Boolean =
+    encodeClassName(sym) == JuInternalWitResultClass && sym.isSealed
 
   def isWasmWitFlags(sym: Symbol): Boolean =
     sym.hasAnnotation(WitFlagsAnnotation)
@@ -197,13 +211,12 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
 
   def genWitTypeDef(sym: Symbol): Option[WitTypeDef] = {
     val tsym = exitingPhase(currentRun.typerPhase)(sym)
+    val className = encodeClassName(tsym)
     if (tsym.hasAnnotation(WitFlagsAnnotation)) {
       val annot = tsym.getAnnotation(WitFlagsAnnotation).get
-      val className = encodeClassName(tsym)
       val ((scope, name), names) = witFlagsInfo(tsym, annot)
       Some(WitTypeDef.Flags(className, scope, name, names))
     } else if (isWasmWitRecordClass(tsym)) {
-      val className = encodeClassName(tsym)
       val fields = exitingPhase(currentRun.typerPhase) {
         tsym.primaryConstructor.paramss.flatten.map { param =>
           val scalaName = param.name.dropLocal.toString()
@@ -222,13 +235,28 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     } else if (tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed) {
       val cases = witEnumCasesOf(tsym)
       val (scope, name) = witIdOf(tsym, WitEnumAnnotation)
-      val className = encodeClassName(tsym)
       Some(WitTypeDef.Enum(className, scope, name, cases))
     } else if (tsym.hasAnnotation(WitVariantAnnotation) && tsym.isSealed) {
       val cases = witVariantCasesOf(tsym)
       val (scope, name) = witIdOf(tsym, WitVariantAnnotation)
-      val className = encodeClassName(tsym)
       Some(WitTypeDef.Variant(className, scope, name, cases))
+    } else if (className == ScalaJsWitResultClass || className == JuInternalWitResultClass) {
+      val (okClass, errClass) = {
+        if (className == ScalaJsWitResultClass)
+          (ScalaJsWitOkClass, ScalaJsWitErrClass)
+        else
+          (JuInternalWitOkClass, JuInternalWitErrClass)
+      }
+      Some(WitTypeDef.Result(
+          className,
+          okClass,
+          errClass,
+          Names.SimpleFieldName("value")))
+    } else if (isWasmComponentTupleClass(tsym)) {
+      val fields = tsym.primaryConstructor.paramss.flatten.map { p =>
+        Names.SimpleFieldName(p.name.dropLocal.toString())
+      }
+      Some(WitTypeDef.Tuple(className, fields))
     } else {
       None
     }
@@ -312,7 +340,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }.getOrElse {
       dealiasedTpe.typeSymbol match {
         case tsym if isWasmComponentTupleClass(tsym) =>
-          wit.TupleType(dealiasedTpe.baseType(tsym).typeArgs.map(toWIT(_)))
+          wit.TupleType(dealiasedTpe.baseType(tsym).typeArgs.map(toWIT(_)), encodeClassName(tsym))
 
         case tsym if tsym.hasAnnotation(WitFlagsAnnotation) =>
           val className = encodeClassName(tsym)
@@ -327,7 +355,11 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
 
         case tsym if tsym.isSubClass(ComponentResultClass) && tsym.isSealed =>
           val List(ok, err) = dealiasedTpe.baseType(ComponentResultClass).typeArgs
-          wit.ResultType(toResultWIT(ok), toResultWIT(err))
+          wit.ResultType(toResultWIT(ok), toResultWIT(err), encodeClassName(ComponentResultClass))
+
+        case tsym if isJuInternalWitResultType(tsym) =>
+          val List(ok, err) = dealiasedTpe.baseType(tsym).typeArgs
+          wit.ResultType(toResultWIT(ok), toResultWIT(err), JuInternalWitResultClass)
 
         case tsym if tsym.fullName == "java.util.Optional" =>
           val List(t) = dealiasedTpe.baseType(tsym).typeArgs

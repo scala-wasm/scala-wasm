@@ -42,9 +42,6 @@ object SpecialNames {
   val UndefinedBehaviorErrorClass =
     ClassName("org.scalajs.linker.runtime.UndefinedBehaviorError")
 
-  val WasmComponentResultClass =
-    ClassName("scala.scalajs.wit.Result")
-
   val WasmRuntimeClass =
     ClassName("org.scalajs.linker.runtime.WasmRuntime")
 

@@ -219,6 +219,7 @@ object Transformers {
   abstract class ClassTransformer extends Transformer {
     def transformClassDef(tree: ClassDef): ClassDef = {
       import tree._
+      implicit val pos = tree.pos
       ClassDef(
         name,
         originalName,
@@ -233,13 +234,19 @@ object Transformers {
         jsConstructor.map(transformJSConstructorDef),
         jsMethodProps.map(transformJSMethodPropDef),
         jsNativeMembers,
-        witTypeDef,
-        witAliases,
-        witNativeMembers,
+        witTypeDef.map(transformWitTypeDef),
+        witAliases.map(transformWitAliasDef),
+        witNativeMembers.map(transformWitNativeMemberDef),
         topLevelExportDefs.map(transformTopLevelExportDef)
       )(
           tree.optimizerHints)(tree.pos)
     }
+
+    def transformWitTypeDef(td: WitTypeDef)(implicit pos: Position): WitTypeDef = td
+
+    def transformWitAliasDef(a: WitAliasDef)(implicit pos: Position): WitAliasDef = a
+
+    def transformWitNativeMemberDef(m: WitNativeMemberDef): WitNativeMemberDef = m
 
     def transformAnyFieldDef(fieldDef: AnyFieldDef): AnyFieldDef =
       fieldDef
