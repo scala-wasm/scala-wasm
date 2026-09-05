@@ -324,7 +324,7 @@ private[backend] object ComponentWorld {
       case ResultType(ok, err, _) =>
         ok.toList.flatMap(valTypeRefs(_)) ++
         err.toList.flatMap(valTypeRefs(_))
-      case OptionType(inner) =>
+      case OptionType(inner, _) =>
         valTypeRefs(inner)
       case _: PrimValType =>
         Nil
@@ -343,7 +343,7 @@ private[backend] object ComponentWorld {
       case ResultType(ok, err, _) =>
         ok.toList.flatMap(aliasTypeRefs(_)) ++
         err.toList.flatMap(aliasTypeRefs(_))
-      case OptionType(inner) =>
+      case OptionType(inner, _) =>
         aliasTypeRefs(inner)
       case _ =>
         Nil

@@ -323,13 +323,13 @@ package object tests {
   def roundtripTuple(@WitName("a") a: wit.Tuple2[C1, Z1]): wit.Tuple2[C1, Z1] = wit.native
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option")
-  def roundtripOption(@WitName("a") a: java.util.Optional[String]): java.util.Optional[String] =
+  def roundtripOption(@WitName("a") a: wit.Option[String]): wit.Option[String] =
     wit.native
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-double-option")
   def roundtripDoubleOption(
-      @WitName("a") a: java.util.Optional[java.util.Optional[String]]): java.util.Optional[
-      java.util.Optional[String]] = wit.native
+      @WitName("a") a: wit.Option[wit.Option[String]]): wit.Option[
+      wit.Option[String]] = wit.native
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-f1")
   def roundtripF1(@WitName("a") a: F1): F1 = wit.native
@@ -368,7 +368,7 @@ package object tests {
 
   // Named WIT type alias
   @WitAlias(WitScope.unversioned("component", "testing", "tests"), "option-u32")
-  type OptionU32 = java.util.Optional[wit.unsigned.UInt]
+  type OptionU32 = wit.Option[wit.unsigned.UInt]
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
   def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = wit.native

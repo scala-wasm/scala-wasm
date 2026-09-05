@@ -22,6 +22,12 @@ object Test {
     else
       System.println("JAVA_HOME is not set")
 
+    val cwd = System.initialCwd()
+    if (cwd != null)
+      System.println("initial-cwd=" + cwd)
+    else
+      System.println("initial-cwd is not set")
+
     System.println("currentTimeMillis=" + System.currentTimeMillis())
   }
 }

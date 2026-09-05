@@ -132,8 +132,8 @@ object WasmInterfaceTypes {
     override def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
-  final case class OptionType(tpe: ValType) extends SpecializedType {
-    def toIRType(): jstpe.Type = jstpe.ClassType(juOptionalClass, true, false)
+  final case class OptionType(tpe: ValType, className: ClassName) extends SpecializedType {
+    def toIRType(): jstpe.Type = jstpe.ClassType(className, true, false)
   }
 
   /** Reference to a named WIT flags. Definition is on `ClassDef.witTypeDef`. */
@@ -199,7 +199,7 @@ object WasmInterfaceTypes {
     case VariantTypeRef(className)        => jstpe.ClassRef(className)
     case ResultType(_, _, className)      => jstpe.ClassRef(className)
     case EnumTypeRef(className)           => jstpe.ClassRef(className)
-    case OptionType(tpe)                  => jstpe.ClassRef(ClassName("java.util.Optional"))
+    case OptionType(_, className)         => jstpe.ClassRef(className)
     case FlagsTypeRef(className)          => jstpe.ClassRef(className)
     case ResourceType(className, _)       => jstpe.ClassRef(className)
     case AliasTypeRef(scope, name, owner) =>
@@ -215,8 +215,8 @@ object WasmInterfaceTypes {
         ListType(loop(elem), len)
       case TupleType(ts, className) =>
         TupleType(ts.map(loop), className)
-      case OptionType(inner) =>
-        OptionType(loop(inner))
+      case OptionType(inner, className) =>
+        OptionType(loop(inner), className)
       case ResultType(ok, err, className) =>
         ResultType(ok.map(loop), err.map(loop), className)
       case other =>

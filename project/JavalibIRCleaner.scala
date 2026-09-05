@@ -666,8 +666,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
               transformClassName(cn))
         case wit.EnumTypeRef(cn) =>
           wit.EnumTypeRef(transformClassName(cn))
-        case wit.OptionType(inner) =>
-          wit.OptionType(transformValType(inner))
+        case wit.OptionType(inner, cn) =>
+          wit.OptionType(transformValType(inner), transformClassName(cn))
         case wit.FlagsTypeRef(cn) =>
           wit.FlagsTypeRef(transformClassName(cn))
         case wit.AliasTypeRef(scope, name, owner) =>
@@ -709,6 +709,9 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         case WitTypeDef.Result(cn, ok, err, f) =>
           WitTypeDef.Result(transformClassName(cn), transformClassName(ok),
               transformClassName(err), f)
+        case WitTypeDef.Option(cn, some, none, f) =>
+          WitTypeDef.Option(transformClassName(cn), transformClassName(some),
+              transformClassName(none), f)
         case WitTypeDef.Tuple(cn, fields) =>
           WitTypeDef.Tuple(transformClassName(cn), fields)
       }
@@ -813,7 +816,8 @@ object JavalibIRCleaner {
     }
 
     val witSimpleNames = List(
-      "Result", "Ok", "Ok$", "Err", "Err$"
+      "Result", "Ok", "Ok$", "Err", "Err$",
+      "Option", "Some", "Some$", "None", "None$"
     ) ++ (1 to 10).flatMap { n =>
       List("Tuple" + n, "Tuple" + n + "$")
     }

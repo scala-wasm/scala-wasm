@@ -286,7 +286,7 @@ object ComponentBuilder {
         ValRef.Type(builder.addTuple(
             ts.map(resolveValRef(builder, _, localTypeIdx, alias))))
 
-      case OptionType(inner) =>
+      case OptionType(inner, _) =>
         ValRef.Type(builder.addOption(
             resolveValRef(builder, inner, localTypeIdx, alias)))
 

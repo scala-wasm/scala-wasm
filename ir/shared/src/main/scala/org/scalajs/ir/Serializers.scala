@@ -1052,9 +1052,10 @@ object Serializers {
       case wit.EnumTypeRef(className) =>
         buffer.writeByte(TagWITEnumType)
         writeName(className)
-      case wit.OptionType(t) =>
+      case wit.OptionType(t, className) =>
         buffer.writeByte(TagWITOptionType)
         writeWITType(t)
+        writeName(className)
       case wit.ResultType(ok, err, className) =>
         buffer.writeByte(TagWITResultType)
         buffer.writeBoolean(ok.isDefined)
@@ -1144,6 +1145,12 @@ object Serializers {
         writeName(className)
         writeName(okClass)
         writeName(errClass)
+        writeName(field)
+      case WitTypeDef.Option(className, someClass, noneClass, field) =>
+        buffer.writeByte(TagWITOptionTypeDef)
+        writeName(className)
+        writeName(someClass)
+        writeName(noneClass)
         writeName(field)
       case WitTypeDef.Tuple(className, fields) =>
         buffer.writeByte(TagWITTupleTypeDef)
@@ -2886,7 +2893,7 @@ object Serializers {
         case TagWITEnumType =>
           wit.EnumTypeRef(readClassName())
         case TagWITOptionType =>
-          wit.OptionType(readWITType())
+          wit.OptionType(readWITType(), readClassName())
         case TagWITResultType =>
           val ok = if (readBoolean()) Some(readWITType()) else None
           val err = if (readBoolean()) Some(readWITType()) else None
@@ -2956,6 +2963,9 @@ object Serializers {
           WitTypeDef.Resource(wit.ResourceRef(className, scope, name))
         case TagWITResultTypeDef =>
           WitTypeDef.Result(readClassName(), readClassName(), readClassName(),
+              readSimpleFieldName())
+        case TagWITOptionTypeDef =>
+          WitTypeDef.Option(readClassName(), readClassName(), readClassName(),
               readSimpleFieldName())
         case TagWITTupleTypeDef =>
           WitTypeDef.Tuple(readClassName(), List.fill(readInt())(readSimpleFieldName()))

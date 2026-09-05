@@ -794,11 +794,9 @@ object Infos {
         case wit.FlagsTypeRef(className) =>
           builder.addReferencedClass(className)
 
-        case wit.OptionType(t) =>
-          builder.addInstantiatedClass(
-              juOptionalClass, MethodName.constructor(List(ClassRef(ObjectClass))))
-          builder.addFieldRead(
-              FieldName(juOptionalClass, SimpleFieldName("java$util$Optional$$value")))
+        case wit.OptionType(t, className) =>
+          builder.maybeAddAccessedClassData(ClassRef(className))
+          builder.addReferencedClass(className)
           generateForWIT(t)
 
         case wit.ResultType(ok, err, className) =>
@@ -871,6 +869,12 @@ object Infos {
           builder.addInstantiatedClass(errClass, ctor)
           builder.addFieldRead(FieldName(okClass, field))
           builder.addFieldRead(FieldName(errClass, field))
+
+        case WitTypeDef.Option(_, someClass, noneClass, field) =>
+          val someCtor = MethodName.constructor(List(ClassRef(ObjectClass)))
+          builder.addInstantiatedClass(someClass, someCtor)
+          builder.addFieldRead(FieldName(someClass, field))
+          builder.addAccessedModule(noneClass)
 
         case WitTypeDef.Tuple(className, fields) =>
           val ctor = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))

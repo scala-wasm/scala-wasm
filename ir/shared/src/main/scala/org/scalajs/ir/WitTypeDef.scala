@@ -59,6 +59,10 @@ object WitTypeDef {
       errClass: ClassName, field: SimpleFieldName)
       extends WitTypeDef
 
+  final case class Option(className: ClassName, someClass: ClassName,
+      noneClass: ClassName, field: SimpleFieldName)
+      extends WitTypeDef
+
   final case class Tuple(className: ClassName, fields: List[SimpleFieldName]) extends WitTypeDef
 }
 

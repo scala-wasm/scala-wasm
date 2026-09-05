@@ -37,6 +37,6 @@ package object countable {
   def tryCreateCounter(@WitName("value") value: Int): wit.Result[Counter, String] = wit.native
 
   @WitImport(WitScope.unversioned("component", "testing", "countable"), "maybe-get-counter")
-  def maybeGetCounter(): java.util.Optional[Counter] = wit.native
+  def maybeGetCounter(): wit.Option[Counter] = wit.native
 
 }

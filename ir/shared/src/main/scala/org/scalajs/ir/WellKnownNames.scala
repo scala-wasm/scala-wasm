@@ -159,8 +159,9 @@ object WellKnownNames {
   final val WitVariantValueFieldName: SimpleFieldName =
     SimpleFieldName("value")
 
-  final val juOptionalClass = ClassName("java.util.Optional")
-
   final val juInternalWitResultClass: ClassName =
     ClassName("java.util.internal.wit.Result")
+
+  final val juInternalWitOptionClass: ClassName =
+    ClassName("java.util.internal.wit.Option")
 }

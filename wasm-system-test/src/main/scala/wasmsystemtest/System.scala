@@ -53,6 +53,15 @@ object System {
     getenv().get(name)
   }
 
+  /** WASI-only (`wasi:cli/environment#initial-cwd`). Not a `java.lang.System` API. */
+  def initialCwd(): String = {
+    val cwd = environment.initialCwd()
+    if (cwd.isDefined)
+      cwd.get
+    else
+      null
+  }
+
   private def unwrapResult[A, B](r: wit.Result[A, B], message: String): A = {
     if (r.isOk) {
       r.get
