@@ -7,6 +7,7 @@ import org.scalajs.ir.Trees._
 import org.scalajs.ir.Types._
 import org.scalajs.ir.Version.Unversioned
 import org.scalajs.ir.WellKnownNames._
+import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
 import java.io._
 import java.net.URI
@@ -206,6 +207,17 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
 
       postTransformChecks(transformedClassDef)
       transformedClassDef
+    }
+
+    override def transformTopLevelExportDef(
+        exportDef: TopLevelExportDef): TopLevelExportDef = {
+      implicit val pos = exportDef.pos
+      super.transformTopLevelExportDef(exportDef) match {
+        case WitExportDef(scope, name, methodDef, signature) =>
+          WitExportDef(scope, name, methodDef, transformFuncType(signature))
+        case other =>
+          other
+      }
     }
 
     private def transformInterfaceList(
@@ -618,12 +630,8 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
         (enclosingClassName == TypedArrayBufferBridge || enclosingClassName == TypedArrayBufferBridgeMod)
       }
 
-      def isWasmComponent =
-        cls.nameString.startsWith("scala.scalajs.wit")
-
       def isAnException: Boolean =
-        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself ||
-            isWasmComponent
+        isJavaScriptExceptionWithinItself || isTypedArrayBufferBridgeWithinItself
 
       if (cls.nameString.startsWith("scala.") && !isAnException)
         reportError(s"Illegal reference to Scala class ${cls.nameString}")
@@ -641,6 +649,78 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
     private def transformMethodName(name: MethodName)(implicit pos: Position): MethodName = {
       MethodName(name.simpleName, name.paramTypeRefs.map(transformTypeRef),
           transformTypeRef(name.resultTypeRef), name.isReflectiveProxy)
+    }
+
+    private def transformValType(tpe: wit.ValType)(implicit pos: Position): wit.ValType = {
+      tpe match {
+        case wit.ListType(elem, len) =>
+          wit.ListType(transformValType(elem), len)
+        case wit.RecordTypeRef(cn) =>
+          wit.RecordTypeRef(transformClassName(cn))
+        case wit.TupleType(ts, cn) =>
+          wit.TupleType(ts.map(transformValType), transformClassName(cn))
+        case wit.VariantTypeRef(cn) =>
+          wit.VariantTypeRef(transformClassName(cn))
+        case wit.ResultType(ok, err, cn) =>
+          wit.ResultType(ok.map(transformValType), err.map(transformValType),
+              transformClassName(cn))
+        case wit.EnumTypeRef(cn) =>
+          wit.EnumTypeRef(transformClassName(cn))
+        case wit.OptionType(inner) =>
+          wit.OptionType(transformValType(inner))
+        case wit.FlagsTypeRef(cn) =>
+          wit.FlagsTypeRef(transformClassName(cn))
+        case wit.AliasTypeRef(scope, name, owner) =>
+          wit.AliasTypeRef(scope, name, transformClassName(owner))
+        case wit.ResourceType(cn, ownership) =>
+          wit.ResourceType(transformClassName(cn), ownership)
+        case other =>
+          other
+      }
+    }
+
+    private def transformFuncType(ft: wit.FuncType)(implicit pos: Position): wit.FuncType =
+      wit.FuncType(ft.params.map(p => wit.ParamType(p.name, transformValType(p.tpe))),
+          ft.resultType.map(transformValType))
+
+    private def transformFieldType(f: wit.FieldType)(implicit pos: Position): wit.FieldType =
+      wit.FieldType(
+          FieldName(transformClassName(f.label.className), f.label.simpleName),
+          f.name,
+          transformValType(f.tpe)
+      )
+
+    private def transformCaseType(c: wit.CaseType)(implicit pos: Position): wit.CaseType =
+      wit.CaseType(transformClassName(c.className), c.name, c.tpe.map(transformValType))
+
+    override def transformWitTypeDef(td: WitTypeDef)(implicit pos: Position): WitTypeDef = {
+      td match {
+        case WitTypeDef.Record(cn, scope, name, fields) =>
+          WitTypeDef.Record(transformClassName(cn), scope, name, fields.map(transformFieldType))
+        case WitTypeDef.Variant(cn, scope, name, cases) =>
+          WitTypeDef.Variant(transformClassName(cn), scope, name, cases.map(transformCaseType))
+        case WitTypeDef.Enum(cn, scope, name, cases) =>
+          WitTypeDef.Enum(transformClassName(cn), scope, name, cases.map(transformCaseType))
+        case WitTypeDef.Flags(cn, scope, name, names) =>
+          WitTypeDef.Flags(transformClassName(cn), scope, name, names)
+        case WitTypeDef.Resource(ref) =>
+          WitTypeDef.Resource(
+              wit.ResourceRef(transformClassName(ref.className), ref.scope, ref.name))
+        case WitTypeDef.Result(cn, ok, err, f) =>
+          WitTypeDef.Result(transformClassName(cn), transformClassName(ok),
+              transformClassName(err), f)
+        case WitTypeDef.Tuple(cn, fields) =>
+          WitTypeDef.Tuple(transformClassName(cn), fields)
+      }
+    }
+
+    override def transformWitAliasDef(a: WitAliasDef)(implicit pos: Position): WitAliasDef =
+      WitAliasDef(a.scope, a.name, transformValType(a.target))
+
+    override def transformWitNativeMemberDef(m: WitNativeMemberDef): WitNativeMemberDef = {
+      implicit val pos = m.pos
+      WitNativeMemberDef(m.flags, m.scope, m.name, transformMethodIdent(m.method),
+          transformFuncType(m.signature))(m.pos)
     }
 
     private def reportError(msg: String)(implicit pos: Position): Unit = {
@@ -732,6 +812,17 @@ object JavalibIRCleaner {
       ClassName("scala.Tuple" + n) -> ClassName("java.util.internal.Tuple" + n)
     }
 
+    val witSimpleNames = List(
+      "Result", "Ok", "Ok$", "Err", "Err$"
+    ) ++ (1 to 10).flatMap { n =>
+      List("Tuple" + n, "Tuple" + n + "$")
+    }
+
+    val witPairs = for (simpleName <- witSimpleNames) yield {
+      ClassName("scala.scalajs.wit." + simpleName) ->
+        ClassName("java.util.internal.wit." + simpleName)
+    }
+
     val otherPairs = List(
       /* AssertionError conveniently features a constructor taking an Object.
        * Since any MatchError in the javalib would be a bug, it is fine to
@@ -740,7 +831,7 @@ object JavalibIRCleaner {
       ClassName("scala.MatchError") -> ClassName("java.lang.AssertionError"),
     )
 
-    val allPairs = refPairs ++ tuplePairs ++ otherPairs
+    val allPairs = refPairs ++ tuplePairs ++ witPairs ++ otherPairs
     allPairs.toMap
   }
 }

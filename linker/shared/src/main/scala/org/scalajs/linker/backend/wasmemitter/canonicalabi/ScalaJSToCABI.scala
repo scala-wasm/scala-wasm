@@ -1,6 +1,7 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
 import org.scalajs.ir.Types._
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.OriginalName.NoOriginalName
 import org.scalajs.ir.Names._
@@ -94,8 +95,7 @@ object ScalaJSToCABI {
         fb += wa.LocalGet(length)
         fb += wa.I32Store()
 
-      case wit.TupleType(fields) =>
-        val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
+      case wit.TupleType(fields, className) =>
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
@@ -204,10 +204,12 @@ object ScalaJSToCABI {
           genStoreMemory(fb, t)
         }
 
-      case wit.ResultType(ok, err) =>
+      case wit.ResultType(ok, err, className) =>
+        val WitTypeDef.Result(_, okClass, errClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         val cases = List(
-          wit.CaseType(ComponentResultOkClass, "ok", ok),
-          wit.CaseType(ComponentResultErrClass, "err", err)
+          wit.CaseType(okClass, "ok", ok),
+          wit.CaseType(errClass, "err", err)
         )
         genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
 
@@ -258,8 +260,7 @@ object ScalaJSToCABI {
           genFieldID.forClassInstanceField(valueFieldName)
         )
 
-      case wit.TupleType(fields) =>
-        val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
+      case wit.TupleType(fields, className) =>
         val tuple = fb.addLocal(NoOriginalName, watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.RefCast(watpe.RefType.nullable(genTypeID.forClass(className)))
         fb += wa.LocalSet(tuple)
@@ -333,10 +334,12 @@ object ScalaJSToCABI {
           genCoerceValues(fb, Flatten.flattenType(t), flattened)
         }
 
-      case wit.ResultType(ok, err) =>
+      case wit.ResultType(ok, err, className) =>
+        val WitTypeDef.Result(_, okClass, errClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         val cases = List(
-          wit.CaseType(ComponentResultOkClass, "ok", ok),
-          wit.CaseType(ComponentResultErrClass, "err", err)
+          wit.CaseType(okClass, "ok", ok),
+          wit.CaseType(errClass, "err", err)
         )
         genStoreVariantStack(fb, cases, (tpe) => { genUnbox(fb, tpe) })
     }

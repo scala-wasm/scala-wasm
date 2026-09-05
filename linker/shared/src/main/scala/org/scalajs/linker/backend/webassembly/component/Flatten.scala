@@ -14,7 +14,6 @@ package org.scalajs.linker.backend.webassembly.component
 
 import org.scalajs.linker.backend.webassembly.{Types => watpe}
 import org.scalajs.linker.backend.wasmemitter.WasmContext
-import org.scalajs.ir.WellKnownNames._
 import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 
@@ -98,11 +97,12 @@ object Flatten {
       case wit.CharType                           => List(watpe.Int32)
       case wit.StringType                         => List(watpe.Int32, watpe.Int32)
       case t: wit.ListType                        => flattenList(t)
-      case wit.TupleType(fields)                  => fields.flatMap(flattenType)
+      case wit.TupleType(fields, _)               => fields.flatMap(flattenType)
       case t: wit.RecordTypeRef                   => flattenRecord(t)
       case t: wit.VariantTypeRef                  => flattenVariant(t)
-      case wit.ResultType(ok, err)                => flattenVariantCases(resultCases(ok, err))
-      case wit.EnumTypeRef(className)             =>
+      case wit.ResultType(ok, err, _)             =>
+        List(watpe.Int32) ++ flattenVariants(ok.toList ++ err.toList)
+      case wit.EnumTypeRef(className) =>
         val WitTypeDef.Enum(_, _, _, cases) = ctx.getWitTypeDef(className): @unchecked
         flattenVariantCases(cases)
       case wit.OptionType(t)   => List(watpe.Int32) ++ flattenVariants(List(t))
@@ -135,14 +135,6 @@ object Flatten {
       implicit ctx: WasmContext): List[watpe.Type] = {
     val variantTypes = cases.flatMap { case wit.CaseType(_, _, tpe) => tpe }
     List(watpe.Int32) ++ flattenVariants(variantTypes)
-  }
-
-  private def resultCases(ok: Option[wit.ValType],
-      err: Option[wit.ValType]): List[wit.CaseType] = {
-    List(
-      wit.CaseType(ComponentResultOkClass, "ok", ok),
-      wit.CaseType(ComponentResultErrClass, "err", err)
-    )
   }
 
   def flattenVariants(variants: List[wit.ValType])(

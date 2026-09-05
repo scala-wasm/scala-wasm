@@ -1,6 +1,7 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
 import org.scalajs.ir.Types._
+import org.scalajs.ir.WitTypeDef
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.Names._
 import org.scalajs.ir.WellKnownNames._
@@ -128,9 +129,8 @@ object CABIToScalaJS {
         }
         // genAlignTo(fb, wit.alignment(tpe), ptr)
 
-      case wit.TupleType(fields) =>
+      case wit.TupleType(fields, className) =>
         val ctor = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
-        val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
         val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.LocalSet(ptr)
         genNewScalaClass(fb, className, ctor) {
@@ -199,12 +199,14 @@ object CABIToScalaJS {
           }
         }
 
-      case result @ wit.ResultType(ok, err) =>
+      case wit.ResultType(ok, err, className) =>
+        val WitTypeDef.Result(_, okClass, errClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         val cases = List(
-          wit.CaseType(ComponentResultOkClass, "ok", ok),
-          wit.CaseType(ComponentResultErrClass, "err", err)
+          wit.CaseType(okClass, "ok", ok),
+          wit.CaseType(errClass, "err", err)
         )
-        genLoadVariantMemory(fb, cases, true)
+        genLoadVariantMemory(fb, cases, boxValue = true)
     }
   }
 
@@ -245,9 +247,8 @@ object CABIToScalaJS {
         vi.next(watpe.Int32) // handle
         fb += wa.StructNew(genTypeID.forClass(className))
 
-      case wit.TupleType(fields) =>
+      case wit.TupleType(fields, className) =>
         val ctor = MethodName.constructor(List.fill(fields.size)(ClassRef(ObjectClass)))
-        val className = ClassName("scala.scalajs.wit.Tuple" + fields.size)
         genNewScalaClass(fb, className, ctor) {
           for (f <- fields) {
             val fieldType = Flatten.flattenType(f)
@@ -335,17 +336,14 @@ object CABIToScalaJS {
           }
         }
 
-      case wit.ResultType(ok, err) =>
+      case wit.ResultType(ok, err, className) =>
+        val WitTypeDef.Result(_, okClass, errClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         val cases = List(
-          wit.CaseType(ComponentResultOkClass, "ok", ok),
-          wit.CaseType(ComponentResultErrClass, "err", err)
+          wit.CaseType(okClass, "ok", ok),
+          wit.CaseType(errClass, "err", err)
         )
-        genLoadVariantStack(
-          fb,
-          cases,
-          vi,
-          boxValue = true
-        )
+        genLoadVariantStack(fb, cases, vi, boxValue = true)
     }
   }
 

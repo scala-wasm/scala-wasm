@@ -152,6 +152,8 @@ jobs:
         run: sbt "$SBT_SET_COMMAND" testComponentModel${{ matrix.suffix }}/fastLinkJS
       - name: testComponentModel${{ matrix.suffix }}/fullLinkJS
         run: sbt "$SBT_SET_COMMAND" testComponentModel${{ matrix.suffix }}/fullLinkJS
+      - name: wasmSystemTest/test
+        run: sbt "$SBT_SET_COMMAND" wasmSystemTest/test
       - name: Compose and run tests
         run: make run SCALA_VERSION=${{ matrix.scalaVersion }}
         working-directory: examples/test-component-model

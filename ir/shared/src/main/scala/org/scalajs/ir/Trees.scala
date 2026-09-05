@@ -1492,9 +1492,10 @@ object Trees {
       val jsConstructor: Option[JSConstructorDef],
       val jsMethodProps: List[JSMethodPropDef],
       val jsNativeMembers: List[JSNativeMemberDef],
-      /** WIT named type definition represented by this class.
+      /** WIT type definition represented by this class.
        *
-       *  Currently, only relevant for WIT record, variant, enum, flags and resource.
+       *  Named types (record, variant, enum, flags, resource) and Scala
+       *  representations of WIT type constructors (result, tuple, option).
        */
       val witTypeDef: Option[WitTypeDef],
       /** WIT named type aliases whose Scala definition is owned by this class. */

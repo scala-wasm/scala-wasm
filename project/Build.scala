@@ -1063,7 +1063,7 @@ object Build {
 
       {
         val allProjects: Seq[Project] = Seq(
-            linkerPrivateLibrary, linkerProfile
+            linkerPrivateLibrary, linkerProfile, wasmSystemTest
         ) ++ Seq(
             plugin,
             compiler, irProject, irProjectJS,
@@ -2244,6 +2244,37 @@ object Build {
          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
       },
   ).withScalaJSCompiler.dependsOnLibrary
+
+  /** Test that javalib-style Wasm System code can use component　model
+    * interop without using `scala.*` in cleaned IR.
+    */
+  lazy val wasmSystemTest: Project = Project(
+      id = "wasmSystemTest", base = file("wasm-system-test")
+  ).enablePlugins(
+      MyScalaJSPlugin
+  ).settings(
+      commonSettings,
+      defaultScalaVersionOnlySettings,
+      name := "Wasm System test",
+      Compile / publishArtifact := false,
+      scalacOptions += "-Yno-predef",
+      cleanIRSettings,
+      scalaJSWitWorld := Some("scala"),
+      scalaJSUseMainModuleInitializer := true,
+      scalaJSLinkerConfig := {
+        StandardConfig()
+          .withCheckIR(true)
+          .withPrettyPrint(true)
+          .withModuleKind(ModuleKind.WasmComponent)
+          .withESFeatures(_.withESVersion(ESVersion.ES2022).withUseWebAssembly(true))
+          .withWasmFeatures { prevFeatures =>
+            prevFeatures
+              .withUseJSPI(false)
+              .withModuleInitializerExport(Some(WasiCliRunModuleInitializerExport))
+          }
+      },
+      Test / test := (Compile / run).toTask("").value,
+  ).withScalaJSCompiler2_12.dependsOnLibrary2_12
 
   lazy val reversi: MultiScalaProject = MultiScalaProject(
       id = "reversi", base = file("examples") / "reversi"

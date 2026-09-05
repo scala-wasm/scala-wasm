@@ -12,7 +12,7 @@
 
 package org.scalajs.ir
 
-import Names.ClassName
+import Names.{ClassName, SimpleFieldName}
 import WasmInterfaceTypes.{CaseType, FieldType, ResourceRef}
 
 sealed trait ResourceOwnership
@@ -22,8 +22,13 @@ object ResourceOwnership {
   case object Borrow extends ResourceOwnership
 }
 
+/** WIT metadata stored on a ClassDef. */
 sealed trait WitTypeDef {
   def className: ClassName
+}
+
+/** A named WIT type (`record`, `variant`, `enum`, `flags`, `resource`). */
+sealed trait WitNamedTypeDef extends WitTypeDef {
   def scope: WitScope
   def name: String
 }
@@ -31,24 +36,30 @@ sealed trait WitTypeDef {
 object WitTypeDef {
   final case class Record(className: ClassName, scope: WitScope, name: String,
       fields: List[FieldType])
-      extends WitTypeDef
+      extends WitNamedTypeDef
 
   final case class Variant(className: ClassName, scope: WitScope, name: String, cases: List[CaseType])
-      extends WitTypeDef
+      extends WitNamedTypeDef
 
   final case class Enum(className: ClassName, scope: WitScope, name: String, cases: List[CaseType])
-      extends WitTypeDef
+      extends WitNamedTypeDef
 
   final case class Flags(className: ClassName, scope: WitScope, name: String, names: List[String])
-      extends WitTypeDef {
+      extends WitNamedTypeDef {
     def numFields: Int = names.size
   }
 
-  final case class Resource(resource: ResourceRef) extends WitTypeDef {
+  final case class Resource(resource: ResourceRef) extends WitNamedTypeDef {
     def className: ClassName = resource.className
     def scope: WitScope = resource.scope
     def name: String = resource.name
   }
+
+  final case class Result(className: ClassName, okClass: ClassName,
+      errClass: ClassName, field: SimpleFieldName)
+      extends WitTypeDef
+
+  final case class Tuple(className: ClassName, fields: List[SimpleFieldName]) extends WitTypeDef
 }
 
 /** Named WIT `type name = target`, stored on the enclosing module ClassDef. */

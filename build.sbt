@@ -32,6 +32,7 @@ val helloworldWASI = Build.helloworldWASI
 val helloworldComponentModel = Build.helloworldComponentModel
 val reversi = Build.reversi
 val testComponentModel = Build.testComponentModel
+val wasmSystemTest = Build.wasmSystemTest
 val testingExample = Build.testingExample
 val testSuite = Build.testSuite
 val testSuiteJVM = Build.testSuiteJVM

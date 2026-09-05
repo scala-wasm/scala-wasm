@@ -1039,12 +1039,13 @@ object Serializers {
       case wit.RecordTypeRef(className) =>
         buffer.writeByte(TagWITRecordType)
         writeName(className)
-      case wit.TupleType(fields) =>
+      case wit.TupleType(fields, className) =>
         buffer.writeByte(TagWITTupleType)
         buffer.writeInt(fields.size)
         for (f <- fields) {
           writeWITType(f)
         }
+        writeName(className)
       case wit.VariantTypeRef(className) =>
         buffer.writeByte(TagWITVariantType)
         writeName(className)
@@ -1054,12 +1055,13 @@ object Serializers {
       case wit.OptionType(t) =>
         buffer.writeByte(TagWITOptionType)
         writeWITType(t)
-      case wit.ResultType(ok, err) =>
+      case wit.ResultType(ok, err, className) =>
         buffer.writeByte(TagWITResultType)
         buffer.writeBoolean(ok.isDefined)
         ok.foreach(writeWITType)
         buffer.writeBoolean(err.isDefined)
         err.foreach(writeWITType)
+        writeName(className)
       case wit.FlagsTypeRef(className) =>
         buffer.writeByte(TagWITFlagsType)
         writeName(className)
@@ -1137,6 +1139,16 @@ object Serializers {
         writeName(resource.className)
         writeWitScope(resource.scope)
         writeString(resource.name)
+      case WitTypeDef.Result(className, okClass, errClass, field) =>
+        buffer.writeByte(TagWITResultTypeDef)
+        writeName(className)
+        writeName(okClass)
+        writeName(errClass)
+        writeName(field)
+      case WitTypeDef.Tuple(className, fields) =>
+        buffer.writeByte(TagWITTupleTypeDef)
+        writeName(className)
+        writeNames(fields)
     }
 
     def writeTypeRef(typeRef: TypeRef): Unit = typeRef match {
@@ -2863,7 +2875,8 @@ object Serializers {
           )
         case TagWITTupleType =>
           wit.TupleType(
-            List.fill(readInt())(readWITType())
+            List.fill(readInt())(readWITType()),
+            readClassName()
           )
 
         case TagWITRecordType =>
@@ -2877,7 +2890,7 @@ object Serializers {
         case TagWITResultType =>
           val ok = if (readBoolean()) Some(readWITType()) else None
           val err = if (readBoolean()) Some(readWITType()) else None
-          wit.ResultType(ok, err)
+          wit.ResultType(ok, err, readClassName())
         case TagWITFlagsType =>
           wit.FlagsTypeRef(readClassName())
         case TagWITResourceType =>
@@ -2941,6 +2954,11 @@ object Serializers {
           val scope = readWitScope()
           val name = readString()
           WitTypeDef.Resource(wit.ResourceRef(className, scope, name))
+        case TagWITResultTypeDef =>
+          WitTypeDef.Result(readClassName(), readClassName(), readClassName(),
+              readSimpleFieldName())
+        case TagWITTupleTypeDef =>
+          WitTypeDef.Tuple(readClassName(), List.fill(readInt())(readSimpleFieldName()))
       }
     }
 

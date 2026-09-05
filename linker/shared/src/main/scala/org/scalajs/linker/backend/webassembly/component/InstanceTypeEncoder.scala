@@ -16,7 +16,7 @@ import scala.collection.mutable
 
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.Trees.WitFunctionName
-import org.scalajs.ir.{WitScope, WitTypeDef, WitAliasDef}
+import org.scalajs.ir.{WitScope, WitTypeDef, WitNamedTypeDef, WitAliasDef}
 import org.scalajs.ir.WasmInterfaceTypes.{ExternType => _, _}
 
 import Components._
@@ -25,10 +25,10 @@ import ComponentWorld._
 private[component] final class InstanceTypeEncoder(
     scope: WitScope,
     endpoints: List[ComponentWorld.Endpoint],
-    namedTypes: List[WitTypeDef],
+    namedTypes: List[WitNamedTypeDef],
     definedAliases: List[WitAliasDef],
     worldTypeIds: Map[(WitScope, String), TypeID],
-    typeDefByClass: Map[ClassName, WitTypeDef]
+    typeDefByClass: Map[ClassName, WitNamedTypeDef]
 ) {
   private val builder = new ComponentBuilder
   private var localTypeIdx = Map.empty[ClassName, TypeID]
