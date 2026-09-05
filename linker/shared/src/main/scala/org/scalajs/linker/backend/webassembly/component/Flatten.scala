@@ -105,10 +105,10 @@ object Flatten {
       case wit.EnumTypeRef(className) =>
         val WitTypeDef.Enum(_, _, _, cases) = ctx.getWitTypeDef(className): @unchecked
         flattenVariantCases(cases)
-      case wit.OptionType(t)   => List(watpe.Int32) ++ flattenVariants(List(t))
-      case _: wit.FlagsTypeRef => List(watpe.Int32)
-      case a: wit.AliasTypeRef => flattenType(ctx.dealiasWit(a))
-      case _: wit.ResourceType => List(watpe.Int32)
+      case wit.OptionType(t, _) => List(watpe.Int32) ++ flattenVariants(List(t))
+      case _: wit.FlagsTypeRef  => List(watpe.Int32)
+      case a: wit.AliasTypeRef  => flattenType(ctx.dealiasWit(a))
+      case _: wit.ResourceType  => List(watpe.Int32)
     }
   }
 

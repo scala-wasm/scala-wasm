@@ -105,6 +105,7 @@ trait JSDefinitions {
     lazy val ComponentResultClass      = getRequiredClass("scala.scalajs.wit.Result")
     lazy val ComponentResultOkClass    = getRequiredClass("scala.scalajs.wit.Ok")
     lazy val ComponentResultErrClass   = getRequiredClass("scala.scalajs.wit.Err")
+    lazy val ComponentOptionClass      = getRequiredClass("scala.scalajs.wit.Option")
 
     lazy val ScalaJSWitUnsignedPackageModule = getPackageObject("scala.scalajs.wit.unsigned")
       lazy val WitUnsigned_UByte = getTypeMember(ScalaJSWitUnsignedPackageModule, newTermName("UByte"))

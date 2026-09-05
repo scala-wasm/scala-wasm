@@ -168,36 +168,8 @@ object CABIToScalaJS {
       case a: wit.AliasTypeRef =>
         genLoadMemory(fb, ctx.dealiasWit(a))
 
-      case wit.OptionType(t) =>
-        val optionType = watpe.RefType.nullable(genTypeID.forClass(juOptionalClass))
-        val maxCaseAlignment = WitTypeOps.alignment(t)
-        val ctorID = MethodName.constructor(List(ClassRef(ObjectClass)))
-
-        val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
-
-        // load case index
-        fb += wa.LocalTee(ptr)
-        fb += wa.I32Load8U()
-
-        // move pointer
-        genMovePtr(fb, ptr, 1)
-        genAlignTo(fb, maxCaseAlignment, ptr)
-
-        fb.ifThenElse(optionType) {
-          // non-null
-          genNewScalaClass(fb, juOptionalClass, ctorID) {
-            fb += wa.LocalGet(ptr)
-            genLoadMemory(fb, t)
-            ctx.dealiasWit(t).toIRType() match {
-              case t: PrimTypeWithRef => genBox(fb, t)
-              case _                  =>
-            }
-          }
-        } {
-          genNewScalaClass(fb, juOptionalClass, ctorID) {
-            fb += wa.RefNull(watpe.HeapType.Any)
-          }
-        }
+      case tpe: wit.OptionType =>
+        genLoadVariantMemory(fb, WitTypeOps.getVariantCases(tpe), boxValue = true)
 
       case wit.ResultType(ok, err, className) =>
         val WitTypeDef.Result(_, okClass, errClass, _) =
@@ -316,25 +288,8 @@ object CABIToScalaJS {
       case a: wit.AliasTypeRef =>
         genLoadStack(fb, ctx.dealiasWit(a), vi)
 
-      case wit.OptionType(t) =>
-        val optionType = watpe.RefType(genTypeID.forClass(juOptionalClass))
-        val ctorID = MethodName.constructor(List(ClassRef(ObjectClass)))
-
-        vi.next(watpe.Int32)
-        fb.ifThenElse(optionType) {
-          // non-null
-          genNewScalaClass(fb, juOptionalClass, ctorID) {
-            genLoadStack(fb, t, vi)
-            ctx.dealiasWit(t).toIRType() match {
-              case t: PrimTypeWithRef => genBox(fb, t)
-              case _                  =>
-            }
-          }
-        } {
-          genNewScalaClass(fb, juOptionalClass, ctorID) {
-            fb += wa.RefNull(watpe.HeapType.Any)
-          }
-        }
+      case tpe: wit.OptionType =>
+        genLoadVariantStack(fb, WitTypeOps.getVariantCases(tpe), vi, boxValue = true)
 
       case wit.ResultType(ok, err, className) =>
         val WitTypeDef.Result(_, okClass, errClass, _) =

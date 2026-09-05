@@ -9,8 +9,6 @@ import componentmodel.component.testing.tests._
 import componentmodel.component.testing.countable._
 import componentmodel.root._
 
-import java.util.Optional
-
 object TestImportsImpl {
   @WitExport(WitScope.unversioned("component", "testing", "test-imports"), "run")
   def run(): Unit = {
@@ -99,11 +97,11 @@ object TestImportsImpl {
     val tupleResult3: (C1, Z1) = roundtripTuple((C1.A(4), Z1.B))
     assert(tupleResult3 == (C1.A(4), Z1.B))
 
-    assert(Optional.of("ok") == roundtripOption(Optional.of("ok")))
-    assert(Optional.empty == roundtripOption(Optional.empty[String]))
-    assert(Optional.of(Optional.of("foo")) == roundtripDoubleOption(Optional.of(Optional.of("foo"))))
-    assert(Optional.of(Optional.empty) == roundtripDoubleOption(Optional.of(Optional.empty[String])))
-    assert(Optional.empty == roundtripDoubleOption(Optional.empty[Optional[String]]))
+    assert(wit.Some("ok") == roundtripOption(wit.Some("ok")))
+    assert(wit.None == roundtripOption(wit.None))
+    assert(wit.Some(wit.Some("foo")) == roundtripDoubleOption(wit.Some(wit.Some("foo"))))
+    assert(wit.Some(wit.None) == roundtripDoubleOption(wit.Some(wit.None)))
+    assert(wit.None == roundtripDoubleOption(wit.None))
     // assert(new wit.Err("aaa") != new wit.Err("bbb"))
 
     assert(new wit.Ok(()) == roundtripResult(new wit.Ok(())))
@@ -143,8 +141,8 @@ object TestImportsImpl {
       assert(errorResult.isLeft)
 
       val maybeCounter = maybeGetCounter()
-      assert(maybeCounter.isPresent)
-      assert(42 == maybeCounter.get().valueOf())
+      assert(maybeCounter.isDefined)
+      assert(42 == maybeCounter.get.valueOf())
     }
 
     locally {
@@ -177,9 +175,9 @@ object TestImportsImpl {
   }
 
   def testWitTypeAlias(): Unit = {
-    assert(Optional.of(7.asInstanceOf[UInt]) ==
-      roundtripOptionU32(Optional.of(7.asInstanceOf[UInt])))
-    assert(Optional.empty[UInt]() == roundtripOptionU32(Optional.empty[UInt]()))
+    assert(wit.Some(7.asInstanceOf[UInt]) ==
+      roundtripOptionU32(wit.Some(7.asInstanceOf[UInt])))
+    assert(wit.None == roundtripOptionU32(wit.None))
   }
 }
 

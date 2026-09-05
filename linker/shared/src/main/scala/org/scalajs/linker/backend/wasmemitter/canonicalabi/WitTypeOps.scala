@@ -2,7 +2,6 @@ package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
 import org.scalajs.ir.Names.ClassName
 import org.scalajs.ir.WasmInterfaceTypes._
-import org.scalajs.ir.WellKnownNames._
 import org.scalajs.ir.WitTypeDef
 
 import org.scalajs.linker.backend.wasmemitter.WasmContext
@@ -126,10 +125,12 @@ private[canonicalabi] object WitTypeOps {
         val WitTypeDef.Enum(_, _, _, cases) =
           ctx.getWitTypeDef(className): @unchecked
         cases
-      case OptionType(tpe) =>
+      case OptionType(tpe, className) =>
+        val WitTypeDef.Option(_, someClass, noneClass, _) =
+          ctx.getWitTypeDef(className): @unchecked
         List(
-          CaseType(juOptionalClass, "none", None),
-          CaseType(juOptionalClass, "some", Some(tpe))
+          CaseType(noneClass, "none", None),
+          CaseType(someClass, "some", Some(tpe))
         )
       case ResultType(ok, err, className) =>
         val WitTypeDef.Result(_, okClass, errClass, _) =

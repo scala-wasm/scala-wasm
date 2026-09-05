@@ -55,10 +55,16 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
   private val ScalaJsWitResultClass = Names.ClassName("scala.scalajs.wit.Result")
   private val ScalaJsWitOkClass = Names.ClassName("scala.scalajs.wit.Ok")
   private val ScalaJsWitErrClass = Names.ClassName("scala.scalajs.wit.Err")
+  private val ScalaJsWitOptionClass = Names.ClassName("scala.scalajs.wit.Option")
+  private val ScalaJsWitSomeClass = Names.ClassName("scala.scalajs.wit.Some")
+  private val ScalaJsWitNoneClass = Names.ClassName("scala.scalajs.wit.None$")
   private val JuInternalWitPackage = "java.util.internal.wit"
   private val JuInternalWitResultClass = Names.ClassName(JuInternalWitPackage + ".Result")
   private val JuInternalWitOkClass = Names.ClassName(JuInternalWitPackage + ".Ok")
   private val JuInternalWitErrClass = Names.ClassName(JuInternalWitPackage + ".Err")
+  private val JuInternalWitOptionClass = Names.ClassName(JuInternalWitPackage + ".Option")
+  private val JuInternalWitSomeClass = Names.ClassName(JuInternalWitPackage + ".Some")
+  private val JuInternalWitNoneClass = Names.ClassName(JuInternalWitPackage + ".None$")
 
   private def isWasmComponentTupleClass(sym: Symbol): Boolean = {
     val n = encodeClassName(sym).nameString
@@ -68,6 +74,9 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
 
   private def isJuInternalWitResultType(sym: Symbol): Boolean =
     encodeClassName(sym) == JuInternalWitResultClass && sym.isSealed
+
+  private def isJuInternalWitOptionType(sym: Symbol): Boolean =
+    encodeClassName(sym) == JuInternalWitOptionClass && sym.isSealed
 
   def isWasmWitFlags(sym: Symbol): Boolean =
     sym.hasAnnotation(WitFlagsAnnotation)
@@ -252,6 +261,18 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
           okClass,
           errClass,
           Names.SimpleFieldName("value")))
+    } else if (className == ScalaJsWitOptionClass || className == JuInternalWitOptionClass) {
+      val (someClass, noneClass) = {
+        if (className == ScalaJsWitOptionClass)
+          (ScalaJsWitSomeClass, ScalaJsWitNoneClass)
+        else
+          (JuInternalWitSomeClass, JuInternalWitNoneClass)
+      }
+      Some(WitTypeDef.Option(
+          className,
+          someClass,
+          noneClass,
+          Names.SimpleFieldName("value")))
     } else if (isWasmComponentTupleClass(tsym)) {
       val fields = tsym.primaryConstructor.paramss.flatten.map { p =>
         Names.SimpleFieldName(p.name.dropLocal.toString())
@@ -361,9 +382,13 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
           val List(ok, err) = dealiasedTpe.baseType(tsym).typeArgs
           wit.ResultType(toResultWIT(ok), toResultWIT(err), JuInternalWitResultClass)
 
-        case tsym if tsym.fullName == "java.util.Optional" =>
+        case tsym if tsym.isSubClass(ComponentOptionClass) && tsym.isSealed =>
+          val List(t) = dealiasedTpe.baseType(ComponentOptionClass).typeArgs
+          wit.OptionType(toWIT(t), encodeClassName(ComponentOptionClass))
+
+        case tsym if isJuInternalWitOptionType(tsym) =>
           val List(t) = dealiasedTpe.baseType(tsym).typeArgs
-          wit.OptionType(toWIT(t))
+          wit.OptionType(toWIT(t), JuInternalWitOptionClass)
 
         case tsym if tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed =>
           val _ = witEnumCasesOf(tsym) // validates that there are no payload cases

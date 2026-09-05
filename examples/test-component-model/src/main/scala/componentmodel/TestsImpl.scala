@@ -6,8 +6,6 @@ import scala.scalajs.wit.unsigned._
 
 import componentmodel.component.testing.tests._
 
-import java.util.Optional
-
 object TestsImpl {
 
   private def roundtrip[A](a: A): A = a
@@ -52,11 +50,11 @@ object TestsImpl {
   def roundtripTuple(@WitName("a") a: wit.Tuple2[C1, Z1]): wit.Tuple2[C1, Z1] = roundtrip(a)
 
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option")
-  def roundtripOption(@WitName("a") a: Optional[String]): Optional[String] = roundtrip(a)
+  def roundtripOption(@WitName("a") a: wit.Option[String]): wit.Option[String] = roundtrip(a)
 
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-double-option")
   def roundtripDoubleOption(
-      @WitName("a") a: Optional[Optional[String]]): Optional[Optional[String]] = {
+      @WitName("a") a: wit.Option[wit.Option[String]]): wit.Option[wit.Option[String]] = {
     roundtrip(a)
   }
 
