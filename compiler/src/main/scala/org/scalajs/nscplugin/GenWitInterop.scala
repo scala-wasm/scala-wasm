@@ -289,12 +289,12 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       owner.info.decls.toList.collect {
         case tsym if tsym.isAliasType && tsym.hasAnnotation(WitAliasAnnotation) =>
           val (scope, name) = witIdOf(tsym, WitAliasAnnotation)
-          (scope, name, tsym.info.dealias)
+          (scope, name, tsym.info)
       }
     }
     aliases.map {
-      case (scope, name, targetTpe) =>
-        WitAliasDef(scope, name, toWIT(targetTpe))
+      case (scope, name, rhsTpe) =>
+        WitAliasDef(scope, name, toWIT(rhsTpe))
     }
   }
 
