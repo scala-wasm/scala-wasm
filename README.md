@@ -6,12 +6,12 @@ This is a friendly fork of Scala.js, targeting stand-alone Wasm runtimes such as
 
 ## Getting Started
 
-scala-wasm is available as `1.21.1-wasm.4`.
+scala-wasm is available as `1.22.1-wasm.5`.
 
 In `project/plugins.sbt`:
 
 ```scala
-addSbtPlugin("io.github.scala-wasm" % "sbt-scalajs" % "1.21.1-wasm.4")
+addSbtPlugin("io.github.scala-wasm" % "sbt-scalajs" % "1.22.1-wasm.5")
 ```
 
 ## Prerequisites
