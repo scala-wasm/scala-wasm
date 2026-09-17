@@ -247,13 +247,7 @@ object MyScalaJSPlugin extends AutoPlugin {
       jsEnv := {
         scalaJSLinkerConfig.value.moduleKind match {
           case ModuleKind.WasmComponent =>
-            val config = WasmtimeEnv.Config()
-              .withArgs(List(
-                  "run",
-                  "-W", "gc,function-references,exceptions",
-                  "-S", "cli,http,inherit-env,inherit-network,tcp"
-              ))
-            new WasmtimeEnv(config)
+            new WasmtimeEnv()
 
           case _ =>
             val config = NodeJSEnv.Config().withSourceMap(wantSourceMaps.value)
@@ -1529,7 +1523,7 @@ object Build {
 
       libraryDependencies += ("org.scala-js" %% "scalajs-js-envs" % "1.6.0"),
       libraryDependencies += ("org.scala-js" %% "scalajs-env-nodejs" % "1.6.0"),
-      libraryDependencies += ("io.github.scala-wasm" %% "scalajs-env-wasmtime" % "0.0.2"),
+      libraryDependencies += ("io.github.scala-wasm" %% "scalajs-env-wasmtime-input" % "0.1.0"),
 
       scriptedLaunchOpts += "-Dplugin.version=" + version.value,
 
