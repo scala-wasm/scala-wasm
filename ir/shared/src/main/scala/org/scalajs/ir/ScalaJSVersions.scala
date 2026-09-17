@@ -19,7 +19,7 @@ import scala.util.matching.Regex
 import Nullables._
 
 object ScalaJSVersions extends VersionChecks(
-      current = "1.22.1-wasm.6-SNAPSHOT",
+      current = "1.22.1-wasm.6",
       binaryEmitted = "1.22+wasm"
     ) {
   final val organization = "io.github.scala-wasm"
