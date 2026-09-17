@@ -13,15 +13,7 @@ inThisBuild(Def.settings(
 // TODO: pre-generate each bindings
 val wasmtimeEnvSettings = Def.settings(
   jsEnv := Def.uncached {
-    new WasmtimeEnv(
-      WasmtimeEnv.Config()
-        .withArgs(List(
-          "run",
-          "-W", "gc,function-references,exceptions",
-          "-S", "cli,inherit-env,inherit-network,tcp",
-        ))
-        .withEnv(envVars.value)
-    )
+    new WasmtimeEnv()
   }
 )
 
