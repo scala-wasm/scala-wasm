@@ -77,7 +77,15 @@ interface countable {
   maybe-get-counter: func() -> option<counter>;
 }
 
+interface aliases {
+  type metadata = list<tuple<string, string>>;
+}
+
 interface tests {
+  // A `use`d type alias must appear as a type export of this interface.
+  use aliases.{metadata};
+  roundtrip-metadata: func(a: metadata) -> metadata;
+
   /// roundtrip-basics0: func(a: tuple<u32, s32>)
   ///   -> tuple<u32, s32>;
   roundtrip-basics1: func(a: tuple<u8, s8, u16, s16, u32, s32, f32, f64, char>)

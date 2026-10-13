@@ -96,4 +96,7 @@ object TestsImpl {
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
   def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = roundtrip(a)
 
+  @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-metadata")
+  def roundtripMetadata(@WitName("a") a: Metadata): Metadata = roundtrip(a)
+
 }

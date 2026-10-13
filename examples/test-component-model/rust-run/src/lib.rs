@@ -18,6 +18,9 @@ impl Run for Component {
 
       test_imports::run();
 
+      let metadata = vec![("k".to_string(), "v".to_string())];
+      assert_eq!(roundtrip_metadata(&metadata), metadata);
+
       assert_eq!(
         roundtrip_basics1((u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')),
         (u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')

@@ -28,6 +28,11 @@ object TestImportsImpl {
 
     assert(NamedR(NamedF.b0) == roundtripNamedR(NamedR(NamedF.b0)))
 
+    val metadata: Metadata = Array(wit.Tuple2("k", "v"))
+    val metadataResult = roundtripMetadata(metadata)
+    assert(metadataResult.length == 1)
+    assert(metadataResult(0)._1 == "k" && metadataResult(0)._2 == "v")
+
     assert(1 == roundtripU8(1))
     assert(0 == roundtripS8(0))
     assert(0 == roundtripU16(0))

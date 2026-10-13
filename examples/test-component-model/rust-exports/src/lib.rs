@@ -133,6 +133,7 @@ impl Tests for Component {
   fn roundtrip_tuple3(a: (i32, String, bool)) -> (i32, String, bool) { a }
   fn roundtrip_named_r(a: NamedR) -> NamedR { a }
   fn roundtrip_option_u32(a: OptionU32) -> OptionU32 { a }
+  fn roundtrip_metadata(a: Metadata) -> Metadata { a }
 }
 
 bindings::export!(Component with_types_in bindings);
