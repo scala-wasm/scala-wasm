@@ -69,9 +69,20 @@ object System {
 
   // System time --------------------------------------------------------------
 
+  /* Without a JS host (MinimalWasmModule and WasmComponent), the system
+   * features below are provided by an implementation of
+   * `org.scalajs.wasmlibintf.WasmSystem` on the classpath. See its
+   * documentation.
+   */
   @inline
-  def currentTimeMillis(): scala.Long =
-    js.Date.now().toLong
+  def currentTimeMillis(): scala.Long = {
+    LinkingInfo.linkTimeIf(
+        moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      org.scalajs.wasmlibintf.WasmSystem.currentTimeMillis()
+    } {
+      js.Date.now().toLong
+    }
+  }
 
   private object NanoTime {
     val highPrecisionTimer: js.Dynamic = {
@@ -83,8 +94,14 @@ object System {
   }
 
   @inline
-  def nanoTime(): scala.Long =
-    (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+  def nanoTime(): scala.Long = {
+    LinkingInfo.linkTimeIf(
+        moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      org.scalajs.wasmlibintf.WasmSystem.nanoTime()
+    } {
+      (NanoTime.highPrecisionTimer.now().asInstanceOf[scala.Double] * 1000000).toLong
+    }
+  }
 
   // arraycopy ----------------------------------------------------------------
 
@@ -454,13 +471,18 @@ private final class JSConsoleBasedPrintStream(isErr: scala.Boolean)
   override def close(): Unit = ()
 
   private def doWriteLine(line: String): Unit = {
-    import js.DynamicImplicits.truthValue
+    LinkingInfo.linkTimeIf(
+        moduleKind == MinimalWasmModule || moduleKind == WasmComponent) {
+      org.scalajs.wasmlibintf.WasmSystem.print(line + "\n", isErr)
+    } {
+      import js.DynamicImplicits.truthValue
 
-    if (js.typeOf(global.console) != "undefined") {
-      if (isErr && global.console.error)
-        global.console.error(line)
-      else
-        global.console.log(line)
+      if (js.typeOf(global.console) != "undefined") {
+        if (isErr && global.console.error)
+          global.console.error(line)
+        else
+          global.console.log(line)
+      }
     }
   }
 }

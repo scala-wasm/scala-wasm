@@ -13,28 +13,16 @@
 package wasmsystemtest
 
 import wasmsystemtest.wasi.cli.environment
-import wasmsystemtest.wasi.cli.stdout
-import wasmsystemtest.wasi.clocks.wall_clock
 import java.util.{HashMap, Map}
 import scala.scalajs.wit
-import scala.scalajs.wit.unsigned.UByte
 
-object System {
-  def println(s: String): Unit = {
-    val out = stdout.getStdout()
-    try {
-      val bytes = (s + "\n").getBytes().asInstanceOf[Array[UByte]]
-      unwrapResult(out.blockingWriteAndFlush(bytes), "Failed to write to stdout")
-    } finally {
-      out.close()
-    }
-  }
-
-  def currentTimeMillis(): scala.Long = {
-    val d = wall_clock.now()
-    d.seconds.toLong * 1000L + d.nanoseconds.toLong / 1000000L
-  }
-
+/** `java.lang.System.getenv` and more, on top of `wasi:cli/environment`.
+ *
+ *  `java.lang.System.out`, `currentTimeMillis()`, `nanoTime()`, as well as
+ *  `Math.random()`, are plugged into the javalib by
+ *  `org.scalajs.wasmlibintf.WasmSystem` instead.
+ */
+object WasiEnvironment {
   def getenv(): Map[String, String] = {
     val vars: Array[wit.Tuple2[String, String]] = environment.getEnvironment()
     val map = new HashMap[String, String](vars.length)
@@ -60,13 +48,5 @@ object System {
       cwd.get
     else
       null
-  }
-
-  private def unwrapResult[A, B](r: wit.Result[A, B], message: String): A = {
-    if (r.isOk) {
-      r.get
-    } else {
-      throw new RuntimeException(message)
-    }
   }
 }
