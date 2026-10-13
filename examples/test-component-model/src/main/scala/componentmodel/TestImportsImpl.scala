@@ -28,6 +28,22 @@ object TestImportsImpl {
 
     assert(NamedR(NamedF.b0) == roundtripNamedR(NamedR(NamedF.b0)))
 
+    // More than 16 flattened params: passed through linear memory.
+    assert("1,-2,3,-4,5,-6,7,-8,9,-10,k,hello,11:-12,opt,13:14,a15" ==
+      manyParams(1, -2, 3, -4, 5, -6, 7L, -8L, 9.5f, -10.5, 'k', "hello", Point(11, -12),
+          wit.Some("opt"), Array[UShort](13, 14), C1.A(15)))
+    assert("255,-128,65535,-32768,4294967295,-2147483648,18446744073709551615," +
+      "-9223372036854775808,0,0,\u0142,,0:0,none,,b16" ==
+      manyParams(-1, Byte.MinValue, -1, Short.MinValue, -1, Int.MinValue, -1L, Long.MinValue,
+          0.0f, 0.0, '\u0142', "", Point(0, 0), wit.None, Array[UShort](), C1.B(16.5f)))
+    // Smoke test that the adapter releases the params area on every call.
+    val big = "x" * (1 << 16)
+    val expected = "1,2,3,4,5,6,7,8,9,10,k," + big + ",11:12," + big + ",13,a14"
+    for (_ <- 0 until 1000) {
+      assert(expected == manyParams(1, 2, 3, 4, 5, 6, 7L, 8L, 9.0f, 10.0, 'k', big, Point(11, 12),
+          wit.Some(big), Array[UShort](13), C1.A(14)))
+    }
+
     assert(1 == roundtripU8(1))
     assert(0 == roundtripS8(0))
     assert(0 == roundtripU16(0))
