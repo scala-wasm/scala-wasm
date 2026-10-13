@@ -1,0 +1,12 @@
+package wasmsystemtest.wasi.cli
+
+import wasmsystemtest.wasi.io.streams.OutputStream
+import scala.scalajs.wit.annotation.{WitImport, WitScope}
+import scala.scalajs.wit.native
+
+package object stderr {
+
+  @WitImport(WitScope("wasi", "cli", "stderr", "0.2.0"), "get-stderr")
+  def getStderr(): OutputStream = native
+
+}
