@@ -378,6 +378,7 @@ package object tests {
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-metadata")
   def roundtripMetadata(@WitName("a") a: Metadata): Metadata = wit.native
+
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "many-params")
   def manyParams(@WitName("a") a: wit.unsigned.UByte, @WitName("b") b: Byte,
       @WitName("c") c: wit.unsigned.UShort, @WitName("d") d: Short,

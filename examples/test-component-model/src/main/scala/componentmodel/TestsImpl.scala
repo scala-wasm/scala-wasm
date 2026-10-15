@@ -126,6 +126,7 @@ object TestsImpl {
 
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-metadata")
   def roundtripMetadata(@WitName("a") a: Metadata): Metadata = roundtrip(a)
+
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "many-params")
   def manyParams(@WitName("a") a: UByte, @WitName("b") b: Byte, @WitName("c") c: UShort,
       @WitName("d") d: Short, @WitName("e") e: UInt, @WitName("f") f: Int,
