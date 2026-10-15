@@ -134,6 +134,19 @@ impl Tests for Component {
   fn roundtrip_named_r(a: NamedR) -> NamedR { a }
   fn roundtrip_option_u32(a: OptionU32) -> OptionU32 { a }
   fn roundtrip_metadata(a: Metadata) -> Metadata { a }
+
+  fn many_params(a: u8, b: i8, c: u16, d: i16, e: u32, f: i32, g: u64, h: i64,
+      i: f32, j: f64, k: char, l: String, m: Point, n: Option<String>,
+      o: Vec<u16>, p: C1) -> String {
+    let o = o.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(":");
+    let p = match p {
+      C1::A(x) => format!("a{}", x),
+      C1::B(x) => format!("b{}", x as i64),
+    };
+    format!("{},{},{},{},{},{},{},{},{},{},{},{},{}:{},{},{},{}",
+      a, b, c, d, e, f, g, h, i as i64, j as i64, k, l, m.x, m.y,
+      n.unwrap_or_else(|| "none".to_string()), o, p)
+  }
 }
 
 bindings::export!(Component with_types_in bindings);
