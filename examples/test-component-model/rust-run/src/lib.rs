@@ -18,6 +18,8 @@ impl Run for Component {
 
       test_imports::run();
 
+      let metadata = vec![("k".to_string(), "v".to_string())];
+      assert_eq!(roundtrip_metadata(&metadata), metadata);
       // More than 16 flattened params: passed through linear memory.
       assert_eq!(
         many_params(1, -2, 3, -4, 5, -6, 7, -8, 9.5, -10.5, 'k', "hello",

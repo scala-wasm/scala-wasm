@@ -28,6 +28,10 @@ object TestImportsImpl {
 
     assert(NamedR(NamedF.b0) == roundtripNamedR(NamedR(NamedF.b0)))
 
+    val metadata: Metadata = Array(wit.Tuple2("k", "v"))
+    val metadataResult = roundtripMetadata(metadata)
+    assert(metadataResult.length == 1)
+    assert(metadataResult(0)._1 == "k" && metadataResult(0)._2 == "v")
     // More than 16 flattened params: passed through linear memory.
     assert("1,-2,3,-4,5,-6,7,-8,9,-10,k,hello,11:-12,opt,13:14,a15" ==
       manyParams(1, -2, 3, -4, 5, -6, 7L, -8L, 9.5f, -10.5, 'k', "hello", Point(11, -12),
