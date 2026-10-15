@@ -12,6 +12,34 @@ object TestsImpl {
 
   private def ignore[A](a: A): Unit = ()
 
+  /** Same format as `many_params` in rust-exports. */
+  def formatManyParams(a: UByte, b: Byte, c: UShort, d: Short, e: UInt, f: Int, g: ULong,
+      h: Long, i: Float, j: Double, k: Char, l: String, m: Point, n: wit.Option[String],
+      o: Array[UShort], p: C1): String = {
+    val pStr = p match {
+      case C1.A(x) => "a" + x
+      case C1.B(x) => "b" + x.toLong
+    }
+    List(
+      java.lang.Byte.toUnsignedInt(a).toString(),
+      b.toString(),
+      java.lang.Short.toUnsignedInt(c).toString(),
+      d.toString(),
+      Integer.toUnsignedString(e),
+      f.toString(),
+      java.lang.Long.toUnsignedString(g),
+      h.toString(),
+      i.toLong.toString(),
+      j.toLong.toString(),
+      k.toString(),
+      l,
+      s"${m.x}:${m.y}",
+      n.getOrElse("none"),
+      o.map(java.lang.Short.toUnsignedInt(_)).mkString(":"),
+      pStr
+    ).mkString(",")
+  }
+
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-point")
   def roundtripPoint(@WitName("a") a: Point): Point = roundtrip(a)
 
@@ -95,5 +123,15 @@ object TestsImpl {
 
   @WitExport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
   def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = roundtrip(a)
+
+  @WitExport(WitScope.unversioned("component", "testing", "tests"), "many-params")
+  def manyParams(@WitName("a") a: UByte, @WitName("b") b: Byte, @WitName("c") c: UShort,
+      @WitName("d") d: Short, @WitName("e") e: UInt, @WitName("f") f: Int,
+      @WitName("g") g: ULong, @WitName("h") h: Long, @WitName("i") i: Float,
+      @WitName("j") j: Double, @WitName("k") k: Char, @WitName("l") l: String,
+      @WitName("m") m: Point, @WitName("n") n: wit.Option[String],
+      @WitName("o") o: Array[UShort], @WitName("p") p: C1): String = {
+    formatManyParams(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p)
+  }
 
 }

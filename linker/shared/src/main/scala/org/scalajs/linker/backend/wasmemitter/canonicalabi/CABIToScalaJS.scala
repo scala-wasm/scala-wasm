@@ -514,6 +514,26 @@ object CABIToScalaJS {
     }
   }
 
+  /** Loads the params of an exported function from linear memory.
+   *
+   *  Used when the flattened params exceed MAX_FLAT_PARAMS (16): the
+   *  Canonical ABI then passes a pointer to a tuple of all the params
+   *  (`lift_flat_values`). Leaves the values on the stack in declaration
+   *  order, like `genLoadStack` does.
+   */
+  def genLoadParamsFromMemory(fb: FunctionBuilder, paramTypes: List[wit.ValType],
+      paramsPtr: wanme.LocalID)(implicit ctx: WasmContext): Unit = {
+    val ptr = fb.addLocal(NoOriginalName, watpe.Int32)
+    fb += wa.LocalGet(paramsPtr)
+    fb += wa.LocalSet(ptr)
+    for (tpe <- paramTypes) {
+      genAlignTo(fb, WitTypeOps.alignment(tpe), ptr)
+      fb += wa.LocalGet(ptr)
+      genLoadMemory(fb, tpe)
+      genMovePtr(fb, ptr, WitTypeOps.elemSize(tpe))
+    }
+  }
+
   private def genAlignTo(fb: FunctionBuilder, align: Int, ptr: wanme.LocalID): Unit = {
     // ;; Calculate: (ptr + alignment - 1) / alignment * alignment
     // ptr + alignment - 1

@@ -373,4 +373,13 @@ package object tests {
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
   def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = wit.native
 
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "many-params")
+  def manyParams(@WitName("a") a: wit.unsigned.UByte, @WitName("b") b: Byte,
+      @WitName("c") c: wit.unsigned.UShort, @WitName("d") d: Short,
+      @WitName("e") e: wit.unsigned.UInt, @WitName("f") f: Int,
+      @WitName("g") g: wit.unsigned.ULong, @WitName("h") h: Long, @WitName("i") i: Float,
+      @WitName("j") j: Double, @WitName("k") k: Char, @WitName("l") l: String,
+      @WitName("m") m: Point, @WitName("n") n: wit.Option[String],
+      @WitName("o") o: Array[wit.unsigned.UShort], @WitName("p") p: C1): String = wit.native
+
 }

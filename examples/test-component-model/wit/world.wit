@@ -137,6 +137,12 @@ interface tests {
   // Named type alias must appear as an interface type export.
   type option-u32 = option<u32>;
   roundtrip-option-u32: func(a: option-u32) -> option-u32;
+
+  // 22 flattened params > MAX_FLAT_PARAMS (16): the Canonical ABI passes
+  // them through linear memory (a pointer to a tuple of all the params).
+  many-params: func(a: u8, b: s8, c: u16, d: s16, e: u32, f: s32, g: u64,
+    h: s64, i: f32, j: f64, k: char, l: string, m: point, n: option<string>,
+    o: list<u16>, p: c1) -> string;
 }
 
 interface test-imports {

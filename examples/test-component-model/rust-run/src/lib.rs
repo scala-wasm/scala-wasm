@@ -18,6 +18,30 @@ impl Run for Component {
 
       test_imports::run();
 
+      // More than 16 flattened params: passed through linear memory.
+      assert_eq!(
+        many_params(1, -2, 3, -4, 5, -6, 7, -8, 9.5, -10.5, 'k', "hello",
+          Point { x: 11, y: -12 }, Some("opt"), &[13, 14], C1::A(15)),
+        "1,-2,3,-4,5,-6,7,-8,9,-10,k,hello,11:-12,opt,13:14,a15"
+      );
+      assert_eq!(
+        many_params(u8::MAX, i8::MIN, u16::MAX, i16::MIN, u32::MAX, i32::MIN, u64::MAX, i64::MIN,
+          0.0, 0.0, '\u{142}', "", Point { x: 0, y: 0 }, None, &[], C1::B(16.5)),
+        format!("{},{},{},{},{},{},{},{},0,0,\u{142},,0:0,none,,b16",
+          u8::MAX, i8::MIN, u16::MAX, i16::MIN, u32::MAX, i32::MIN, u64::MAX, i64::MIN)
+      );
+      // Smoke test that post-return releases the memory the host allocated
+      // for the params on every call.
+      let big = "x".repeat(1 << 16);
+      let expected = format!("1,2,3,4,5,6,7,8,9,10,k,{},11:12,{},13,a14", big, big);
+      for _ in 0..1_000 {
+        assert_eq!(
+          many_params(1, 2, 3, 4, 5, 6, 7, 8, 9.0, 10.0, 'k', &big,
+            Point { x: 11, y: 12 }, Some(&big), &[13], C1::A(14)),
+          expected
+        );
+      }
+
       assert_eq!(
         roundtrip_basics1((u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')),
         (u8::MAX, i8::MAX, u16::MAX, i16::MAX, 0, i32::MAX, f32::MAX, f64::MAX, 'a')
