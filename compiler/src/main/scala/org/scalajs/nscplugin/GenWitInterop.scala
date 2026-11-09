@@ -355,6 +355,18 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     unsigned2WIT.get(directTpe.typeSymbolDirect).orElse {
       borrowToWIT(directTpe)
     }.orElse {
+      /* A type alias without @WitAlias, e.g., `type Metadata = types.Metadata`
+       * for WIT `use types.{metadata}`. Expand it by one level only, so that
+       * a @WitAlias (or an unsigned type) further down the chain is kept.
+       */
+      if (directSym.isAliasType) {
+        val expandedTpe = exitingPhase(currentRun.typerPhase)(directTpe.betaReduce)
+        if (expandedTpe ne directTpe) Some(toWIT(expandedTpe))
+        else None
+      } else {
+        None
+      }
+    }.orElse {
       toWITMaybeArray(dealiasedTpe)
     }.orElse {
       primitiveIRWIT.get(toIRType(dealiasedTpe))

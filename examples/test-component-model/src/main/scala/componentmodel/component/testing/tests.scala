@@ -5,6 +5,9 @@ import scala.scalajs.wit.annotation._
 
 package object tests {
 
+  // `use aliases.{metadata}`
+  type Metadata = componentmodel.component.testing.aliases.Metadata
+
   // Type definitions
   @WitRecord(WitScope.unversioned("component", "testing", "tests"), "point")
   final class Point(@WitName("x") val x: Int, @WitName("y") val y: Int) {
@@ -372,6 +375,9 @@ package object tests {
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-option-u32")
   def roundtripOptionU32(@WitName("a") a: OptionU32): OptionU32 = wit.native
+
+  @WitImport(WitScope.unversioned("component", "testing", "tests"), "roundtrip-metadata")
+  def roundtripMetadata(@WitName("a") a: Metadata): Metadata = wit.native
 
   @WitImport(WitScope.unversioned("component", "testing", "tests"), "many-params")
   def manyParams(@WitName("a") a: wit.unsigned.UByte, @WitName("b") b: Byte,

@@ -133,6 +133,7 @@ impl Tests for Component {
   fn roundtrip_tuple3(a: (i32, String, bool)) -> (i32, String, bool) { a }
   fn roundtrip_named_r(a: NamedR) -> NamedR { a }
   fn roundtrip_option_u32(a: OptionU32) -> OptionU32 { a }
+  fn roundtrip_metadata(a: Metadata) -> Metadata { a }
 
   fn many_params(a: u8, b: i8, c: u16, d: i16, e: u32, f: i32, g: u64, h: i64,
       i: f32, j: f64, k: char, l: String, m: Point, n: Option<String>,
