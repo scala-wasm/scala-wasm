@@ -936,6 +936,8 @@ private[sbtplugin] object ScalaJSPluginInternal {
       }
   )
 
+  private final val UpstreamScalaJSOrganization = "org.scala-js"
+
   private def isScala3(scalaV: String): Boolean =
     scalaV.startsWith("3.")
 
@@ -993,6 +995,48 @@ private[sbtplugin] object ScalaJSPluginInternal {
                   scalaBinV) % "test"
           )
         }
+      },
+
+      /* When this plugin publishes the core libraries under its own
+       * organization (scala-wasm publishes them as `io.github.scala-wasm`),
+       * dependencies published with upstream Scala.js still transitively
+       * bring in the `org.scala-js` core libraries. Since the organizations
+       * differ, there is no eviction: both versions end up on the classpath
+       * and the first IR file of each class wins. Exclude the upstream ones;
+       * the ones of `scalaJSOrganization` are added above.
+       *
+       * We exclude nothing if the build explicitly depends on an upstream
+       * core library (e.g., to link against an older upstream library): it
+       * then needs the rest of the upstream core libraries as well.
+       *
+       * `scalajs-scalalib` is kept on Scala 3.8+: there it is the Scala 3
+       * standard library itself (versioned like Scala 3, a dependency of
+       * `scala3-library_sjs1_3`), which we do not provide.
+       */
+      excludeDependencies ++= {
+        val scalaV = scalaVersion.value
+        val keepScalalib = isScala3(scalaV) && {
+          val minor = scalaV.split('.')(1).takeWhile(_.isDigit)
+          minor.isEmpty || minor.toInt >= 8
+        }
+        val crossNames = List("scalajs-library", "scalajs-test-bridge",
+            "scalajs-test-interface", "scalajs-junit-test-runtime") ++
+          (if (keepScalalib) Nil else List("scalajs-scalalib"))
+        val names = List("scalajs-javalib", "scalajs-javalib-intf") ++
+          (for {
+            name <- crossNames
+            suffix <- List("_2.12", "_2.13")
+          } yield name + suffix)
+
+        val explicitUpstreamCoreLib = libraryDependencies.value.exists { dep =>
+          dep.organization == UpstreamScalaJSOrganization &&
+          names.exists(name => name == dep.name || name.startsWith(dep.name + "_"))
+        }
+
+        if (scalaJSOrganization == UpstreamScalaJSOrganization || explicitUpstreamCoreLib)
+          Nil
+        else
+          names.map(ExclusionRule(UpstreamScalaJSOrganization, _))
       },
 
       /* Add the `-scalajs` compiler flag if this is Scala 3, and it is not
