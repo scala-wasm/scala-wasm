@@ -166,7 +166,7 @@ private[component] final class InstanceTypeEncoder(
           p.name -> resolve(p.tpe)
         }
         val result = func.signature.resultType.map(resolve)
-        val ty = builder.addFuncType(params, result)
+        val ty = builder.addFuncType(params, result, func.signature.isAsync)
         builder.addExport(exportName, ExternType.Func(ty))
       }
     }

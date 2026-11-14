@@ -209,7 +209,7 @@ private[backend] object ComponentWorld {
       }
       Endpoint(Direction.Export, init.scope,
           WitFunctionName.Function(init.functionName),
-          FuncType(Nil, resultType))
+          FuncType(Nil, resultType, isAsync = false))
     }.toList
 
     imported ::: exported ::: initializer

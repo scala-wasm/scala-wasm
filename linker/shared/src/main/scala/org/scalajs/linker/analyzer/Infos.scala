@@ -780,7 +780,7 @@ object Infos {
 
     private def generateForWIT(tpe: wit.WasmInterfaceType): Unit = {
       tpe match {
-        case wit.FuncType(paramTypes, resultType) =>
+        case wit.FuncType(paramTypes, resultType, _) =>
           for (t <- paramTypes) generateForWIT(t.tpe)
           resultType.foreach(t => generateForWIT(t))
 

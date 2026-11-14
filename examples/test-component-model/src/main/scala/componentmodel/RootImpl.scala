@@ -11,4 +11,8 @@ object RootImpl {
   @WitExport(WitScope.root, "bare-uppercase")
   def bareUppercase(@WitName("text") text: String): String = text.toUpperCase()
 
+  @WitAsync
+  @WitExport(WitScope.root, "bare-add-one")
+  def bareAddOne(@WitName("a") a: Int): Int = a + 1
+
 }

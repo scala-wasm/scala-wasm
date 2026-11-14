@@ -49,6 +49,10 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
   }
 
+  /** Whether the WIT function is an `async func` (annotated with @WitAsync). */
+  def isWitAsync(sym: Symbol): Boolean =
+    sym.hasAnnotation(WitAsyncAnnotation)
+
   def isWasmWitRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(WitRecordAnnotation) && sym.isFinal
 
@@ -128,7 +132,8 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       }
       val witFuncType = wit.FuncType(
         params,
-        toResultWIT(resultType)
+        toResultWIT(resultType),
+        isWitAsync(sym)
       )
       js.WitNativeMemberDef(flags, scope, name,
           encodeMethodSym(sym), witFuncType)
@@ -151,7 +156,8 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val name = js.WitFunctionName.ResourceStaticMethod(
           func = methodName, resource = resourceName)
       withNewLocalNameScope {
-        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType))
+        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType),
+            isWitAsync(sym))
         js.WitNativeMemberDef(flags, scope, name, encodeMethodSym(sym), ft)
       }
     }
@@ -172,7 +178,8 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     } yield {
       val name = js.WitFunctionName.ResourceConstructor(resourceName)
       withNewLocalNameScope {
-        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType))
+        val ft = wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType),
+            isAsync = false)
         js.WitNativeMemberDef(flags, scope, name, encodeMethodSym(sym), ft)
       }
     }
@@ -184,7 +191,8 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       val (paramInfos, resultType) = witMethodSignatureOf(sym)
       val signature = wit.FuncType(
         witParamsOf(paramInfos),
-        toResultWIT(resultType)
+        toResultWIT(resultType),
+        isWitAsync(sym)
       )
       js.WitExportDef(
         info.scope,
