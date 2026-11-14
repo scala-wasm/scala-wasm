@@ -1361,7 +1361,7 @@ class PrintersTest {
                 WitScope.Interface("wasi", "io", "streams", None),
                 WitFunctionName.Function("get-stdout"),
                 MethodName("getStdout", Nil, I),
-                WasmInterfaceTypes.FuncType(Nil, Some(WasmInterfaceTypes.U32Type)))),
+                WasmInterfaceTypes.FuncType(Nil, Some(WasmInterfaceTypes.U32Type), isAsync = false))),
             List(TopLevelModuleExportDef("main", "Foo")))(
             NoOptHints))
   }

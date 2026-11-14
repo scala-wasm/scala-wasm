@@ -681,7 +681,7 @@ final class JavalibIRCleaner(baseDirectoryURI: URI) {
 
     private def transformFuncType(ft: wit.FuncType)(implicit pos: Position): wit.FuncType =
       wit.FuncType(ft.params.map(p => wit.ParamType(p.name, transformValType(p.tpe))),
-          ft.resultType.map(transformValType))
+          ft.resultType.map(transformValType), ft.isAsync)
 
     private def transformFieldType(f: wit.FieldType)(implicit pos: Position): wit.FieldType =
       wit.FieldType(

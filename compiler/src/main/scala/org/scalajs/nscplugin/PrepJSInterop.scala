@@ -184,6 +184,9 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       else if (sym.hasAnnotation(WitResourceImportAnnotation))
         checkWasmWitResourceImport(tree.pos, sym)
 
+      if (sym.hasAnnotation(WitAsyncAnnotation))
+        checkWitAsync(tree.pos, sym)
+
       // @unchecked needed because MemberDef is not marked `sealed`
       val transformedTree: Tree = (tree: @unchecked) match {
         case tree: ImplDef =>
@@ -815,6 +818,19 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
                 s"$annot is allowed in companion object of class annotated with @WitResourceImport")
           }
         }
+      }
+    }
+
+    /** @WitAsync is only meaningful on a WIT function that can be async.
+     *
+     *  WIT does not allow async constructors, and a drop is not a WIT function.
+     */
+    private def checkWitAsync(pos: Position, sym: Symbol): Unit = {
+      val allowed = WitAsyncCompanionAnnots.exists(sym.hasAnnotation(_))
+      if (!allowed) {
+        reporter.error(pos,
+            "@WitAsync is only allowed together with @WitImport, @WitExport, " +
+            "@WitResourceMethod or @WitResourceStaticMethod")
       }
     }
 
@@ -2167,6 +2183,15 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
 
   private lazy val WasmComponentFunctionAnnots: Set[Symbol] =
     Set(WitImportAnnotation)
+
+  private lazy val WitAsyncCompanionAnnots: Set[Symbol] = {
+    Set(
+      WitImportAnnotation,
+      WitExportAnnotation,
+      WitResourceMethodAnnotation,
+      WitResourceStaticMethodAnnotation
+    )
+  }
 
   private lazy val WasmComponentResourceAnnots: Set[Symbol] = {
     Set(

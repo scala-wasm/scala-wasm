@@ -18,10 +18,12 @@ world scala {
 
   export tests;
   export test-imports;
+  export async-api;
 
   // world level function exports
   export bare-multiply: func(a: s32, b: s32) -> s32;
   export bare-uppercase: func(text: string) -> string;
+  export bare-add-one: async func(a: s32) -> s32;
 }
 
 world rust-exports {
@@ -46,6 +48,15 @@ world rust-run {
   // world level function exports
   import bare-multiply: func(a: s32, b: s32) -> s32;
   import bare-uppercase: func(text: string) -> string;
+}
+
+// Calls the `async func` exports of `scala` (see rust-async-run/).
+world rust-async-run {
+  // `async func`: only an async-typed task may wait for a subtask.
+  export run-async-checks: async func() -> s32;
+
+  import async-api;
+  import bare-add-one: async func(a: s32) -> s32;
 }
 
 interface basics {
@@ -155,4 +166,9 @@ interface tests {
 
 interface test-imports {
   run: func();
+}
+
+// `async func` exports, lifted with the synchronous Canonical ABI (@WitAsync).
+interface async-api {
+  add-one: async func(a: s32) -> s32;
 }

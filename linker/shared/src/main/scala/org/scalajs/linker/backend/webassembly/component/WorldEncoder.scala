@@ -365,7 +365,7 @@ private[component] final class WorldEncoder(world: ComponentWorld) {
       p.name -> resolve(p.tpe)
     }
     val result = func.signature.resultType.map(resolve)
-    builder.addFuncType(params, result)
+    builder.addFuncType(params, result, func.signature.isAsync)
   }
 
   private def instanceType(scope: WitScope): TypeID = {

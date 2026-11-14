@@ -86,6 +86,7 @@ trait JSDefinitions {
     lazy val WitEnumAnnotation   = getRequiredClass("scala.scalajs.wit.annotation.WitEnum")
     lazy val WitAliasAnnotation  = getRequiredClass("scala.scalajs.wit.annotation.WitAlias")
     lazy val WitNameAnnotation   = getRequiredClass("scala.scalajs.wit.annotation.WitName")
+    lazy val WitAsyncAnnotation  = getRequiredClass("scala.scalajs.wit.annotation.WitAsync")
 
     lazy val WitBorrowAlias = getTypeMember(ScalaJSWitPackageModule, newTermName("Borrow"))
     lazy val WitScopeModule = getRequiredModule("scala.scalajs.wit.annotation.WitScope")

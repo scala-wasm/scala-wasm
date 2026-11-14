@@ -117,9 +117,11 @@ private sealed class ComponentBinaryWriter(component: Component) {
         buf.byte(0x42)
         writeDeclVec(nested, parentTypeIdx = typeIdx)
 
-      case Decl.FuncType(_, params, result) =>
+      // functype ::= 0x40 ps:<paramlist> rs:<resultlist> => (func ps rs)
+      //            | 0x43 ps:<paramlist> rs:<resultlist> => (func async ps rs)
+      case Decl.FuncType(_, params, result, isAsync) =>
         buf.byte(0x01)
-        buf.byte(0x40)
+        buf.byte(if (isAsync) 0x43 else 0x40)
         buf.vec(params) { case (name, tpe) =>
           buf.name(name)
           writeValRef(tpe, typeIdx)

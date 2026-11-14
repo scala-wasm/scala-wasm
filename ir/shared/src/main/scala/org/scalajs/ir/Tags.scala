@@ -276,6 +276,10 @@ private[ir] object Tags {
   final val TagWITResultTypeDef = TagWITAliasDef + 1
   final val TagWITTupleTypeDef = TagWITResultTypeDef + 1
   final val TagWITOptionTypeDef = TagWITTupleTypeDef + 1
+  /* Same layout as TagWITFuncType. A separate tag (instead of a new field)
+   * keeps the IR of sync functions unchanged.
+   */
+  final val TagWITAsyncFuncType = TagWITOptionTypeDef + 1
 
   // Tags for wasm Component Function kind
 

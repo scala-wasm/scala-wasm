@@ -176,7 +176,15 @@ object WasmInterfaceTypes {
   // ExternTypes
   final case class ParamType(name: String, tpe: ValType)
 
-  final case class FuncType(params: List[ParamType], resultType: Option[ValType]) extends ExternType {
+  /** A WIT function type.
+   *
+   *  `isAsync` makes it an `async func` in the component type. It does not
+   *  change the Canonical ABI: the function is still lowered and lifted
+   *  synchronously.
+   */
+  final case class FuncType(params: List[ParamType], resultType: Option[ValType],
+      isAsync: Boolean)
+      extends ExternType {
     def paramTypes: List[ValType] = params.map(_.tpe)
   }
 

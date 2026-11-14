@@ -66,7 +66,7 @@ object Components {
     final case class InstanceType(id: TypeID, nested: List[Decl]) extends TypeDecl
 
     final case class FuncType(id: TypeID, params: List[(String, ValRef)],
-        result: scala.Option[ValRef])
+        result: scala.Option[ValRef], isAsync: Boolean)
         extends TypeDecl
 
     final case class Record(id: TypeID, fields: List[(String, ValRef)]) extends TypeDecl

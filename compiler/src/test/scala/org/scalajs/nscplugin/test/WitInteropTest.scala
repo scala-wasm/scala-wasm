@@ -957,4 +957,73 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """.hasNoWarns()
   }
+
+  // --- @WitAsync Tests ---
+
+  @Test def witAsyncValidExamples: Unit = {
+    """
+    object MyImports {
+      @WitAsync
+      @WitImport(WitScope.unversioned("test", "test", "module"), "get")
+      def get(@WitName("key") key: String): wm.Option[String] = wm.native
+    }
+
+    object MyExports {
+      @WitAsync
+      @WitExport(WitScope.unversioned("test", "test", "api"), "on-event")
+      def onEvent(@WitName("id") id: Int): Int = id
+    }
+
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "conn")
+    final class Conn private () extends Object {
+      @WitAsync
+      @WitResourceMethod("send")
+      def send(@WitName("data") data: Array[UByte]): Unit = wm.native
+
+      @WitResourceDrop
+      def close(): Unit = wm.native
+    }
+    object Conn {
+      @WitAsync
+      @WitResourceStaticMethod("open")
+      def open(@WitName("url") url: String): Conn = wm.native
+    }
+    """.hasNoWarns()
+  }
+
+  @Test def witAsyncRequiresAsyncCapableFunction: Unit = {
+    """
+    object Plain {
+      @WitAsync
+      def foo(): Int = 1
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:8: error: @WitAsync is only allowed together with @WitImport, @WitExport, @WitResourceMethod or @WitResourceStaticMethod
+      |      def foo(): Int = 1
+      |          ^
+    """
+
+    """
+    @WitResourceImport(WitScope.unversioned("test", "test", "module"), "conn")
+    final class Conn private () extends Object {
+      @WitAsync
+      @WitResourceDrop
+      def close(): Unit = wm.native
+    }
+    object Conn {
+      @WitAsync
+      @WitResourceConstructor
+      def apply(): Conn = wm.native
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:10: error: @WitAsync is only allowed together with @WitImport, @WitExport, @WitResourceMethod or @WitResourceStaticMethod
+      |      def close(): Unit = wm.native
+      |          ^
+      |newSource1.scala:15: error: @WitAsync is only allowed together with @WitImport, @WitExport, @WitResourceMethod or @WitResourceStaticMethod
+      |      def apply(): Conn = wm.native
+      |          ^
+    """
+  }
 }

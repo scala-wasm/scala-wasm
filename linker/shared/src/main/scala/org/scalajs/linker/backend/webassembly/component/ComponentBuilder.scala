@@ -39,8 +39,8 @@ final class ComponentBuilder {
     addType(Decl.InstanceType(_, nested))
 
   def addFuncType(params: List[(String, ValRef)],
-      result: scala.Option[ValRef]): TypeID = {
-    addType(Decl.FuncType(_, params, result))
+      result: scala.Option[ValRef], isAsync: Boolean): TypeID = {
+    addType(Decl.FuncType(_, params, result, isAsync))
   }
 
   def addRecord(fields: List[(String, ValRef)]): TypeID =

@@ -1078,8 +1078,8 @@ object Serializers {
         writeWitScope(scope)
         writeString(name)
         writeName(owner)
-      case wit.FuncType(params, result) =>
-        buffer.writeByte(TagWITFuncType)
+      case wit.FuncType(params, result, isAsync) =>
+        buffer.writeByte(if (isAsync) TagWITAsyncFuncType else TagWITFuncType)
         buffer.writeInt(params.length)
         for (p <- params) {
           writeString(p.name)
@@ -2834,13 +2834,14 @@ object Serializers {
 
     def readWITFuncType(): wit.FuncType = {
       val tag = readByte()
-      assert(tag == TagWITFuncType)
+      assert(tag == TagWITFuncType || tag == TagWITAsyncFuncType)
       wit.FuncType(
         List.fill(readInt()) {
           val name = readString()
           wit.ParamType(name, readWITType())
         },
-        if (readBoolean()) Some(readWITType()) else None
+        if (readBoolean()) Some(readWITType()) else None,
+        isAsync = tag == TagWITAsyncFuncType
       )
     }
 

@@ -146,6 +146,9 @@ jobs:
       - name: Build rust-run
         run: cargo component build --target wasm32-wasip2 -r
         working-directory: examples/test-component-model/rust-run
+      - name: Build rust-async-run
+        run: cargo build --target wasm32-wasip2 -r
+        working-directory: examples/test-component-model/rust-async-run
       - name: testSuite${{ matrix.suffix }}/test with WasmComponent
         run: sbt "$SBT_SET_COMMAND" testSuite${{ matrix.suffix }}/test
       - name: testComponentModel${{ matrix.suffix }}/fastLinkJS
