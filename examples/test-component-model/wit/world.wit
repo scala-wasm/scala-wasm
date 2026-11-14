@@ -50,6 +50,15 @@ world rust-run {
   import bare-uppercase: func(text: string) -> string;
 }
 
+// Calls the `async func` exports of `scala` (see rust-async-run/).
+world rust-async-run {
+  // `async func`: only an async-typed task may wait for a subtask.
+  export run-async-checks: async func() -> s32;
+
+  import async-api;
+  import bare-add-one: async func(a: s32) -> s32;
+}
+
 interface basics {
   roundtrip-u8: func(a: u8) -> u8;
   roundtrip-s8: func(a: s8) -> s8;

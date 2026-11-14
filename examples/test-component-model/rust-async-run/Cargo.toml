@@ -1,0 +1,19 @@
+[package]
+name = "rust-async-run"
+version = "0.1.0"
+edition = "2021"
+
+# Plain `cargo build`, not cargo-component: cargo-component 0.21.1 encodes
+# `async func` with the old `[async]` name prefix, which wasm-tools rejects.
+[dependencies]
+wit-bindgen = "0.63.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[profile.release]
+codegen-units = 1
+opt-level = "s"
+debug = false
+strip = true
+lto = true
