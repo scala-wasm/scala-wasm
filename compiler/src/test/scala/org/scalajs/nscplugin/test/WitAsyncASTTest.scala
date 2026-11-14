@@ -75,15 +75,17 @@ class WitAsyncASTTest extends JSASTTest {
       js.WitFunctionName.wasmName(m.name) -> m.signature.isAsync
     }.toMap
 
-    assertEquals(Map(
-        "get" -> true,
-        "put" -> false,
-        "[method]conn.send" -> true,
-        "[method]conn.id" -> false,
-        "[resource-drop]conn" -> false,
-        "[static]conn.open" -> true,
-        "[constructor]conn" -> false
-    ), asyncByName)
+    assertEquals(
+        Map(
+          "get" -> true,
+          "put" -> false,
+          "[method]conn.send" -> true,
+          "[method]conn.id" -> false,
+          "[resource-drop]conn" -> false,
+          "[static]conn.open" -> true,
+          "[constructor]conn" -> false
+        ),
+        asyncByName)
 
     val exportAsyncByName = ast.clDefs.flatMap(_.topLevelExportDefs).collect {
       case js.WitExportDef(_, name, _, signature) =>
