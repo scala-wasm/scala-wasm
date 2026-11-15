@@ -183,6 +183,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
         checkWasmComponentFunction(tree.pos, sym)
       else if (sym.hasAnnotation(WitResourceImportAnnotation))
         checkWasmWitResourceImport(tree.pos, sym)
+      else if (sym.hasAnnotation(WitResourceExportAnnotation))
+        checkWasmWitResourceExport(tree.pos, sym)
 
       // @unchecked needed because MemberDef is not marked `sealed`
       val transformedTree: Tree = (tree: @unchecked) match {
@@ -873,6 +875,16 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           }
 
         }
+      }
+    }
+
+    private def checkWasmWitResourceExport(pos: Position, sym: Symbol): Unit = {
+      if (!sym.isClass || sym.isTrait || sym.isModuleClass) {
+        reporter.error(pos,
+            "@WitResourceExport is allowed for classes")
+      } else if (isJSAny(sym)) {
+        reporter.error(pos,
+            "@WitResourceExport is not allowed for JS types")
       }
     }
 

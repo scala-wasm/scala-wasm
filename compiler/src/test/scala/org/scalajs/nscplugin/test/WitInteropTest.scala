@@ -957,4 +957,65 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """.hasNoWarns()
   }
+
+  @Test def resourceExportMustBeOnClass: Unit = {
+    """
+    @WitResourceExport(WitScope.unversioned("test", "test", "module"), "resource")
+    object MyResource
+    """ hasErrors
+    """
+      |newSource1.scala:7: error: @WitResourceExport is allowed for classes
+      |    object MyResource
+      |           ^
+    """
+
+    """
+    @WitResourceExport(WitScope.unversioned("test", "test", "module"), "resource")
+    trait MyResource
+    """ hasErrors
+    """
+      |newSource1.scala:7: error: @WitResourceExport is allowed for classes
+      |    trait MyResource
+      |          ^
+    """
+  }
+
+  @Test def resourceExportFunctions: Unit = {
+    """
+    @WitResourceExport(WitScope.unversioned("test", "test", "counters"), "counter")
+    final class Counter(var value: Int)
+
+    object CounterExports {
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "[constructor]counter")
+      def create(@WitName("init") init: Int): Counter = new Counter(init)
+
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter.get")
+      def get(@WitName("self") self: wm.Borrow[Counter]): Int = self.value
+
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "[static]counter.merge")
+      def merge(@WitName("a") a: wm.Borrow[Counter], @WitName("b") b: Counter): Counter =
+        new Counter(a.value + b.value)
+
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "consume")
+      def consume(@WitName("c") c: Counter): Int = c.value
+    }
+    """.hasNoWarns()
+  }
+
+  @Test def resourceExportFunctionNameNeedsAFunction: Unit = {
+    """
+    @WitResourceExport(WitScope.unversioned("test", "test", "counters"), "counter")
+    final class Counter(var value: Int)
+
+    object CounterExports {
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter")
+      def get(@WitName("self") self: wm.Borrow[Counter]): Int = self.value
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:10: error: Invalid @WitExport name `[method]counter`: expected `[method]<resource>.<function>`
+      |      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter")
+      |       ^
+    """
+  }
 }

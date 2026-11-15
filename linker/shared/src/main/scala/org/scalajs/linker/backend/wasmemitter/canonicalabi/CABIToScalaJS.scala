@@ -147,6 +147,11 @@ object CABIToScalaJS {
         }
         // genAlignTo(fb, wit.alignment(tpe), ptr)
 
+      case wit.ResourceType(className, ownership)
+          if ExportedResources.isExportedResource(className) =>
+        fb += wa.I32Load()
+        ExportedResources.genLift(fb, className, ownership)
+
       case wit.ResourceType(className, _) =>
         val resourceStructID = genTypeID.forClass(className)
         val handleLocal = fb.addLocal(NoOriginalName, watpe.Int32)
@@ -212,6 +217,11 @@ object CABIToScalaJS {
           fb += wa.LocalGet(offset)
           fb += wa.GlobalSet(genGlobalID.savedStackPointer)
         }
+
+      case wit.ResourceType(className, ownership)
+          if ExportedResources.isExportedResource(className) =>
+        vi.next(watpe.Int32) // rep (borrow) or handle (own)
+        ExportedResources.genLift(fb, className, ownership)
 
       case wit.ResourceType(className, _) =>
         fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable

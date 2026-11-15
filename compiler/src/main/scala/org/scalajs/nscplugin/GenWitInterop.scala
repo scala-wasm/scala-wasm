@@ -87,6 +87,16 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
   def isWasmWitResourceType(sym: Symbol): Boolean =
     sym.hasAnnotation(WitResourceImportAnnotation)
 
+  /** A class annotated with `@WitResourceExport`: an exported resource,
+   *  implemented by an ordinary Scala class (not a handle wrapper).
+   */
+  def isWasmWitExportedResourceType(sym: Symbol): Boolean =
+    sym.hasAnnotation(WitResourceExportAnnotation)
+
+  /** An imported or exported resource type. */
+  def isWasmWitAnyResourceType(sym: Symbol): Boolean =
+    isWasmWitResourceType(sym) || isWasmWitExportedResourceType(sym)
+
   trait WasmComponentModelInteropPhase { this: JSCodePhase =>
 
     def genWitNativeMemberCall(method: Symbol, tree: Apply,
@@ -178,6 +188,37 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
+  /** The function name of a `@WitExport`: a plain function name, or the
+   *  Component Model name of a function of an exported resource:
+   *  `[constructor]r`, `[method]r.f` or `[static]r.f`.
+   */
+  private def witExportFunctionName(name: String,
+      pos: global.Position): js.WitFunctionName = {
+    def resourceAndFunc(prefix: String): (String, String) = {
+      val rest = name.stripPrefix(prefix)
+      rest.indexOf('.') match {
+        case i if i > 0 && i < rest.length - 1 =>
+          (rest.substring(0, i), rest.substring(i + 1))
+        case _ =>
+          reporter.error(pos,
+              s"Invalid @WitExport name `$name`: expected `$prefix<resource>.<function>`")
+          (rest, rest)
+      }
+    }
+
+    if (name.startsWith("[constructor]")) {
+      js.WitFunctionName.ResourceConstructor(name.stripPrefix("[constructor]"))
+    } else if (name.startsWith("[method]")) {
+      val (resource, func) = resourceAndFunc("[method]")
+      js.WitFunctionName.ResourceMethod(func, resource)
+    } else if (name.startsWith("[static]")) {
+      val (resource, func) = resourceAndFunc("[static]")
+      js.WitFunctionName.ResourceStaticMethod(func, resource)
+    } else {
+      js.WitFunctionName.Function(name)
+    }
+  }
+
   def genWitExportDef(info: jsInterop.WitExportInfo, sym: Symbol,
       methodDef: js.MethodDef): js.WitExportDef = {
     withNewLocalNameScope {
@@ -188,7 +229,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       )
       js.WitExportDef(
         info.scope,
-        js.WitFunctionName.Function(info.name),
+        witExportFunctionName(info.name, info.pos),
         methodDef,
         signature
       )(methodDef.pos)
@@ -239,7 +280,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       }
       val (scope, name) = witIdOf(tsym, WitRecordAnnotation)
       Some(WitTypeDef.Record(className, scope, name, irFields))
-    } else if (isWasmWitResourceType(tsym)) {
+    } else if (isWasmWitAnyResourceType(tsym)) {
       Some(WitTypeDef.Resource(resourceRefOf(tsym)))
     } else if (tsym.hasAnnotation(WitEnumAnnotation) && tsym.isSealed) {
       val cases = witEnumCasesOf(tsym)
@@ -382,7 +423,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
         case tsym if isWasmWitRecordClass(tsym) =>
           wit.RecordTypeRef(encodeClassName(tsym))
 
-        case tsym if isWasmWitResourceType(tsym) =>
+        case tsym if isWasmWitAnyResourceType(tsym) =>
           // A bare WIT resource type is shorthand for `own<resource>`.
           resourceTypeOf(tsym, ResourceOwnership.Own)
 
@@ -430,14 +471,17 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     wit.ResourceType(encodeClassName(sym), ownership)
 
   private def resourceRefOf(sym: Symbol): wit.ResourceRef = {
-    val (scope, name) = sym.getAnnotation(WitResourceImportAnnotation).flatMap { annotation =>
+    val annotationSym =
+      if (isWasmWitExportedResourceType(sym)) WitResourceExportAnnotation
+      else WitResourceImportAnnotation
+    val (scope, name) = sym.getAnnotation(annotationSym).flatMap { annotation =>
       for {
         scope <- jsInterop.witScopeArg(annotation, 0)
         name <- annotation.stringArg(1)
       } yield (scope, name)
     }.getOrElse {
       throw new AssertionError(
-          s"@WitResourceImport on $sym requires a literal WitScope and a literal name")
+          s"@${annotationSym.name} on $sym requires a literal WitScope and a literal name")
     }
     wit.ResourceRef(encodeClassName(sym), scope, name)
   }

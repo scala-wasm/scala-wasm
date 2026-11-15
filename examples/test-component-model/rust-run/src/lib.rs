@@ -4,6 +4,7 @@ mod bindings;
 use crate::bindings::exports::wasi::cli::run::Guest as Run;
 use crate::bindings::component::testing::tests::*;
 use crate::bindings::component::testing::test_imports;
+use crate::bindings::component::testing::counters;
 use crate::bindings::{bare_multiply, bare_uppercase};
 
 struct Component;
@@ -17,6 +18,29 @@ impl Run for Component {
       assert_eq!(bare_uppercase("world"), "WORLD");
 
       test_imports::run();
+
+      // An exported resource, implemented by a Scala class.
+      let c = counters::Counter::new(5);
+      assert_eq!(c.get(), 5);
+      c.add(3);
+      assert_eq!(c.get(), 8);
+      let d = counters::make_counter(10);
+      assert_eq!(counters::value_of(&d), 10);
+      let merged = counters::Counter::merge(&c, d); // `d` is moved (own)
+      assert_eq!(merged.get(), 18);
+      assert_eq!(c.get(), 8);
+      assert_eq!(counters::consume(merged), 18);
+      assert_eq!(counters::maybe_counter(Some(7)).map(|m| m.get()), Some(7));
+      assert!(counters::maybe_counter(None).is_none());
+      // Grow the rep table, free every slot, then reuse them.
+      let many: Vec<counters::Counter> = (0..100).map(counters::Counter::new).collect();
+      assert_eq!(many.iter().map(|m| m.get()).sum::<i32>(), 4950);
+      drop(many);
+      for i in 0..100 {
+        let reused = counters::Counter::new(i);
+        assert_eq!(reused.get(), i);
+        assert_eq!(c.get(), 8);
+      }
 
       let metadata = vec![("k".to_string(), "v".to_string())];
       assert_eq!(roundtrip_metadata(&metadata), metadata);

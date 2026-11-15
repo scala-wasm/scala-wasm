@@ -17,7 +17,10 @@ import org.scalajs.linker.backend.webassembly.component.Flatten
 import org.scalajs.linker.backend.wasmemitter.WasmContext
 import org.scalajs.linker.backend.wasmemitter.VarGen._
 import org.scalajs.linker.backend.wasmemitter.SpecialNames
-import org.scalajs.linker.backend.wasmemitter.TypeTransformer.transformSingleType
+import org.scalajs.linker.backend.wasmemitter.TypeTransformer.{
+  transformClassType,
+  transformSingleType
+}
 import org.scalajs.ir.WasmInterfaceTypes.U8Type
 
 object ScalaJSToCABI {
@@ -162,6 +165,11 @@ object ScalaJSToCABI {
         )
         genStoreVariantMemory(fb, cases, (tpe) => { genUnbox(fb, tpe) })
 
+      case wit.ResourceType(className, ownership)
+          if ExportedResources.isExportedResource(className) =>
+        ExportedResources.genLower(fb, className, ownership)
+        fb += wa.I32Store()
+
       case wit.ResourceType(className, _) =>
         val resourceStructID = genTypeID.forClass(className)
         fb += wa.RefCast(watpe.RefType(resourceStructID))
@@ -180,6 +188,10 @@ object ScalaJSToCABI {
           wit.U8Type | wit.U16Type | wit.U32Type | // i32
           wit.U64Type | wit.CharType |
           wit.F32Type | wit.F64Type =>
+
+      case wit.ResourceType(className, ownership)
+          if ExportedResources.isExportedResource(className) =>
+        ExportedResources.genLower(fb, className, ownership)
 
       case wit.ResourceType(className, _) =>
         // Unwrap: Extract i32 handle from resource struct for stack
@@ -550,6 +562,10 @@ object ScalaJSToCABI {
   private def genUnbox(fb: FunctionBuilder, targetTpe: wit.ValType)(
       implicit ctx: WasmContext): Unit = {
     targetTpe match {
+      case wit.ResourceType(className, _)
+          if ExportedResources.isExportedResource(className) =>
+        fb += wa.RefCast(transformClassType(className, nullable = true, exact = false))
+
       case wit.ResourceType(className, _) =>
         // Cast from anyref (from Result/Option value field) to resource struct type
         val resourceStructType = watpe.RefType(genTypeID.forClass(className))

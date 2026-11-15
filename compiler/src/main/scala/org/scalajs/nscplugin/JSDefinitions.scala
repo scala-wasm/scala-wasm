@@ -97,6 +97,7 @@ trait JSDefinitions {
     lazy val WitExportInterfaceAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitExportInterface")
 
     lazy val WitResourceImportAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceImport")
+    lazy val WitResourceExportAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceExport")
     lazy val WitResourceMethodAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceMethod")
     lazy val WitResourceStaticMethodAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceStaticMethod")
     lazy val WitResourceConstructorAnnotation = getRequiredClass("scala.scalajs.wit.annotation.WitResourceConstructor")

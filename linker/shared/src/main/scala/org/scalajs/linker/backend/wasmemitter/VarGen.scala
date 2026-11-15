@@ -70,6 +70,12 @@ object VarGen {
     case object stackPointer extends GlobalID
     case object savedStackPointer extends GlobalID
 
+    // the rep table of exported resources (see canonicalabi.ExportedResources)
+    sealed abstract class ExportedResourceGlobalID extends GlobalID
+    case object exportedResourceTable extends ExportedResourceGlobalID
+    case object exportedResourceUsed extends ExportedResourceGlobalID
+    case object exportedResourceFreeHead extends ExportedResourceGlobalID
+
     /** A `GlobalID` for a JS helper global.
      *
      *  Its `toString()` is guaranteed to correspond to the import name of the helper.
@@ -129,6 +135,15 @@ object VarGen {
     final case class forComponentFunction(module: String,
         name: WitFunctionName)
         extends FunctionID
+
+    /** `[resource-new|resource-rep|resource-drop]` of an exported resource. */
+    final case class forExportedResourceIntrinsic(className: ClassName,
+        intrinsic: String)
+        extends FunctionID
+
+    case object exportedResourceAlloc extends FunctionID
+    case object exportedResourceGet extends FunctionID
+    case object exportedResourceFree extends FunctionID
 
     case object f32Fmod extends FunctionID
     case object f64Fmod extends FunctionID

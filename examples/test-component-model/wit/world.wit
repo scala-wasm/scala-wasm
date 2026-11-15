@@ -18,6 +18,7 @@ world scala {
 
   export tests;
   export test-imports;
+  export counters;
 
   // world level function exports
   export bare-multiply: func(a: s32, b: s32) -> s32;
@@ -42,6 +43,7 @@ world rust-run {
 
   import tests;
   import test-imports;
+  import counters;
 
   // world level function exports
   import bare-multiply: func(a: s32, b: s32) -> s32;
@@ -155,4 +157,19 @@ interface tests {
 
 interface test-imports {
   run: func();
+}
+
+// An exported resource, implemented by a Scala class (`@WitResourceExport`).
+interface counters {
+  resource counter {
+    constructor(init: s32);
+    get: func() -> s32;
+    add: func(n: s32);
+    merge: static func(a: borrow<counter>, b: counter) -> counter;
+  }
+
+  make-counter: func(init: s32) -> counter;
+  value-of: func(c: borrow<counter>) -> s32;
+  consume: func(c: counter) -> s32;
+  maybe-counter: func(init: option<s32>) -> option<counter>;
 }
