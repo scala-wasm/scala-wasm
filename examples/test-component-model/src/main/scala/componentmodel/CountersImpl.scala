@@ -5,38 +5,39 @@ import scala.scalajs.wit.annotation._
 
 /** The exported resource `component:testing/counters.counter`. */
 @WitResourceExport(WitScope.unversioned("component", "testing", "counters"), "counter")
-final class ExportedCounter(var value: Int)
+final class ExportedCounter(private var value: Int) {
+  @WitResourceMethod("get")
+  def get(): Int = value
 
-object CountersImpl {
-  @WitExport(WitScope.unversioned("component", "testing", "counters"), "[constructor]counter")
-  def newCounter(@WitName("init") init: Int): ExportedCounter =
+  @WitResourceMethod("add")
+  def add(@WitName("n") n: Int): Unit =
+    value += n
+}
+
+object ExportedCounter {
+  @WitResourceConstructor
+  def apply(@WitName("init") init: Int): ExportedCounter =
     new ExportedCounter(init)
 
-  @WitExport(WitScope.unversioned("component", "testing", "counters"), "[method]counter.get")
-  def get(@WitName("self") self: wit.Borrow[ExportedCounter]): Int =
-    self.value
-
-  @WitExport(WitScope.unversioned("component", "testing", "counters"), "[method]counter.add")
-  def add(@WitName("self") self: wit.Borrow[ExportedCounter], @WitName("n") n: Int): Unit =
-    self.value += n
-
-  @WitExport(WitScope.unversioned("component", "testing", "counters"), "[static]counter.merge")
+  @WitResourceStaticMethod("merge")
   def merge(@WitName("a") a: wit.Borrow[ExportedCounter],
       @WitName("b") b: ExportedCounter): ExportedCounter = {
-    new ExportedCounter(a.value + b.value)
+    new ExportedCounter(a.get() + b.get())
   }
+}
 
+object CountersImpl {
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "make-counter")
   def makeCounter(@WitName("init") init: Int): ExportedCounter =
     new ExportedCounter(init)
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "value-of")
   def valueOf(@WitName("c") c: wit.Borrow[ExportedCounter]): Int =
-    c.value
+    c.get()
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "consume")
   def consume(@WitName("c") c: ExportedCounter): Int =
-    c.value
+    c.get()
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "maybe-counter")
   def maybeCounter(@WitName("init") init: wit.Option[Int]): wit.Option[ExportedCounter] =
@@ -44,5 +45,5 @@ object CountersImpl {
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "sum")
   def sum(@WitName("cs") cs: Array[ExportedCounter]): Int =
-    cs.map(_.value).sum
+    cs.map(_.get()).sum
 }

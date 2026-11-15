@@ -752,8 +752,9 @@ object Infos {
 
         case witExport: WitExportDef =>
           // Mark the exported method as being called
-          builder.addAccessedModule(enclosingClass)
           val namespace = witExport.methodDef.flags.namespace
+          if (!namespace.isStatic)
+            builder.addAccessedModule(enclosingClass)
           val methodName = witExport.methodDef.name.name
           builder.addMethodCalledStatically(enclosingClass,
               NamespacedMethodName(namespace, methodName))

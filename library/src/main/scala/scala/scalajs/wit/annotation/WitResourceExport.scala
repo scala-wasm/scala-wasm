@@ -16,24 +16,34 @@ import scala.annotation.meta._
 /** Marks a class as the implementation of an exported WIT resource.
  *
  *  An instance of the class is a value of the resource. The functions of the
- *  resource are ordinary `@WitExport` methods of static objects, with the
- *  resource function names of the Component Model:
+ *  resource use the same annotations as an imported resource (see
+ *  [[WitResourceImport]]):
+ *
+ *  - `@WitResourceMethod` on a method of the class.
+ *  - `@WitResourceConstructor` on an `apply` method of the companion object.
+ *  - `@WitResourceStaticMethod` on a method of the companion object.
  *
  *  {{{
  *  @WitResourceExport(WitScope.unversioned("ns", "pkg", "iface"), "counter")
- *  final class Counter(var value: Int)
+ *  final class Counter(private var value: Int) {
+ *    @WitResourceMethod("get")
+ *    def get(): Int = value
  *
- *  object CounterExports {
- *    @WitExport(WitScope.unversioned("ns", "pkg", "iface"), "[constructor]counter")
- *    def create(@WitName("init") init: Int): Counter = new Counter(init)
+ *    @WitResourceMethod("add")
+ *    def add(@WitName("n") n: Int): Unit = value += n
+ *  }
  *
- *    @WitExport(WitScope.unversioned("ns", "pkg", "iface"), "[method]counter.get")
- *    def get(@WitName("self") self: scala.scalajs.wit.Borrow[Counter]): Int = self.value
+ *  object Counter {
+ *    @WitResourceConstructor
+ *    def apply(@WitName("init") init: Int): Counter = new Counter(init)
  *
- *    @WitExport(WitScope.unversioned("ns", "pkg", "iface"), "[static]counter.zero")
+ *    @WitResourceStaticMethod("zero")
  *    def zero(): Counter = new Counter(0)
  *  }
  *  }}}
+ *
+ *  The other members of the class and of its companion object are ordinary
+ *  Scala members.
  *
  *  An `own<counter>` that leaves the component (a result of an export, or a
  *  parameter of an import) gets a new handle for the instance. A

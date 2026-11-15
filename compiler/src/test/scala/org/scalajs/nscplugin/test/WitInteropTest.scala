@@ -266,7 +266,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceMethod("invalid") is allowed in final class annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceMethod("invalid") is allowed in class annotated with @WitResourceImport or @WitResourceExport
       |      def method(): Unit = wm.native
       |          ^
     """
@@ -292,7 +292,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceConstructor is allowed in companion object of class annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceConstructor is allowed in companion object of class annotated with @WitResourceImport or @WitResourceExport
       |      def apply(): String = ???
       |          ^
     """
@@ -304,7 +304,7 @@ class WitInteropTest extends DirectTest with TestHelpers {
     }
     """ hasErrors
     """
-      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceStaticMethod("foo") is allowed in companion object of class annotated with @WitResourceImport
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceStaticMethod("foo") is allowed in companion object of class annotated with @WitResourceImport or @WitResourceExport
       |      def foo(): String = ???
       |          ^
     """
@@ -983,24 +983,32 @@ class WitInteropTest extends DirectTest with TestHelpers {
   @Test def resourceExportFunctions: Unit = {
     """
     @WitResourceExport(WitScope.unversioned("test", "test", "counters"), "counter")
-    final class Counter(var value: Int)
+    final class Counter(private var value: Int) {
+      @WitResourceMethod("get")
+      def get(): Int = value
+
+      @WitResourceMethod("add")
+      def add(@WitName("n") n: Int): Unit = value += n
+
+      // Not a function of the resource.
+      def helper(x: Long): Long = x
+    }
+
+    object Counter {
+      @WitResourceConstructor
+      def apply(@WitName("init") init: Int): Counter = new Counter(init)
+
+      @WitResourceStaticMethod("merge")
+      def merge(@WitName("a") a: wm.Borrow[Counter], @WitName("b") b: Counter): Counter =
+        new Counter(a.get() + b.get())
+    }
 
     object CounterExports {
-      @WitExport(WitScope.unversioned("test", "test", "counters"), "[constructor]counter")
-      def create(@WitName("init") init: Int): Counter = new Counter(init)
-
-      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter.get")
-      def get(@WitName("self") self: wm.Borrow[Counter]): Int = self.value
-
-      @WitExport(WitScope.unversioned("test", "test", "counters"), "[static]counter.merge")
-      def merge(@WitName("a") a: wm.Borrow[Counter], @WitName("b") b: Counter): Counter =
-        new Counter(a.value + b.value)
-
       @WitExport(WitScope.unversioned("test", "test", "counters"), "consume")
-      def consume(@WitName("c") c: Counter): Int = c.value
+      def consume(@WitName("c") c: Counter): Int = c.get()
 
       @WitExport(WitScope.unversioned("test", "test", "counters"), "sum")
-      def sum(@WitName("refs") refs: Array[CounterRef]): Int = refs.map(_.c.value).sum
+      def sum(@WitName("refs") refs: Array[CounterRef]): Int = refs.map(_.c.get()).sum
     }
 
     @WitRecord(WitScope.unversioned("test", "test", "counters"), "counter-ref")
@@ -1008,20 +1016,46 @@ class WitInteropTest extends DirectTest with TestHelpers {
     """.hasNoWarns()
   }
 
-  @Test def resourceExportFunctionNameNeedsAFunction: Unit = {
+  @Test def resourceExportFunctionChecks: Unit = {
     """
     @WitResourceExport(WitScope.unversioned("test", "test", "counters"), "counter")
-    final class Counter(var value: Int)
+    final class Counter(private var value: Int) {
+      @WitResourceMethod("get")
+      def get(x: Int): Int = value
 
-    object CounterExports {
-      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter")
-      def get(@WitName("self") self: wm.Borrow[Counter]): Int = self.value
+      @WitResourceDrop
+      def close(): Unit = ()
+    }
+
+    object Counter {
+      @WitResourceConstructor
+      def create(@WitName("init") init: Int): Counter = new Counter(init)
     }
     """ hasErrors
     """
-      |newSource1.scala:10: error: Invalid @WitExport name `[method]counter`: expected `[method]<resource>.<function>`
-      |      @WitExport(WitScope.unversioned("test", "test", "counters"), "[method]counter")
-      |       ^
+      |newSource1.scala:9: error: Parameter 'x' in method 'get' must have a @WitName annotation
+      |      def get(x: Int): Int = value
+      |              ^
+      |newSource1.scala:17: error: @WitResourceConstructor can only be used on apply method
+      |      def create(@WitName("init") init: Int): Counter = new Counter(init)
+      |          ^
+      |newSource1.scala:12: error: scala.scalajs.wit.annotation.WitResourceDrop is allowed in final class annotated with @WitResourceImport
+      |      def close(): Unit = ()
+      |          ^
+    """
+  }
+
+  @Test def resourceMethodOutsideResourceClass: Unit = {
+    """
+    final class NotAResource {
+      @WitResourceMethod("get")
+      def get(): Int = 1
+    }
+    """ hasErrors
+    """
+      |newSource1.scala:8: error: scala.scalajs.wit.annotation.WitResourceMethod("get") is allowed in class annotated with @WitResourceImport or @WitResourceExport
+      |      def get(): Int = 1
+      |          ^
     """
   }
 }

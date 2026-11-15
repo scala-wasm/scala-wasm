@@ -229,8 +229,10 @@ object InteropEmitter {
         }
       }
 
-      // Load module instance for instance methods
-      fb += wa.Call(genFunctionID.loadModule(owningClass))
+      // Load module instance for instance methods. A static method (the
+      // export of a method of an exported resource) has no receiver.
+      if (!method.flags.namespace.isStatic)
+        fb += wa.Call(genFunctionID.loadModule(owningClass))
 
       flatFuncType.paramsOffset match {
         case Some(_) =>

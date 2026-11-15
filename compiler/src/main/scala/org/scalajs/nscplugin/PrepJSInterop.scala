@@ -804,17 +804,26 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           val isConstructor = annot.symbol == WitResourceConstructorAnnotation
           val isDrop = annot.symbol == WitResourceDropAnnotation
 
-          if ((isResourceMethod || isDrop) && (
-                !sym.owner.isClass || !sym.owner.hasAnnotation(WitResourceImportAnnotation))) {
+          def isResourceClass(owner: Symbol, allowExport: Boolean): Boolean = {
+            owner.isClass && (owner.hasAnnotation(WitResourceImportAnnotation) ||
+              (allowExport && owner.hasAnnotation(WitResourceExportAnnotation)))
+          }
+
+          if (isDrop && !isResourceClass(sym.owner, allowExport = false)) {
             reporter.error(pos,
                 s"$annot is allowed in final class annotated with @WitResourceImport")
+          } else if (isResourceMethod && !isResourceClass(sym.owner, allowExport = true)) {
+            reporter.error(pos,
+                s"$annot is allowed in class annotated with @WitResourceImport or " +
+                "@WitResourceExport")
           } else if ((isStaticMethod || isConstructor) && (
                 !sym.owner.isModuleClass ||
                   sym.owner.companionClass == NoSymbol ||
-                  !sym.owner.companionClass.isClass || sym.owner.companionClass.isTrait ||
-                  !sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation))) {
+                  sym.owner.companionClass.isTrait ||
+                  !isResourceClass(sym.owner.companionClass, allowExport = true))) {
             reporter.error(pos,
-                s"$annot is allowed in companion object of class annotated with @WitResourceImport")
+                s"$annot is allowed in companion object of class annotated with " +
+                "@WitResourceImport or @WitResourceExport")
           }
         }
       }
@@ -882,9 +891,81 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
       if (!sym.isClass || sym.isTrait || sym.isModuleClass) {
         reporter.error(pos,
             "@WitResourceExport is allowed for classes")
+        return
       } else if (isJSAny(sym)) {
         reporter.error(pos,
             "@WitResourceExport is not allowed for JS types")
+        return
+      }
+
+      /* The functions of the resource: public, with WIT-compatible
+       * signatures. Other members are ordinary Scala members.
+       */
+      def checkFunction(member: Symbol, annotName: String): Unit = {
+        if (!member.isPublic) {
+          reporter.error(member.pos, s"$annotName methods must be public")
+        } else if (member.typeParams.nonEmpty) {
+          reporter.error(member.pos, s"$annotName methods cannot have type parameters")
+        } else {
+          val methodType = member.tpe
+          if (methodType.paramss.size > 1) {
+            reporter.error(member.pos,
+                s"$annotName methods must have a single parameter list")
+          }
+          val params = if (methodType.paramss.isEmpty) Nil else methodType.paramss.head
+          for (param <- params) {
+            if (!hasWitName(param)) {
+              reporter.error(param.pos,
+                  s"Parameter '${param.name}' in method '${member.name}' must have a " +
+                  "@WitName annotation")
+            } else if (isScalaRepeatedParamType(param.tpe)) {
+              reporter.error(member.pos,
+                  s"$annotName methods may not have repeated parameters")
+            } else if (!isComponentModelCompatible(param.tpe)) {
+              reporter.error(member.pos,
+                  s"Parameter type '${param.tpe}' in method '${member.name}' is not " +
+                  "compatible with Component Model")
+            }
+          }
+          if (!isComponentModelCompatible(methodType.finalResultType)) {
+            reporter.error(member.pos,
+                s"Return type '${methodType.finalResultType}' in method '${member.name}' is " +
+                "not compatible with Component Model")
+          }
+        }
+      }
+
+      // Misplaced annotations are reported by
+      // checkWasmComponentResourceAnnotationContext.
+      for (member <- sym.info.decls if member.isMethod) {
+        if (member.hasAnnotation(WitResourceMethodAnnotation))
+          checkFunction(member, "@WitResourceMethod")
+      }
+
+      val companion = sym.companionModule
+      if (companion != NoSymbol) {
+        var constructorCount = 0
+        for (member <- companion.moduleClass.info.decls if member.isMethod) {
+          if (member.hasAnnotation(WitResourceConstructorAnnotation)) {
+            constructorCount += 1
+            if (member.name != nme.apply) {
+              reporter.error(member.pos,
+                  "@WitResourceConstructor can only be used on apply method")
+            } else if (!(member.tpe.finalResultType <:< sym.tpe)) {
+              reporter.error(member.pos,
+                  s"@WitResourceConstructor method must return ${sym.name}")
+            } else {
+              checkFunction(member, "@WitResourceConstructor")
+            }
+          }
+          if (member.hasAnnotation(WitResourceStaticMethodAnnotation))
+            checkFunction(member, "@WitResourceStaticMethod")
+        }
+        if (constructorCount > 1) {
+          reporter.error(pos,
+              "A @WitResourceExport class can have at most one @WitResourceConstructor, " +
+              s"found $constructorCount")
+        }
       }
     }
 

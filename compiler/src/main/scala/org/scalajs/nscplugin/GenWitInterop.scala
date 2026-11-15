@@ -49,6 +49,31 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     sym.owner.companionClass.hasAnnotation(WitResourceImportAnnotation)
   }
 
+  /** A `@WitResourceMethod` of a `@WitResourceExport` class. */
+  def isWasmWitExportedResourceMethod(sym: Symbol): Boolean = {
+    sym.hasAnnotation(WitResourceMethodAnnotation) &&
+    isWasmWitExportedResourceType(sym.owner)
+  }
+
+  /** A `@WitResourceConstructor` or `@WitResourceStaticMethod` in the
+   *  companion object of a `@WitResourceExport` class.
+   */
+  def isWasmWitExportedResourceCompanionFunction(sym: Symbol): Boolean = {
+    (sym.hasAnnotation(WitResourceConstructorAnnotation) ||
+      sym.hasAnnotation(WitResourceStaticMethodAnnotation)) &&
+    sym.owner.isModuleClass &&
+    isWasmWitExportedResourceType(sym.owner.companionClass)
+  }
+
+  /** The scope and the WIT name of an exported resource. */
+  private def exportedResourceOf(classSym: Symbol): (WitScope, String) = {
+    val annot = classSym.getAnnotation(WitResourceExportAnnotation).get
+    val scope = jsInterop.witScopeArg(annot, 0).getOrElse {
+      abort(s"@WitResourceExport on $classSym requires a literal WitScope argument")
+    }
+    (scope, annot.stringArg(1).get)
+  }
+
   def isWasmWitRecordClass(sym: Symbol): Boolean =
     sym.hasAnnotation(WitRecordAnnotation) && sym.isFinal
 
@@ -98,6 +123,50 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     isWasmWitResourceType(sym) || isWasmWitExportedResourceType(sym)
 
   trait WasmComponentModelInteropPhase { this: JSCodePhase =>
+
+    /** The export of a `@WitResourceMethod` `f` of an exported resource `r`.
+     *
+     *  `[method]r.f` takes the instance as its first parameter. It calls a
+     *  generated static method of the class, which calls `f` on the instance.
+     */
+    def genWitExportedResourceMethod(method: Symbol)(
+        implicit pos: global.Position): (js.MethodDef, js.WitExportDef) = {
+      val classSym = method.owner
+      val (scope, resourceName) = exportedResourceOf(classSym)
+      val functionName =
+        method.getAnnotation(WitResourceMethodAnnotation).get.stringArg(0).get
+
+      withNewLocalNameScope {
+        val selfType = jstpe.ClassType(encodeClassName(classSym), nullable = true, exact = false)
+        val selfParam = js.ParamDef(freshLocalIdent("self"),
+            org.scalajs.ir.OriginalName.NoOriginalName, selfType, mutable = false)
+        val params = method.tpe.params.map(genParamDef(_))
+        val target = encodeMethodSym(method)
+        val forwarderName = Names.MethodName(
+            target.name.simpleName.nameString + "$witExport",
+            jstpe.ClassRef(selfType.className) :: target.name.paramTypeRefs,
+            target.name.resultTypeRef)
+        val forwarder = js.MethodDef(
+            js.MemberFlags.empty.withNamespace(js.MemberNamespace.PublicStatic),
+            js.MethodIdent(forwarderName),
+            originalNameOfMethod(method),
+            selfParam :: params,
+            toIRType(method.tpe.resultType),
+            Some(genApplyMethod(selfParam.ref, method, params.map(_.ref))))(
+            js.OptimizerHints.empty, org.scalajs.ir.Version.Unversioned)
+
+        val (paramInfos, resultType) = witMethodSignatureOf(method)
+        val signature = wit.FuncType(
+            wit.ParamType("self", resourceTypeOf(classSym, ResourceOwnership.Borrow)) +:
+            witParamsOf(paramInfos),
+            toResultWIT(resultType))
+        val exportDef = js.WitExportDef(scope,
+            js.WitFunctionName.ResourceMethod(functionName, resourceName),
+            forwarder, signature)
+
+        (forwarder, exportDef)
+      }
+    }
 
     def genWitNativeMemberCall(method: Symbol, tree: Apply,
         receiver: Option[Tree], isStat: Boolean): js.Tree = {
@@ -188,34 +257,22 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
     }
   }
 
-  /** The function name of a `@WitExport`: a plain function name, or the
-   *  Component Model name of a function of an exported resource:
-   *  `[constructor]r`, `[method]r.f` or `[static]r.f`.
+  /** The export of a `@WitResourceConstructor` (`[constructor]r`) or a
+   *  `@WitResourceStaticMethod` (`[static]r.f`) of an exported resource `r`.
    */
-  private def witExportFunctionName(name: String,
-      pos: global.Position): js.WitFunctionName = {
-    def resourceAndFunc(prefix: String): (String, String) = {
-      val rest = name.stripPrefix(prefix)
-      rest.indexOf('.') match {
-        case i if i > 0 && i < rest.length - 1 =>
-          (rest.substring(0, i), rest.substring(i + 1))
-        case _ =>
-          reporter.error(pos,
-              s"Invalid @WitExport name `$name`: expected `$prefix<resource>.<function>`")
-          (rest, rest)
-      }
+  def genWitExportedResourceCompanionExportDef(sym: Symbol,
+      methodDef: js.MethodDef): js.WitExportDef = {
+    val (scope, resourceName) = exportedResourceOf(sym.owner.companionClass)
+    val name = sym.getAnnotation(WitResourceStaticMethodAnnotation) match {
+      case Some(annot) =>
+        js.WitFunctionName.ResourceStaticMethod(annot.stringArg(0).get, resourceName)
+      case None =>
+        js.WitFunctionName.ResourceConstructor(resourceName)
     }
-
-    if (name.startsWith("[constructor]")) {
-      js.WitFunctionName.ResourceConstructor(name.stripPrefix("[constructor]"))
-    } else if (name.startsWith("[method]")) {
-      val (resource, func) = resourceAndFunc("[method]")
-      js.WitFunctionName.ResourceMethod(func, resource)
-    } else if (name.startsWith("[static]")) {
-      val (resource, func) = resourceAndFunc("[static]")
-      js.WitFunctionName.ResourceStaticMethod(func, resource)
-    } else {
-      js.WitFunctionName.Function(name)
+    withNewLocalNameScope {
+      val (paramInfos, resultType) = witMethodSignatureOf(sym)
+      js.WitExportDef(scope, name, methodDef,
+          wit.FuncType(witParamsOf(paramInfos), toResultWIT(resultType)))(methodDef.pos)
     }
   }
 
@@ -229,7 +286,7 @@ trait GenWitInterop[G <: Global with Singleton] extends SubComponent {
       )
       js.WitExportDef(
         info.scope,
-        witExportFunctionName(info.name, info.pos),
+        js.WitFunctionName.Function(info.name),
         methodDef,
         signature
       )(methodDef.pos)

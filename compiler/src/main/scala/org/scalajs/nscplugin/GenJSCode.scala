@@ -702,6 +702,16 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
           witNativeMembersBuilder +=
             genWitNativeMemberDef(flags, dd, scope,
                 js.WitFunctionName.Function(functionName))
+        } else if (isWasmWitExportedResourceCompanionFunction(dd.symbol)) {
+          for (method <- genMethod(dd)) {
+            methodsBuilder += method
+            witExportDefsBuilder += genWitExportedResourceCompanionExportDef(dd.symbol, method)
+          }
+        } else if (isWasmWitExportedResourceMethod(dd.symbol)) {
+          methodsBuilder ++= genMethod(dd)
+          val (forwarder, exportDef) = genWitExportedResourceMethod(dd.symbol)(dd.pos)
+          methodsBuilder += forwarder
+          witExportDefsBuilder += exportDef
         } else if (isWasmWitResourceStaticMethod(dd.symbol)) {
           witNativeMembersBuilder ++= genWitResourceStaticMethodDef(dd)
         } else if (isWasmWitResourceConstructor(dd.symbol)) {
@@ -3667,12 +3677,14 @@ abstract class GenJSCode[G <: Global with Singleton](val global: G)
       } else if (sym.hasAnnotation(JSNativeAnnotation)) {
         genJSNativeMemberCall(tree, isStat)
         // Wasm Component Model
-      } else if (sym.hasAnnotation(WitResourceMethodAnnotation) ||
-          sym.hasAnnotation(WitResourceDropAnnotation)) {
+      } else if ((sym.hasAnnotation(WitResourceMethodAnnotation) ||
+            sym.hasAnnotation(WitResourceDropAnnotation)) &&
+          !isWasmWitExportedResourceMethod(sym)) {
         genWitNativeMemberCall(sym, tree, Some(receiver), isStat)
       } else if (sym.hasAnnotation(WitImportAnnotation) ||
-          sym.hasAnnotation(WitResourceStaticMethodAnnotation) ||
-          sym.hasAnnotation(WitResourceConstructorAnnotation)) {
+          ((sym.hasAnnotation(WitResourceStaticMethodAnnotation) ||
+            sym.hasAnnotation(WitResourceConstructorAnnotation)) &&
+            !isWasmWitExportedResourceCompanionFunction(sym))) {
         genWitNativeMemberCall(sym, tree, None, isStat)
       } else if (compileAsStaticMethod(sym)) {
         if (sym.isMixinConstructor) {
