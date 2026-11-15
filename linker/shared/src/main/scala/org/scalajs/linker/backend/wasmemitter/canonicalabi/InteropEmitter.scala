@@ -216,6 +216,19 @@ object InteropEmitter {
           None
       }
 
+      // An export must drop the borrow handles of imported resources that it
+      // receives before it returns (see `BorrowedHandles`).
+      val borrowMark = {
+        if (exportDef.signature.paramTypes.exists(BorrowedHandles.mayContainImportedBorrow(_))) {
+          val mark = fb.addLocal("borrow_mark", watpe.Int32)
+          BorrowedHandles.genMark(fb)
+          fb += wa.LocalSet(mark)
+          Some(mark)
+        } else {
+          None
+        }
+      }
+
       // Load module instance for instance methods
       fb += wa.Call(genFunctionID.loadModule(owningClass))
 
@@ -247,6 +260,8 @@ object InteropEmitter {
       }
 
       fb += wa.Call(methodFunctionID)
+
+      borrowMark.foreach(mark => BorrowedHandles.genDropAbove(fb, wa.LocalGet(mark)))
 
       returnOffsetOpt match {
         case Some(offset) =>

@@ -65,6 +65,16 @@ final class WasmContext(
   def registerComponentImport(module: String, name: String): Boolean =
     declaredComponentImports.add((module, name))
 
+  private val _liftedBorrowResources = LinkedHashMap.empty[ClassName, Int]
+
+  /** Imported resources whose borrow handles exports lift, with their kind
+   *  number (see `canonicalabi.BorrowedHandles`).
+   */
+  def liftedBorrowResources: List[(ClassName, Int)] = _liftedBorrowResources.toList
+
+  def registerLiftedBorrowResource(className: ClassName): Int =
+    _liftedBorrowResources.getOrElseUpdate(className, _liftedBorrowResources.size)
+
   private val closureDataTypes = LinkedHashMap.empty[List[Type], wanme.TypeID]
   private val typedClosureTypes = LinkedHashMap.empty[ClosureType, (wanme.TypeID, wanme.TypeID)]
 

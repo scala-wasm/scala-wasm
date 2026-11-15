@@ -1,7 +1,7 @@
 package org.scalajs.linker.backend.wasmemitter.canonicalabi
 
 import org.scalajs.ir.Types._
-import org.scalajs.ir.WitTypeDef
+import org.scalajs.ir.{ResourceOwnership, WitTypeDef}
 import org.scalajs.ir.{WasmInterfaceTypes => wit}
 import org.scalajs.ir.Names._
 import org.scalajs.ir.WellKnownNames._
@@ -152,10 +152,12 @@ object CABIToScalaJS {
         fb += wa.I32Load()
         ExportedResources.genLift(fb, className, ownership)
 
-      case wit.ResourceType(className, _) =>
+      case wit.ResourceType(className, ownership) =>
         val resourceStructID = genTypeID.forClass(className)
         val handleLocal = fb.addLocal(NoOriginalName, watpe.Int32)
         fb += wa.I32Load()
+        if (ownership == ResourceOwnership.Borrow)
+          BorrowedHandles.genRecord(fb, className)
         fb += wa.LocalSet(handleLocal)
         fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable
         fb += wa.I32Const(0) // idHashCode
@@ -223,10 +225,12 @@ object CABIToScalaJS {
         vi.next(watpe.Int32) // rep (borrow) or handle (own)
         ExportedResources.genLift(fb, className, ownership)
 
-      case wit.ResourceType(className, _) =>
+      case wit.ResourceType(className, ownership) =>
         fb += wa.GlobalGet(genGlobalID.forVTable(className)) // vtable
         fb += wa.I32Const(0) // idHashCode
         vi.next(watpe.Int32) // handle
+        if (ownership == ResourceOwnership.Borrow)
+          BorrowedHandles.genRecord(fb, className)
         fb += wa.StructNew(genTypeID.forClass(className))
 
       case wit.TupleType(fields, className) =>

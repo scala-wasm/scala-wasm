@@ -101,8 +101,10 @@ final class Emitter(config: Emitter.Config) {
     classEmitter.genArrayClasses()
     coreLib.genPostClasses()
 
-    if (coreSpec.moduleKind == ModuleKind.WasmComponent)
+    if (coreSpec.moduleKind == ModuleKind.WasmComponent) {
       canonicalabi.ExportedResources.genSupport(sortedClasses)
+      canonicalabi.BorrowedHandles.genSupport()
+    }
 
     /* In the Component Model, `_start` runs before other components are
      * initialized. Move module initializers to a configured component export so

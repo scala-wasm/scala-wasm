@@ -76,6 +76,10 @@ object VarGen {
     case object exportedResourceUsed extends ExportedResourceGlobalID
     case object exportedResourceFreeHead extends ExportedResourceGlobalID
 
+    // borrow handles of imported resources lifted by exports (see canonicalabi.BorrowedHandles)
+    case object liftedBorrows extends GlobalID
+    case object liftedBorrowsCount extends GlobalID
+
     /** A `GlobalID` for a JS helper global.
      *
      *  Its `toString()` is guaranteed to correspond to the import name of the helper.
@@ -144,6 +148,9 @@ object VarGen {
     case object exportedResourceAlloc extends FunctionID
     case object exportedResourceGet extends FunctionID
     case object exportedResourceFree extends FunctionID
+
+    case object recordLiftedBorrow extends FunctionID
+    case object dropLiftedBorrows extends FunctionID
 
     case object f32Fmod extends FunctionID
     case object f64Fmod extends FunctionID
