@@ -22,8 +22,9 @@ object CountersImpl {
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "[static]counter.merge")
   def merge(@WitName("a") a: wit.Borrow[ExportedCounter],
-      @WitName("b") b: ExportedCounter): ExportedCounter =
+      @WitName("b") b: ExportedCounter): ExportedCounter = {
     new ExportedCounter(a.value + b.value)
+  }
 
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "make-counter")
   def makeCounter(@WitName("init") init: Int): ExportedCounter =
