@@ -998,7 +998,13 @@ class WitInteropTest extends DirectTest with TestHelpers {
 
       @WitExport(WitScope.unversioned("test", "test", "counters"), "consume")
       def consume(@WitName("c") c: Counter): Int = c.value
+
+      @WitExport(WitScope.unversioned("test", "test", "counters"), "sum")
+      def sum(@WitName("refs") refs: Array[CounterRef]): Int = refs.map(_.c.value).sum
     }
+
+    @WitRecord(WitScope.unversioned("test", "test", "counters"), "counter-ref")
+    final class CounterRef(@WitName("c") val c: wm.Borrow[Counter])
     """.hasNoWarns()
   }
 

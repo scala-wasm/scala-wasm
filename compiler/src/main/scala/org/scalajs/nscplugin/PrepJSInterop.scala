@@ -1139,7 +1139,8 @@ abstract class PrepJSInterop[G <: Global with Singleton](val global: G)
           sym.hasAnnotation(WitEnumAnnotation) ||
           sym.hasAnnotation(WitFlagsAnnotation) ||
           sym.hasAnnotation(WitAliasAnnotation) ||
-          sym.hasAnnotation(WitResourceImportAnnotation)) {
+          sym.hasAnnotation(WitResourceImportAnnotation) ||
+          sym.hasAnnotation(WitResourceExportAnnotation)) {
         true
       } else {
         false

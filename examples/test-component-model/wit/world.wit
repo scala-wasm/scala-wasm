@@ -172,4 +172,7 @@ interface counters {
   value-of: func(c: borrow<counter>) -> s32;
   consume: func(c: counter) -> s32;
   maybe-counter: func(init: option<s32>) -> option<counter>;
+
+  // Handles in linear memory.
+  sum: func(cs: list<counter>) -> s32;
 }

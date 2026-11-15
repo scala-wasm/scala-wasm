@@ -32,6 +32,8 @@ impl Run for Component {
       assert_eq!(counters::consume(merged), 18);
       assert_eq!(counters::maybe_counter(Some(7)).map(|m| m.get()), Some(7));
       assert!(counters::maybe_counter(None).is_none());
+      let owned = vec![counters::Counter::new(30), counters::make_counter(12)];
+      assert_eq!(counters::sum(owned), 42);
       // Grow the rep table, free every slot, then reuse them.
       let many: Vec<counters::Counter> = (0..100).map(counters::Counter::new).collect();
       assert_eq!(many.iter().map(|m| m.get()).sum::<i32>(), 4950);

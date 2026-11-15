@@ -40,4 +40,8 @@ object CountersImpl {
   @WitExport(WitScope.unversioned("component", "testing", "counters"), "maybe-counter")
   def maybeCounter(@WitName("init") init: wit.Option[Int]): wit.Option[ExportedCounter] =
     init.map(v => new ExportedCounter(v))
+
+  @WitExport(WitScope.unversioned("component", "testing", "counters"), "sum")
+  def sum(@WitName("cs") cs: Array[ExportedCounter]): Int =
+    cs.map(_.value).sum
 }
